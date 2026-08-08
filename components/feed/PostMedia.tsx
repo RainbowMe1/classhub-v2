@@ -14,13 +14,13 @@ export default function PostMedia({ urls }: { urls: string[] }) {
       <>
         <button
           onClick={() => setOpen(0)}
-          className="w-full mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f]"
+          className="mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] mx-auto block w-fit max-w-full"
           aria-label="Lihat detail"
         >
           {isVideo(urls[0]) ? (
-            <video src={urls[0]} muted preload="metadata" playsInline className="w-full h-auto max-h-[520px]" />
+            <video src={urls[0]} muted preload="metadata" playsInline className="max-h-[520px] w-auto max-w-full" />
           ) : (
-            <img src={urls[0]} alt="" loading="lazy" className="w-full h-auto max-h-[520px] object-contain" />
+            <img src={urls[0]} alt="" loading="lazy" className="max-h-[520px] w-auto max-w-full object-contain" />
           )}
         </button>
         {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}

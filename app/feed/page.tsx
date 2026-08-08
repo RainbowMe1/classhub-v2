@@ -4,6 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import LikeButton from '@/components/feed/LikeButton';
 import CommentButton from '@/components/feed/CommentButton';
 import PostMedia from '@/components/feed/PostMedia';
+import StoryBar from '@/components/feed/StoryBar';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -43,6 +44,8 @@ export default async function FeedPage() {
   return (
     <AppLayout profile={user.profile}>
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Feed</h1>
           <Link

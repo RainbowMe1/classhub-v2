@@ -4100,3 +4100,396 @@ export default async function FeedPage() {
 `);
 
 console.log('[OK] Part M done: lightbox + media full + loading state');
+
+// === PART M2: FIX BLACK BARS + PART L: STORIES 24 JAM ===
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useState } from 'react';
+import Lightbox from './Lightbox';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] mx-auto block w-fit max-w-full"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <video src={urls[0]} muted preload="metadata" playsInline className="max-h-[520px] w-auto max-w-full" />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="max-h-[520px] w-auto max-w-full object-contain" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {urls.map((url, i) => (
+          <button
+            key={i}
+            onClick={() => setOpen(i)}
+            className="rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f]"
+            aria-label="Lihat detail"
+          >
+            {isVideo(url) ? (
+              <video src={url} muted preload="metadata" playsInline className="w-full h-40 object-cover" />
+            ) : (
+              <img src={url} alt="" loading="lazy" className="w-full h-40 object-cover" />
+            )}
+          </button>
+        ))}
+      </div>
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+wf('components/feed/StoryViewer.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { X } from 'lucide-react';
+
+type Story = { id: string; media_url: string; caption: string | null; user_id: string };
+type Group = { profile: any; stories: Story[] };
+
+export default function StoryViewer({ groups, start, onClose }: { groups: Group[]; start: number; onClose: () => void }) {
+  const supabase = createClient();
+  const [gi, setGi] = useState(start);
+  const [si, setSi] = useState(0);
+  const [prog, setProg] = useState(0);
+  const group = groups[gi];
+  const story = group ? group.stories[si] : null;
+
+  function next() {
+    if (!group) return onClose();
+    if (si < group.stories.length - 1) setSi(si + 1);
+    else if (gi < groups.length - 1) { setGi(gi + 1); setSi(0); }
+    else onClose();
+  }
+
+  function prev() {
+    if (si > 0) setSi(si - 1);
+    else if (gi > 0) { setGi(gi - 1); setSi(0); }
+  }
+
+  useEffect(() => {
+    setProg(0);
+    const t = setInterval(() => setProg((p) => Math.min(100, p + 2)), 100);
+    return () => clearInterval(t);
+  }, [gi, si]);
+
+  useEffect(() => {
+    if (prog >= 100) next();
+  }, [prog]);
+
+  useEffect(() => {
+    if (!story) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      await supabase.from('story_views').insert({ story_id: story.id, user_id: user.id });
+    })();
+  }, [story ? story.id : '']);
+
+  if (!group || !story) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
+      <div className="relative w-full h-full max-w-md mx-auto">
+        <div className="absolute top-0 left-0 right-0 z-20 p-3 space-y-2 bg-gradient-to-b from-black/70 to-transparent">
+          <div className="flex gap-1">
+            {group.stories.map((s, i) => (
+              <div key={s.id} className="flex-1 h-0.5 rounded bg-white/25 overflow-hidden">
+                <div
+                  className="h-full bg-[#a3e635]"
+                  style={{ width: (i < si ? 100 : i === si ? prog : 0) + '%' }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-[#3a3a3a] flex items-center justify-center text-xs font-bold text-white">
+                {group.profile?.full_name?.charAt(0) || 'U'}
+              </div>
+              <div className="text-sm font-semibold text-white">{group.profile?.full_name}</div>
+            </div>
+            <button onClick={onClose} className="p-2 text-white/70 hover:text-white" aria-label="Tutup">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+
+        <button className="absolute left-0 top-0 bottom-0 w-1/3 z-10" onClick={prev} aria-label="Sebelumnya" />
+        <button className="absolute right-0 top-0 bottom-0 w-1/3 z-10" onClick={next} aria-label="Berikutnya" />
+
+        <img src={story.media_url} alt="" className="w-full h-full object-contain" />
+
+        {story.caption && (
+          <div className="absolute bottom-4 left-4 right-4 z-20 text-center text-sm text-white bg-black/50 rounded-xl px-3 py-2">
+            {story.caption}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/feed/StoryBar.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Plus, X, Loader2 } from 'lucide-react';
+import StoryViewer from './StoryViewer';
+
+export default function StoryBar({ userId }: { userId: string }) {
+  const supabase = createClient();
+  const [groups, setGroups] = useState<any[]>([]);
+  const [viewedIds, setViewedIds] = useState<string[]>([]);
+  const [open, setOpen] = useState<number | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [caption, setCaption] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function load() {
+    const { data: stories } = await supabase
+      .from('stories')
+      .select('*, profiles(full_name, username)')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at');
+    const map = new Map<string, any>();
+    for (const s of stories ?? []) {
+      if (!map.has(s.user_id)) map.set(s.user_id, { profile: s.profiles, stories: [] });
+      map.get(s.user_id).stories.push(s);
+    }
+    const gs = Array.from(map.values());
+    setGroups(gs);
+    const ids: string[] = [];
+    for (const g of gs) for (const s of g.stories) ids.push(s.id);
+    if (ids.length > 0) {
+      const { data: views } = await supabase
+        .from('story_views')
+        .select('story_id')
+        .eq('user_id', userId)
+        .in('story_id', ids);
+      setViewedIds((views ?? []).map((v: any) => v.story_id));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function publish(file: File) {
+    setBusy(true);
+    setErr('');
+    try {
+      if (!file.type.startsWith('image/')) { setErr('Hanya file gambar.'); return; }
+      if (file.size > 5 * 1024 * 1024) { setErr('Maksimal 5MB.'); return; }
+      const storyId = crypto.randomUUID();
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = userId + '/' + storyId + '.' + ext;
+      const { error: upErr } = await supabase.storage.from('stories').upload(path, file);
+      if (upErr) { setErr('Upload gagal: ' + upErr.message); return; }
+      const url = supabase.storage.from('stories').getPublicUrl(path).data.publicUrl;
+      const { error: dbErr } = await supabase.from('stories').insert({
+        user_id: userId,
+        media_url: url,
+        media_type: 'image',
+        caption: caption.trim() || null,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+      if (dbErr) { setErr(dbErr.message); return; }
+      setShowCreate(false);
+      setCaption('');
+      load();
+    } catch {
+      setErr('Gagal membuat story.');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        <button onClick={() => setShowCreate(true)} className="flex flex-col items-center gap-1 shrink-0">
+          <div className="h-16 w-16 rounded-full bg-[#161616] border border-[#2a2a2a] flex items-center justify-center">
+            <Plus className="h-6 w-6 text-[#a3e635]" />
+          </div>
+          <span className="text-[10px] text-gray-400">Ceritamu</span>
+        </button>
+        {groups.map((g, i) => {
+          const allViewed = g.stories.every((s: any) => viewedIds.indexOf(s.id) !== -1);
+          return (
+            <button key={i} onClick={() => setOpen(i)} className="flex flex-col items-center gap-1 shrink-0">
+              <div className={'h-16 w-16 rounded-full p-0.5 ' + (allViewed ? 'border border-[#3a3a3a]' : 'border-2 border-[#a3e635]')}>
+                <div className="h-full w-full rounded-full bg-[#3a3a3a] flex items-center justify-center text-lg font-bold text-white">
+                  {g.profile?.full_name?.charAt(0) || 'U'}
+                </div>
+              </div>
+              <span className="text-[10px] text-gray-400 max-w-[64px] truncate">{g.profile?.full_name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-[#0f0f0f] rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-white">Buat Story</h3>
+              <button onClick={() => setShowCreate(false)} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileRef}
+              className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+            />
+            <input
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Caption (opsional)"
+              className="w-full px-3 py-2 rounded-lg bg-[#161616] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+            />
+            <button
+              disabled={busy}
+              onClick={() => {
+                const f = fileRef.current?.files?.[0];
+                if (!f) { setErr('Pilih gambar dulu.'); return; }
+                publish(f);
+              }}
+              className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {busy ? 'Mengunggah...' : 'Terbitkan (24 jam)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open !== null && groups.length > 0 && (
+        <StoryViewer groups={groups} start={open} onClose={() => { setOpen(null); load(); }} />
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import LikeButton from '@/components/feed/LikeButton';
+import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
+import StoryBar from '@/components/feed/StoryBar';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postIds = (posts ?? []).map((p: any) => p.id);
+  let likes: any[] = [];
+  let commentRows: any[] = [];
+  if (postIds.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+    likes = l.data ?? [];
+    commentRows = c.data ?? [];
+  }
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  for (const l of likes) {
+    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
+    if (l.user_id === user.id) likedByMe[l.target_id] = true;
+  }
+  const commentCounts: Record<string, number> = {};
+  for (const c of commentRows) {
+    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-medium hover:bg-[#84cc16] transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        {(posts?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-lg mb-2">Belum ada postingan</p>
+            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(posts ?? []).map((post: any) => (
+              <div key={post.id} className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-semibold">
+                    {post.profiles?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{post.profiles?.username}</div>
+                  </div>
+                </div>
+                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+                <div className="flex items-center gap-4 pt-3 border-t border-[#2a2a2a]">
+                  <LikeButton
+                    postId={post.id}
+                    userId={user.id}
+                    initialCount={likeCounts[post.id] ?? 0}
+                    initialLiked={!!likedByMe[post.id]}
+                  />
+                  <CommentButton postId={post.id} userId={user.id} count={commentCounts[post.id] ?? 0} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part M2+L done: fix black bars + stories 24 jam');

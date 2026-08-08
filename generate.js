@@ -4493,3 +4493,828 @@ export default async function FeedPage() {
 `);
 
 console.log('[OK] Part M2+L done: fix black bars + stories 24 jam');
+
+// === PART N: GALLERY ALBUMS + UPLOAD ===
+
+wf('lib/auth/gallery-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function createAlbum(formData: FormData) {
+  await requireRole('teacher');
+  const name = String(formData.get('name') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  if (!name) return { error: 'Nama album wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('gallery_albums').insert({
+    name,
+    description: description || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+
+export async function deleteAlbum(albumId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('gallery_albums').delete().eq('id', albumId);
+  if (error) return { error: error.message };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+`);
+
+wf('components/gallery/CreateAlbumForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createAlbum } from '@/lib/auth/gallery-actions';
+import { Plus, X } from 'lucide-react';
+
+export default function CreateAlbumForm() {
+  const router = useRouter();
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await createAlbum(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else { setShow(false); router.refresh(); }
+  }
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16]"
+      >
+        <Plus className="h-4 w-4" />
+        Album Baru
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+      className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3 w-full"
+    >
+      {err && <div className="text-xs text-red-400">{err}</div>}
+      <input
+        name="name"
+        required
+        placeholder="Nama album (mis. Kegiatan Kelas)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        name="description"
+        placeholder="Deskripsi (opsional)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className="flex-1 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold disabled:opacity-50">
+          {busy ? '...' : 'Buat Album'}
+        </button>
+        <button type="button" onClick={() => setShow(false)} className="px-3 py-2 rounded-lg bg-[#2a2a2a] text-white text-sm" aria-label="Tutup">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </form>
+  );
+}
+`);
+
+wf('components/gallery/UploadModal.tsx', `'use client';
+import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { X, Loader2, Upload } from 'lucide-react';
+
+export default function UploadModal({ albumId, userId, onClose }: { albumId: string; userId: string; onClose: () => void }) {
+  const supabase = createClient();
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function upload() {
+    const files = fileRef.current?.files;
+    if (!files || files.length === 0) { setErr('Pilih foto dulu.'); return; }
+    setBusy(true);
+    setErr('');
+    try {
+      for (const f of Array.from(files)) {
+        if (!f.type.startsWith('image/') && !f.type.startsWith('video/')) { setErr('Hanya gambar atau video.'); return; }
+        if (f.size > 20 * 1024 * 1024) { setErr('Maksimal 20MB per file.'); return; }
+        const id = crypto.randomUUID();
+        const ext = f.name.split('.').pop() || 'jpg';
+        const path = userId + '/' + id + '.' + ext;
+        const { error: upErr } = await supabase.storage.from('gallery').upload(path, f, { upsert: true });
+        if (upErr) { setErr('Upload gagal: ' + upErr.message); return; }
+        const url = supabase.storage.from('gallery').getPublicUrl(path).data.publicUrl;
+        const { error: dbErr } = await supabase.from('gallery_media').insert({
+          album_id: albumId,
+          user_id: userId,
+          media_url: url,
+          media_type: f.type.startsWith('video/') ? 'video' : 'image',
+          caption: f.name,
+        });
+        if (dbErr) { setErr(dbErr.message); return; }
+      }
+      router.refresh();
+      onClose();
+    } catch {
+      setErr('Gagal mengunggah.');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-[#0f0f0f] rounded-2xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-white">Tambah Foto</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+        <input
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          ref={fileRef}
+          className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+        />
+        <button
+          onClick={upload}
+          disabled={busy}
+          className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? 'Mengunggah...' : 'Unggah'}
+        </button>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/gallery/GalleryAlbum.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Lightbox from '@/components/feed/Lightbox';
+import UploadModal from './UploadModal';
+import { deleteAlbum } from '@/lib/auth/gallery-actions';
+import { Upload, Trash2 } from 'lucide-react';
+
+export default function GalleryAlbum({ album, userId, isStaff }: { album: any; userId: string; isStaff: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState<number | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const media = album.gallery_media ?? [];
+  const urls = media.map((m: any) => m.media_url);
+
+  async function remove() {
+    if (!window.confirm('Hapus album "' + album.name + '"? Semua foto di dalamnya ikut terhapus dari galeri.')) return;
+    const res = await deleteAlbum(album.id);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-white truncate">{album.name}</h2>
+          {album.description && <p className="text-sm text-gray-400">{album.description}</p>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowUpload(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+          >
+            <Upload className="h-3 w-3" />
+            Tambah Foto
+          </button>
+          {isStaff && (
+            <button onClick={remove} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" aria-label="Hapus album">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {media.length === 0 ? (
+        <p className="text-sm text-gray-500 py-4">Album kosong. Tambah foto pertama!</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {media.map((m: any, i: number) => (
+            <button key={m.id} onClick={() => setOpen(i)} className="rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f]">
+              {m.media_type === 'video' ? (
+                <video src={m.media_url} muted preload="metadata" playsInline className="w-full h-40 object-cover" />
+              ) : (
+                <img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-40 object-cover" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      {showUpload && <UploadModal albumId={album.id} userId={userId} onClose={() => setShowUpload(false)} />}
+    </div>
+  );
+}
+`);
+
+wf('app/gallery/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import GalleryAlbum from '@/components/gallery/GalleryAlbum';
+import CreateAlbumForm from '@/components/gallery/CreateAlbumForm';
+import { Image as ImageIcon } from 'lucide-react';
+
+export default async function GalleryPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+  const { data: albums } = await supabase
+    .from('gallery_albums')
+    .select('*, gallery_media(id, media_url, media_type, caption)')
+    .order('created_at', { ascending: false });
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold">Galeri Kelas</h1>
+          {isStaff && <CreateAlbumForm />}
+        </div>
+
+        {(albums?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <ImageIcon className="h-12 w-12 mx-auto mb-4" />
+            <p>{isStaff ? 'Belum ada album. Buat album pertama!' : 'Belum ada album. Tunggu admin membuat album.'}</p>
+          </div>
+        ) : (
+          (albums ?? []).map((a: any) => (
+            <GalleryAlbum key={a.id} album={a} userId={user.id} isStaff={isStaff} />
+          ))
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part N done: gallery albums + upload + lightbox');
+
+// === PART N2: FIX CREATE ALBUM TRANSPARAN ===
+
+wf('lib/auth/gallery-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function createAlbum(formData: FormData) {
+  await requireRole('teacher');
+  const name = String(formData.get('name') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  if (!name) return { error: 'Nama album wajib diisi.' };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('gallery_albums')
+    .insert({ name, description: description || null })
+    .select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: 'Insert gagal tanpa pesan (0 baris).' };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+
+export async function deleteAlbum(albumId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('gallery_albums').delete().eq('id', albumId);
+  if (error) return { error: error.message };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+`);
+
+wf('components/gallery/CreateAlbumForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createAlbum } from '@/lib/auth/gallery-actions';
+import { Plus, X } from 'lucide-react';
+
+export default function CreateAlbumForm() {
+  const router = useRouter();
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    try {
+      const res = await createAlbum(fd);
+      if (res && res.error) {
+        setErr(res.error);
+      } else {
+        setShow(false);
+        router.refresh();
+      }
+    } catch (e: any) {
+      console.error('createAlbum error:', e);
+      setErr('Error: ' + (e && e.message ? e.message : 'gagal membuat album'));
+    }
+    setBusy(false);
+  }
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16]"
+      >
+        <Plus className="h-4 w-4" />
+        Album Baru
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+      className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3 w-full"
+    >
+      {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{err}</div>}
+      <input
+        name="name"
+        required
+        placeholder="Nama album (mis. Kegiatan Kelas)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        name="description"
+        placeholder="Deskripsi (opsional)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy} className="flex-1 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold disabled:opacity-50">
+          {busy ? 'Membuat...' : 'Buat Album'}
+        </button>
+        <button type="button" onClick={() => setShow(false)} className="px-3 py-2 rounded-lg bg-[#2a2a2a] text-white text-sm" aria-label="Tutup">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </form>
+  );
+}
+`);
+
+console.log('[OK] Part N2 done: create album transparan');
+
+// === PART N3: GALLERY ROBUST + ERROR VISIBLE ===
+
+wf('app/gallery/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import GalleryAlbum from '@/components/gallery/GalleryAlbum';
+import CreateAlbumForm from '@/components/gallery/CreateAlbumForm';
+import { Image as ImageIcon } from 'lucide-react';
+
+export default async function GalleryPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+
+  const [{ data: albums, error: errAlbums }, { data: media, error: errMedia }] = await Promise.all([
+    supabase.from('gallery_albums').select('*').order('created_at', { ascending: false }),
+    supabase.from('gallery_media').select('*').order('created_at'),
+  ]);
+
+  const mediaByAlbum: Record<string, any[]> = {};
+  for (const m of media ?? []) {
+    if (!mediaByAlbum[m.album_id]) mediaByAlbum[m.album_id] = [];
+    mediaByAlbum[m.album_id].push(m);
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+        {(errAlbums || errMedia) && (
+          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">
+            {errAlbums ? 'Error album: ' + errAlbums.message : 'Error media: ' + (errMedia ? errMedia.message : '')}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold">Galeri Kelas</h1>
+          {isStaff && <CreateAlbumForm />}
+        </div>
+
+        {(albums?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <ImageIcon className="h-12 w-12 mx-auto mb-4" />
+            <p>{isStaff ? 'Belum ada album. Buat album pertama!' : 'Belum ada album. Tunggu admin membuat album.'}</p>
+          </div>
+        ) : (
+          (albums ?? []).map((a: any) => (
+            <GalleryAlbum
+              key={a.id}
+              album={{ ...a, gallery_media: mediaByAlbum[a.id] ?? [] }}
+              userId={user.id}
+              isStaff={isStaff}
+            />
+          ))
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part N3 done: gallery robust + error visible');
+
+// === PART N4: MASONRY NO-CROP ===
+
+wf('components/gallery/GalleryAlbum.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Lightbox from '@/components/feed/Lightbox';
+import UploadModal from './UploadModal';
+import { deleteAlbum } from '@/lib/auth/gallery-actions';
+import { Upload, Trash2 } from 'lucide-react';
+
+export default function GalleryAlbum({ album, userId, isStaff }: { album: any; userId: string; isStaff: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState<number | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const media = album.gallery_media ?? [];
+  const urls = media.map((m: any) => m.media_url);
+
+  async function remove() {
+    if (!window.confirm('Hapus album "' + album.name + '"? Semua foto di dalamnya ikut terhapus dari galeri.')) return;
+    const res = await deleteAlbum(album.id);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-white truncate">{album.name}</h2>
+          {album.description && <p className="text-sm text-gray-400">{album.description}</p>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowUpload(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+          >
+            <Upload className="h-3 w-3" />
+            Tambah Foto
+          </button>
+          {isStaff && (
+            <button onClick={remove} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" aria-label="Hapus album">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {media.length === 0 ? (
+        <p className="text-sm text-gray-500 py-4">Album kosong. Tambah foto pertama!</p>
+      ) : (
+        <div className="columns-2 md:columns-3 gap-2">
+          {media.map((m: any, i: number) => (
+            <button
+              key={m.id}
+              onClick={() => setOpen(i)}
+              className="mb-2 w-full rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] break-inside-avoid"
+              aria-label="Lihat detail"
+            >
+              {m.media_type === 'video' ? (
+                <video src={m.media_url} muted preload="metadata" playsInline className="w-full h-auto" />
+              ) : (
+                <img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-auto" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      {showUpload && <UploadModal albumId={album.id} userId={userId} onClose={() => setShowUpload(false)} />}
+    </div>
+  );
+}
+`);
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useState } from 'react';
+import Lightbox from './Lightbox';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] mx-auto block w-fit max-w-full"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <video src={urls[0]} muted preload="metadata" playsInline className="max-h-[520px] w-auto max-w-full" />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="max-h-[520px] w-auto max-w-full object-contain" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="columns-2 gap-2 mb-3">
+        {urls.map((url, i) => (
+          <button
+            key={i}
+            onClick={() => setOpen(i)}
+            className="mb-2 w-full rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] break-inside-avoid"
+            aria-label="Lihat detail"
+          >
+            {isVideo(url) ? (
+              <video src={url} muted preload="metadata" playsInline className="w-full h-auto" />
+            ) : (
+              <img src={url} alt="" loading="lazy" className="w-full h-auto" />
+            )}
+          </button>
+        ))}
+      </div>
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+console.log('[OK] Part N4 done: masonry no-crop gallery + feed');
+
+// === PART N5: FEED CAROUSEL ===
+
+wf('app/globals.css', `@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html, body {
+  background-color: #0a0a0a;
+  color: #ffffff;
+  font-family: var(--font-sans);
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 4px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+`);
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] mx-auto block w-fit max-w-full"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <video src={urls[0]} muted preload="metadata" playsInline className="max-h-[520px] w-auto max-w-full" />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="max-h-[520px] w-auto max-w-full object-contain" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setOpen(i)}
+              className="snap-center shrink-0 w-full"
+              aria-label="Lihat detail"
+            >
+              {isVideo(url) ? (
+                <video src={url} muted preload="metadata" playsInline className="w-full h-auto max-h-[520px] object-contain" />
+              ) : (
+                <img src={url} alt="" loading="lazy" className="w-full h-auto max-h-[520px] object-contain" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-[#a3e635]' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+console.log('[OK] Part N5 done: feed carousel swipe + dots + counter');
+
+// === PART N6: MEDIA CARD MAX-W ===
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] mx-auto block w-fit max-w-full"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <video src={urls[0]} muted preload="metadata" playsInline className="max-h-[520px] w-auto max-w-full" />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="max-h-[520px] w-auto max-w-full object-contain" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setOpen(i)}
+              className="snap-center shrink-0 w-full"
+              aria-label="Lihat detail"
+            >
+              {isVideo(url) ? (
+                <video src={url} muted preload="metadata" playsInline className="w-full h-auto max-h-[520px] object-contain" />
+              ) : (
+                <img src={url} alt="" loading="lazy" className="w-full h-auto max-h-[520px] object-contain" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-[#a3e635]' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+console.log('[OK] Part N6 done: media card max-w, no empty sides');

@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth/actions';
 import AppLayout from '@/components/layout/AppLayout';
 import LikeButton from '@/components/feed/LikeButton';
 import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -72,13 +73,7 @@ export default async function FeedPage() {
                   </div>
                 </div>
                 {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
-                {post.media_urls && post.media_urls.length > 0 && (
-                  <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: post.media_urls.length > 1 ? '1fr 1fr' : '1fr' }}>
-                    {post.media_urls.map((url: string, i: number) => (
-                      <img key={i} src={url} alt="" loading="lazy" className="rounded-xl w-full object-cover max-h-80 border border-[#2a2a2a]" />
-                    ))}
-                  </div>
-                )}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
                 <div className="flex items-center gap-4 pt-3 border-t border-[#2a2a2a]">
                   <LikeButton
                     postId={post.id}

@@ -3867,3 +3867,236 @@ export default async function FeedPage() {
 `);
 
 console.log('[OK] Part K2 done: next 16 config + typed feed');
+
+// === PART M: LIGHTBOX + MEDIA FULL + LOADING STATE ===
+
+wf('app/loading.tsx', `export default function Loading() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="h-8 w-8 rounded-full border-2 border-[#a3e635] border-t-transparent animate-spin" />
+    </div>
+  );
+}
+`);
+
+wf('components/feed/Lightbox.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function Lightbox({ urls, index, onClose }: { urls: string[]; index: number; onClose: () => void }) {
+  const [i, setI] = useState(index);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') setI((p) => Math.min(urls.length - 1, p + 1));
+      if (e.key === 'ArrowLeft') setI((p) => Math.max(0, p - 1));
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [urls.length, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4" onClick={onClose}>
+      <button
+        className="absolute top-4 right-4 p-2 text-white/70 hover:text-white z-10"
+        aria-label="Tutup"
+        onClick={onClose}
+      >
+        <X className="h-6 w-6" />
+      </button>
+
+      {urls.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); setI((p) => Math.max(0, p - 1)); }}
+            disabled={i === 0}
+            className="absolute left-1 md:left-6 p-2 text-white/70 hover:text-white disabled:opacity-20 z-10"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setI((p) => Math.min(urls.length - 1, p + 1)); }}
+            disabled={i === urls.length - 1}
+            className="absolute right-1 md:right-6 p-2 text-white/70 hover:text-white disabled:opacity-20 z-10"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
+        </>
+      )}
+
+      {isVideo(urls[i]) ? (
+        <video src={urls[i]} controls playsInline className="max-h-full max-w-full" onClick={(e) => e.stopPropagation()} />
+      ) : (
+        <img
+          src={urls[i]}
+          alt=""
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-full max-w-full object-contain select-none rounded-lg"
+        />
+      )}
+
+      {urls.length > 1 && (
+        <div className="absolute bottom-4 text-xs text-white/60">{i + 1} / {urls.length}</div>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useState } from 'react';
+import Lightbox from './Lightbox';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="w-full mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f]"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <video src={urls[0]} muted preload="metadata" playsInline className="w-full h-auto max-h-[520px]" />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="w-full h-auto max-h-[520px] object-contain" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {urls.map((url, i) => (
+          <button
+            key={i}
+            onClick={() => setOpen(i)}
+            className="rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f]"
+            aria-label="Lihat detail"
+          >
+            {isVideo(url) ? (
+              <video src={url} muted preload="metadata" playsInline className="w-full h-40 object-cover" />
+            ) : (
+              <img src={url} alt="" loading="lazy" className="w-full h-40 object-cover" />
+            )}
+          </button>
+        ))}
+      </div>
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import LikeButton from '@/components/feed/LikeButton';
+import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postIds = (posts ?? []).map((p: any) => p.id);
+  let likes: any[] = [];
+  let commentRows: any[] = [];
+  if (postIds.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+    likes = l.data ?? [];
+    commentRows = c.data ?? [];
+  }
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  for (const l of likes) {
+    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
+    if (l.user_id === user.id) likedByMe[l.target_id] = true;
+  }
+  const commentCounts: Record<string, number> = {};
+  for (const c of commentRows) {
+    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-medium hover:bg-[#84cc16] transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        {(posts?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-lg mb-2">Belum ada postingan</p>
+            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(posts ?? []).map((post: any) => (
+              <div key={post.id} className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-semibold">
+                    {post.profiles?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{post.profiles?.username}</div>
+                  </div>
+                </div>
+                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+                <div className="flex items-center gap-4 pt-3 border-t border-[#2a2a2a]">
+                  <LikeButton
+                    postId={post.id}
+                    userId={user.id}
+                    initialCount={likeCounts[post.id] ?? 0}
+                    initialLiked={!!likedByMe[post.id]}
+                  />
+                  <CommentButton postId={post.id} userId={user.id} count={commentCounts[post.id] ?? 0} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part M done: lightbox + media full + loading state');

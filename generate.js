@@ -5318,3 +5318,376 @@ export default function PostMedia({ urls }: { urls: string[] }) {
 `);
 
 console.log('[OK] Part N6 done: media card max-w, no empty sides');
+
+// === PART O: MANAJEMEN JADWAL + PENGUMUMAN ===
+
+wf('lib/auth/content-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function createSchedule(formData: FormData) {
+  await requireRole('teacher');
+  const day_of_week = Number(formData.get('day_of_week'));
+  const start_time = String(formData.get('start_time') || '');
+  const end_time = String(formData.get('end_time') || '');
+  const subject = String(formData.get('subject') || '').trim();
+  const room = String(formData.get('room') || '').trim();
+  if (!day_of_week || !start_time || !end_time || !subject) return { error: 'Hari, jam, dan mapel wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('schedules').insert({
+    day_of_week,
+    start_time,
+    end_time,
+    subject,
+    room: room || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteSchedule(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('schedules').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function createAnnouncement(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const content = String(formData.get('content') || '').trim();
+  const is_pinned = formData.get('is_pinned') === 'on';
+  if (!title || !content) return { error: 'Judul dan isi wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('announcements').insert({
+    author_id: user.id,
+    title,
+    content,
+    is_pinned,
+    is_published: true,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteAnnouncement(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('announcements').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function togglePin(id: string, pinned: boolean) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('announcements').update({ is_pinned: pinned }).eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+wf('components/admin/ScheduleManager.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createSchedule, deleteSchedule } from '@/lib/auth/content-actions';
+import { Trash2, Plus } from 'lucide-react';
+
+const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+export default function ScheduleManager({ schedules }: { schedules: any[] }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await createSchedule(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus jadwal ini?')) return;
+    const res = await deleteSchedule(id);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+        className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 grid md:grid-cols-5 gap-3"
+      >
+        <select name="day_of_week" className="px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50">
+          {DAYS.map((d, i) => (
+            <option key={d} value={i + 1}>{d}</option>
+          ))}
+        </select>
+        <input name="start_time" type="time" required className="px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+        <input name="end_time" type="time" required className="px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+        <input name="subject" required placeholder="Mapel" className="px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+        <input name="room" placeholder="Ruang (opsional)" className="px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+        <button type="submit" disabled={busy} className="md:col-span-5 inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+          <Plus className="h-4 w-4" />
+          {busy ? 'Menyimpan...' : 'Tambah Jadwal'}
+        </button>
+        {err && <div className="md:col-span-5 text-xs text-red-400">{err}</div>}
+      </form>
+
+      <div className="space-y-3">
+        {DAYS.map((day, i) => {
+          const items = schedules.filter((s) => s.day_of_week === i + 1);
+          if (items.length === 0) return null;
+          return (
+            <div key={day}>
+              <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">{day}</div>
+              <div className="space-y-2">
+                {items.map((s) => (
+                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#161616] border border-[#2a2a2a]">
+                    <div className="text-sm font-bold text-[#a3e635] min-w-[100px]">
+                      {s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm text-white">
+                      {s.subject}
+                      {s.room ? ' • Ruang ' + s.room : ''}
+                    </div>
+                    <button onClick={() => remove(s.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg" aria-label="Hapus jadwal">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/admin/AnnouncementManager.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createAnnouncement, deleteAnnouncement, togglePin } from '@/lib/auth/content-actions';
+import { Trash2, Pin, PinOff, Plus } from 'lucide-react';
+
+export default function AnnouncementManager({ announcements }: { announcements: any[] }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await createAnnouncement(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus pengumuman ini?')) return;
+    const res = await deleteAnnouncement(id);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  async function pin(id: string, pinned: boolean) {
+    const res = await togglePin(id, !pinned);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  return (
+    <div className="space-y-4">
+      <form
+        onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+        className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3"
+      >
+        <input name="title" required placeholder="Judul pengumuman" className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+        <textarea name="content" required rows={3} placeholder="Isi pengumuman..." className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50 resize-none" />
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input name="is_pinned" type="checkbox" className="accent-[#a3e635]" />
+          Pin di atas
+        </label>
+        <button type="submit" disabled={busy} className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+          <Plus className="h-4 w-4" />
+          {busy ? 'Menyimpan...' : 'Terbitkan Pengumuman'}
+        </button>
+        {err && <div className="text-xs text-red-400">{err}</div>}
+      </form>
+
+      <div className="space-y-2">
+        {announcements.map((a) => (
+          <div key={a.id} className="p-3 rounded-xl bg-[#161616] border border-[#2a2a2a]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-semibold text-sm text-white">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => pin(a.id, a.is_pinned)} className="p-1.5 text-gray-400 hover:text-white rounded-lg" aria-label="Pin">
+                  {a.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                </button>
+                <button onClick={() => remove(a.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg" aria-label="Hapus">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-300 mt-1 whitespace-pre-wrap">{a.content}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/admin/content/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import ScheduleManager from '@/components/admin/ScheduleManager';
+import AnnouncementManager from '@/components/admin/AnnouncementManager';
+import { Calendar, Megaphone } from 'lucide-react';
+
+export default async function AdminContentPage() {
+  const user = await requireRole('teacher');
+  const supabase = await createClient();
+  const [{ data: schedules }, { data: announcements }] = await Promise.all([
+    supabase.from('schedules').select('*').order('day_of_week').order('start_time'),
+    supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+  ]);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-10">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2 mb-4">
+            <Calendar className="h-6 w-6 text-[#a3e635]" />
+            Jadwal Pelajaran
+          </h1>
+          <ScheduleManager schedules={schedules ?? []} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2 mb-4">
+            <Megaphone className="h-6 w-6 text-[#fb923c]" />
+            Pengumuman
+          </h1>
+          <AnnouncementManager announcements={announcements ?? []} />
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2 } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+  const navItems = [...baseItems, ...extra];
+  const mobileItems = [baseItems[0], baseItems[1], baseItems[2], baseItems[7]];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
+        <div className="p-6 border-b border-[#2a2a2a]">
+          <h1 className="text-xl font-bold tracking-tight">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">Kelas kamu, satu aplikasi</p>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-[#2a2a2a] hover:text-white transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-[#a3e635] uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-[#2a2a2a] transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 h-14">
+          <h1 className="text-lg font-bold">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-gray-400" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-around h-16">
+          {mobileItems.map((item) => (
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-gray-400">
+              <item.icon className="h-6 w-6" />
+              <span className="text-[10px]">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part O done: manajemen jadwal + pengumuman via UI');

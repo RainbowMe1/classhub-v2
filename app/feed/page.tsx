@@ -16,7 +16,7 @@ export default async function FeedPage() {
     .order('created_at', { ascending: false })
     .limit(30);
 
-  const postIds = (posts ?? []).map((p) => p.id);
+  const postIds = (posts ?? []).map((p: any) => p.id);
   let likes: any[] = [];
   let commentRows: any[] = [];
   if (postIds.length > 0) {
@@ -60,21 +60,21 @@ export default async function FeedPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {posts?.map((post) => (
+            {(posts ?? []).map((post: any) => (
               <div key={post.id} className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="h-10 w-10 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-semibold">
-                    {(post as any).profiles?.full_name?.charAt(0) || 'U'}
+                    {post.profiles?.full_name?.charAt(0) || 'U'}
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold">{(post as any).profiles?.full_name}</div>
-                    <div className="text-xs text-gray-400">@{(post as any).profiles?.username}</div>
+                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{post.profiles?.username}</div>
                   </div>
                 </div>
                 {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
                 {post.media_urls && post.media_urls.length > 0 && (
                   <div className="grid gap-2 mb-3" style={{ gridTemplateColumns: post.media_urls.length > 1 ? '1fr 1fr' : '1fr' }}>
-                    {post.media_urls.map((url, i) => (
+                    {post.media_urls.map((url: string, i: number) => (
                       <img key={i} src={url} alt="" loading="lazy" className="rounded-xl w-full object-cover max-h-80 border border-[#2a2a2a]" />
                     ))}
                   </div>

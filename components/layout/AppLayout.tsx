@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield } from 'lucide-react';
 import { logout } from '@/lib/auth/actions';
 import type { Profile } from '@/types/database';
 
 export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
-  const navItems = [
+  const baseItems = [
     { href: '/dashboard', icon: Home, label: 'Home' },
     { href: '/feed', icon: Newspaper, label: 'Feed' },
     { href: '/chat', icon: MessageCircle, label: 'Chat' },
@@ -14,7 +14,10 @@ export default function AppLayout({ children, profile }: { children: React.React
     { href: '/notifications', icon: Bell, label: 'Notifikasi' },
     { href: '/members', icon: Users, label: 'Members' },
   ];
-  const mobileItems = [navItems[0], navItems[1], navItems[2], navItems[7]];
+  const navItems = profile.role === 'admin'
+    ? [...baseItems, { href: '/admin', icon: Shield, label: 'Admin' }]
+    : baseItems;
+  const mobileItems = [baseItems[0], baseItems[1], baseItems[2], baseItems[7]];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">

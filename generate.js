@@ -2257,3 +2257,1492 @@ export default function NewPostPage() {
 `);
 
 console.log('[OK] Part G done: comments + reply + delete + error transparan di posting');
+
+// === PART H: CHAT REALTIME ===
+
+wf('components/chat/ChatRoom.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Send, Loader2, MessageCircle } from 'lucide-react';
+
+type Msg = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+};
+
+export default function ChatRoom({ userId, initial, names }: { userId: string; initial: Msg[]; names: Record<string, string> }) {
+  const supabase = createClient();
+  const [messages, setMessages] = useState<Msg[]>(initial);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('chat-room')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload: any) => {
+          const row = payload.new as Msg;
+          setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function send() {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    setErr('');
+    const { error } = await supabase.from('chat_messages').insert({
+      user_id: userId,
+      content: text.trim(),
+    });
+    if (error) setErr('Gagal kirim: ' + error.message);
+    setText('');
+    setSending(false);
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl flex flex-col h-[calc(100vh-140px)]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2a2a2a]">
+          <MessageCircle className="h-5 w-5 text-[#a3e635]" />
+          <div>
+            <div className="font-semibold text-white text-sm">Chat Kelas</div>
+            <div className="text-xs text-gray-500">Realtime • semua anggota</div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <p className="text-center text-gray-500 text-sm py-8">Belum ada pesan. Sapa kelas lu!</p>
+          )}
+          {messages.map((m) => {
+            const own = m.user_id === userId;
+            return (
+              <div key={m.id} className={'flex ' + (own ? 'justify-end' : 'justify-start')}>
+                <div
+                  className={
+                    'max-w-[75%] rounded-2xl px-3 py-2 ' +
+                    (own ? 'bg-[#a3e635] text-[#0a0a0a] rounded-br-sm' : 'bg-[#0f0f0f] border border-[#2a2a2a] rounded-bl-sm')
+                  }
+                >
+                  {!own && (
+                    <div className="text-xs font-semibold mb-0.5 text-[#a3e635]">
+                      {names[m.user_id] || 'Warga Kelas'}
+                    </div>
+                  )}
+                  <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                  <div className={'text-[10px] mt-1 ' + (own ? 'text-[#0a0a0a]/60' : 'text-gray-500')}>
+                    {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={endRef} />
+        </div>
+
+        <div className="p-3 border-t border-[#2a2a2a]">
+          {err && <div className="text-xs text-red-400 mb-2">{err}</div>}
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && send()}
+              placeholder="Tulis pesan..."
+              className="flex-1 px-4 py-2.5 rounded-full bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+            />
+            <button
+              onClick={send}
+              disabled={!text.trim() || sending}
+              className="p-2.5 rounded-full bg-[#a3e635] text-[#0a0a0a] disabled:opacity-30"
+              aria-label="Kirim pesan"
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/chat/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import ChatRoom from '@/components/chat/ChatRoom';
+
+export default async function ChatPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const [{ data: messages }, { data: profs }] = await Promise.all([
+    supabase
+      .from('chat_messages')
+      .select('id, user_id, content, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase.from('profiles').select('user_id, full_name'),
+  ]);
+
+  const names: Record<string, string> = {};
+  for (const p of profs ?? []) names[p.user_id] = p.full_name;
+  const initial = (messages ?? []).reverse();
+
+  return (
+    <AppLayout profile={user.profile}>
+      <ChatRoom userId={user.id} initial={initial} names={names} />
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part H done: chat realtime');
+
+// === PART I: ADMIN PANEL + FIX crossOrigin ===
+
+wf('app/layout.tsx', `import type { Metadata } from 'next';
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: 'ClassHub',
+  description: 'Aplikasi kelas kamu',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="id">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="antialiased">{children}</body>
+    </html>
+  );
+}
+`);
+
+wf('lib/supabase/admin.ts', `import { createClient } from '@supabase/supabase-js';
+
+export function createAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+`);
+
+wf('lib/auth/admin-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function adminCreateUser(formData: FormData) {
+  await requireRole('admin');
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const username = String(formData.get('username') || '').trim().toLowerCase();
+  const full_name = String(formData.get('full_name') || '').trim();
+  const role = String(formData.get('role') || 'student');
+  const password = String(formData.get('password') || '');
+
+  if (!email || !username || !full_name) return { error: 'Semua field wajib diisi.' };
+  if (password.length < 6) return { error: 'Password minimal 6 karakter.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing) return { error: 'Username sudah dipakai.' };
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { username, full_name },
+  });
+  if (error) return { error: error.message };
+  if (data.user) {
+    await admin.from('profiles').update({ role, full_name, username }).eq('user_id', data.user.id);
+  }
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminUpdateRole(userId: string, role: string) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('profiles').update({ role }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminSetBan(userId: string, banned: boolean) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('profiles').update({ is_banned: banned }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+`);
+
+wf('components/admin/AdminUsersClient.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { adminCreateUser, adminUpdateRole, adminSetBan } from '@/lib/auth/admin-actions';
+import { Plus, X, Shield } from 'lucide-react';
+
+type Member = {
+  user_id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  is_banned: boolean;
+};
+
+export default function AdminUsersClient({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminCreateUser(fd);
+    setBusy(false);
+    if (res && res.error) {
+      setMsg('Gagal: ' + res.error);
+    } else {
+      setMsg('Akun berhasil dibuat.');
+      setShowForm(false);
+      router.refresh();
+    }
+  }
+
+  async function changeRole(userId: string, role: string) {
+    const res = await adminUpdateRole(userId, role);
+    if (res && res.error) setMsg('Gagal ubah role: ' + res.error);
+    router.refresh();
+  }
+
+  async function toggleBan(m: Member) {
+    const res = await adminSetBan(m.user_id, !m.is_banned);
+    if (res && res.error) setMsg('Gagal: ' + res.error);
+    router.refresh();
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-6 w-6 text-[#a3e635]" />
+          Manajemen Anggota
+        </h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16]"
+        >
+          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {showForm ? 'Tutup' : 'Buat Akun'}
+        </button>
+      </div>
+
+      {msg && <div className="p-3 rounded-xl bg-[#161616] border border-[#2a2a2a] text-sm text-gray-200">{msg}</div>}
+
+      {showForm && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+          className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 grid md:grid-cols-2 gap-4"
+        >
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Email</label>
+            <input name="email" type="email" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="murid@classhub.com" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Username</label>
+            <input name="username" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="raka" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Nama Lengkap</label>
+            <input name="full_name" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="Raka Pratama" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Password Sementara</label>
+            <input name="password" type="text" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="min. 6 karakter" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Role</label>
+            <select name="role" className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50">
+              <option value="student">student</option>
+              <option value="teacher">teacher</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+              {busy ? 'Membuat...' : 'Buat Akun'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="space-y-2">
+        {members.map((m) => (
+          <div key={m.user_id} className={'flex flex-wrap items-center gap-3 p-3 rounded-xl border ' + (m.is_banned ? 'bg-red-500/5 border-red-500/30' : 'bg-[#161616] border-[#2a2a2a]')}>
+            <div className="h-10 w-10 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {m.full_name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">
+                {m.full_name}
+                {m.user_id === currentUserId && <span className="text-[#a3e635] text-xs ml-2">(lu)</span>}
+              </div>
+              <div className="text-xs text-gray-400 truncate">@{m.username} • {m.email}</div>
+            </div>
+            <select
+              value={m.role}
+              disabled={m.user_id === currentUserId}
+              onChange={(e) => changeRole(m.user_id, e.target.value)}
+              className="px-2 py-1.5 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-xs text-white disabled:opacity-40"
+            >
+              <option value="student">student</option>
+              <option value="teacher">teacher</option>
+              <option value="admin">admin</option>
+            </select>
+            <button
+              onClick={() => toggleBan(m)}
+              disabled={m.user_id === currentUserId}
+              className={'px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40 ' + (m.is_banned ? 'bg-[#a3e635] text-[#0a0a0a]' : 'bg-red-500/10 text-red-400 border border-red-500/20')}
+            >
+              {m.is_banned ? 'Aktifkan' : 'Ban'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/admin/users/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import AdminUsersClient from '@/components/admin/AdminUsersClient';
+
+export default async function AdminUsersPage() {
+  const user = await requireRole('admin');
+  const supabase = await createClient();
+  const { data: members } = await supabase.from('profiles').select('*').order('created_at');
+  return (
+    <AppLayout profile={user.profile}>
+      <AdminUsersClient members={(members ?? []) as any} currentUserId={user.id} />
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/admin/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Users, Newspaper, Shield } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function AdminPage() {
+  const user = await requireRole('admin');
+  const supabase = await createClient();
+  const [{ count: memberCount }, { count: postCount }] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }),
+  ]);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-6 w-6 text-[#a3e635]" />
+          Panel Admin
+        </h1>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+            <Users className="h-5 w-5 text-[#a3e635] mb-2" />
+            <div className="text-xs text-gray-400">Total Anggota</div>
+            <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+          </div>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+            <Newspaper className="h-5 w-5 text-[#fb923c] mb-2" />
+            <div className="text-xs text-gray-400">Total Post</div>
+            <div className="text-2xl font-bold">{postCount ?? 0}</div>
+          </div>
+        </div>
+        <Link href="/admin/users" className="block p-4 rounded-2xl bg-[#a3e635] text-[#0a0a0a] font-semibold hover:bg-[#84cc16] transition">
+          Kelola Anggota → buat akun, ubah role, ban
+        </Link>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+  ];
+  const navItems = profile.role === 'admin'
+    ? [...baseItems, { href: '/admin', icon: Shield, label: 'Admin' }]
+    : baseItems;
+  const mobileItems = [baseItems[0], baseItems[1], baseItems[2], baseItems[7]];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
+        <div className="p-6 border-b border-[#2a2a2a]">
+          <h1 className="text-xl font-bold tracking-tight">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">Kelas kamu, satu aplikasi</p>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-[#2a2a2a] hover:text-white transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-[#a3e635] uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-[#2a2a2a] transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 h-14">
+          <h1 className="text-lg font-bold">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-gray-400" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-around h-16">
+          {mobileItems.map((item) => (
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-gray-400">
+              <item.icon className="h-6 w-6" />
+              <span className="text-[10px]">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part I done: admin panel + fix crossOrigin');
+
+// === PART J: TASKS + SUBMISSION + GRADING ===
+
+wf('lib/auth/task-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const MAX_FILE = 20 * 1024 * 1024;
+
+export async function createTask(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const taskId = randomUUID();
+  let attachment_url: string | null = null;
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 20MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = user.id + '/' + taskId + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream' });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await admin.from('tasks').insert({
+    id: taskId,
+    created_by: user.id,
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+    attachment_url,
+    status: 'active',
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function submitTask(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get('task_id') || '');
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { error: 'Pilih file jawaban dulu.' };
+  if (file.size > MAX_FILE) return { error: 'File maksimal 20MB.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('task_submissions')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (existing) return { error: 'Kamu sudah mengumpulkan tugas ini.' };
+
+  const { data: task } = await admin.from('tasks').select('deadline').eq('id', taskId).maybeSingle();
+  if (!task) return { error: 'Tugas tidak ditemukan.' };
+  const late = new Date(task.deadline) < new Date();
+
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = user.id + '/' + taskId + '/submission.' + ext;
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('tasks')
+    .upload(path, buf, { contentType: file.type || 'application/octet-stream' });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+
+  const { error: dbErr } = await admin.from('task_submissions').insert({
+    task_id: taskId,
+    user_id: user.id,
+    file_url: url,
+    file_name: file.name,
+    status: late ? 'late' : 'submitted',
+  });
+  if (dbErr) return { error: dbErr.message };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function gradeSubmission(formData: FormData) {
+  await requireRole('teacher');
+  const id = String(formData.get('submission_id') || '');
+  const grade = Number(formData.get('grade'));
+  const feedback = String(formData.get('feedback') || '').trim();
+  if (isNaN(grade) || grade < 0 || grade > 100) return { error: 'Nilai harus 0-100.' };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('task_submissions')
+    .update({ grade, feedback, status: 'graded' })
+    .eq('id', id);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+`);
+
+wf('components/tasks/CreateTaskForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createTask } from '@/lib/auth/task-actions';
+import { Plus, X } from 'lucide-react';
+
+export default function CreateTaskForm() {
+  const router = useRouter();
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await createTask(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else { setShow(false); router.refresh(); }
+  }
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16]"
+      >
+        <Plus className="h-4 w-4" />
+        Buat Tugas
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+      className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 space-y-4"
+    >
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-white">Tugas Baru</h2>
+        <button type="button" onClick={() => setShow(false)} className="text-gray-400 hover:text-white" aria-label="Tutup">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Judul</label>
+          <input name="title" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="Tugas Bab 6" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Mapel</label>
+          <input name="subject" className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="Matematika" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-400 mb-1">Deskripsi</label>
+        <textarea name="description" rows={3} className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50 resize-none" placeholder="Instruksi tugas..." />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Deadline</label>
+          <input name="deadline" type="datetime-local" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Lampiran (opsional)</label>
+          <input name="attachment" type="file" className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white" />
+        </div>
+      </div>
+      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+        {busy ? 'Membuat...' : 'Terbitkan Tugas'}
+      </button>
+    </form>
+  );
+}
+`);
+
+wf('components/tasks/SubmissionsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { gradeSubmission } from '@/lib/auth/task-actions';
+import { X, FileText } from 'lucide-react';
+
+function GradeForm({ sub, onDone }: { sub: any; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await gradeSubmission(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else onDone();
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}
+      className="flex flex-wrap items-center gap-2 mt-2"
+    >
+      <input type="hidden" name="submission_id" value={sub.id} />
+      <input
+        type="number"
+        name="grade"
+        min={0}
+        max={100}
+        required
+        defaultValue={sub.grade ?? ''}
+        placeholder="0-100"
+        className="w-20 px-2 py-1.5 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-xs text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        type="text"
+        name="feedback"
+        defaultValue={sub.feedback ?? ''}
+        placeholder="Feedback..."
+        className="flex-1 min-w-[140px] px-2 py-1.5 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-xs text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <button type="submit" disabled={busy} className="px-3 py-1.5 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-xs font-semibold disabled:opacity-50">
+        {busy ? '...' : 'Simpan Nilai'}
+      </button>
+      {err && <span className="text-red-400 text-xs">{err}</span>}
+    </form>
+  );
+}
+
+export default function SubmissionsSheet({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+  const supabase = createClient();
+  const [subs, setSubs] = useState<any[]>([]);
+
+  async function load() {
+    const { data } = await supabase
+      .from('task_submissions')
+      .select('*, profiles(full_name, username)')
+      .eq('task_id', taskId)
+      .order('submitted_at');
+    setSubs(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [taskId]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
+      <div className="bg-[#0f0f0f] w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+          <h3 className="font-semibold text-white">Submission ({subs.length})</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {subs.length === 0 ? (
+            <p className="text-center text-gray-500 text-sm py-8">Belum ada yang mengumpulkan.</p>
+          ) : (
+            subs.map((s) => (
+              <div key={s.id} className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-white">{s.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{s.profiles?.username}</div>
+                  </div>
+                  <a
+                    href={s.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-[#a3e635] hover:underline"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {s.file_name}
+                  </a>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Status: {s.status === 'graded' ? 'Dinilai (' + s.grade + ')' : s.status === 'late' ? 'Terlambat' : 'Masuk'}
+                </div>
+                <GradeForm sub={s} onDone={load} />
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/tasks/TaskCard.tsx', `'use client';
+import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { submitTask } from '@/lib/auth/task-actions';
+import SubmissionsSheet from './SubmissionsSheet';
+import { Clock, CheckCircle2, AlertCircle, Upload, Users, Paperclip } from 'lucide-react';
+
+export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { task: any; mySub: any; subCount: number; isStaff: boolean; userId: string }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [openSubs, setOpenSubs] = useState(false);
+  const late = !mySub && new Date(task.deadline) < new Date();
+
+  async function submit(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await submitTask(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  return (
+    <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-semibold text-white">{task.title}</div>
+          <div className="text-xs text-gray-400 mt-0.5">{task.subject}</div>
+        </div>
+        {mySub ? (
+          <span className="flex items-center gap-1 text-xs text-[#a3e635] shrink-0">
+            <CheckCircle2 className="h-4 w-4" />
+            {mySub.status === 'graded' ? 'Nilai: ' + mySub.grade : mySub.status === 'late' ? 'Terlambat' : 'Masuk'}
+          </span>
+        ) : late ? (
+          <span className="flex items-center gap-1 text-xs text-red-400 shrink-0">
+            <AlertCircle className="h-4 w-4" />
+            Lewat deadline
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-xs text-[#fb923c] shrink-0">
+            <Clock className="h-4 w-4" />
+            Aktif
+          </span>
+        )}
+      </div>
+
+      {task.description && <p className="text-sm text-gray-300 whitespace-pre-wrap">{task.description}</p>}
+
+      {task.attachment_url && (
+        <a href={task.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-[#a3e635] hover:underline">
+          <Paperclip className="h-3 w-3" />
+          Lampiran tugas
+        </a>
+      )}
+
+      <div className="text-xs text-gray-500">
+        Deadline: {new Date(task.deadline).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+      </div>
+
+      {mySub && mySub.feedback && (
+        <div className="p-3 rounded-xl bg-[#0a0a0a] border border-[#2a2a2a] text-sm text-gray-300">
+          <span className="text-[#a3e635] font-semibold">Feedback: </span>
+          {mySub.feedback}
+        </div>
+      )}
+
+      {!isStaff && !mySub && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); submit(new FormData(e.currentTarget)); }}
+          className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#2a2a2a]"
+        >
+          <input type="hidden" name="task_id" value={task.id} />
+          <input
+            type="file"
+            name="file"
+            required
+            className="flex-1 min-w-[160px] text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+          />
+          <button type="submit" disabled={busy} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-xs font-semibold disabled:opacity-50">
+            <Upload className="h-3 w-3" />
+            {busy ? 'Mengunggah...' : 'Kumpulkan'}
+          </button>
+          {err && <div className="w-full text-xs text-red-400">{err}</div>}
+        </form>
+      )}
+
+      {isStaff && (
+        <button
+          onClick={() => setOpenSubs(true)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+        >
+          <Users className="h-3 w-3" />
+          Lihat Submission ({subCount})
+        </button>
+      )}
+
+      {openSubs && <SubmissionsSheet taskId={task.id} onClose={() => setOpenSubs(false)} />}
+    </div>
+  );
+}
+`);
+
+wf('app/tasks/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import TaskCard from '@/components/tasks/TaskCard';
+import CreateTaskForm from '@/components/tasks/CreateTaskForm';
+import { ClipboardList } from 'lucide-react';
+
+export default async function TasksPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+
+  const [{ data: tasks }, { data: mySubs }, { data: allSubs }] = await Promise.all([
+    supabase.from('tasks').select('*').order('deadline', { ascending: false }),
+    supabase.from('task_submissions').select('*').eq('user_id', user.id),
+    supabase.from('task_submissions').select('task_id'),
+  ]);
+
+  const mySubMap = new Map((mySubs ?? []).map((s) => [s.task_id, s]));
+  const subCounts: Record<string, number> = {};
+  for (const s of allSubs ?? []) subCounts[s.task_id] = (subCounts[s.task_id] ?? 0) + 1;
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Tugas</h1>
+          {isStaff && <CreateTaskForm />}
+        </div>
+
+        {(tasks?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <ClipboardList className="h-12 w-12 mx-auto mb-4" />
+            <p>Belum ada tugas.</p>
+          </div>
+        ) : (
+          (tasks ?? []).map((t) => (
+            <TaskCard
+              key={t.id}
+              task={t}
+              mySub={mySubMap.get(t.id) ?? null}
+              subCount={subCounts[t.id] ?? 0}
+              isStaff={isStaff}
+              userId={user.id}
+            />
+          ))
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part J done: create task, submit file, grading, feedback, status otomatis');
+
+// === PART J2: FIX LIMIT UPLOAD + UPSERT ===
+
+wf('next.config.ts', `import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
+  serverActions: {
+    bodySizeLimit: '50mb',
+  },
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co' }],
+  },
+};
+
+export default nextConfig;
+`);
+
+wf('lib/auth/task-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const MAX_FILE = 50 * 1024 * 1024;
+
+export async function createTask(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const taskId = randomUUID();
+  let attachment_url: string | null = null;
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 50MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = user.id + '/' + taskId + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await admin.from('tasks').insert({
+    id: taskId,
+    created_by: user.id,
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+    attachment_url,
+    status: 'active',
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function submitTask(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get('task_id') || '');
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { error: 'Pilih file jawaban dulu.' };
+  if (file.size > MAX_FILE) return { error: 'File maksimal 50MB.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('task_submissions')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (existing) return { error: 'Kamu sudah mengumpulkan tugas ini.' };
+
+  const { data: task } = await admin.from('tasks').select('deadline').eq('id', taskId).maybeSingle();
+  if (!task) return { error: 'Tugas tidak ditemukan.' };
+  const late = new Date(task.deadline) < new Date();
+
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = user.id + '/' + taskId + '/submission.' + ext;
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('tasks')
+    .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+
+  const { error: dbErr } = await admin.from('task_submissions').insert({
+    task_id: taskId,
+    user_id: user.id,
+    file_url: url,
+    file_name: file.name,
+    status: late ? 'late' : 'submitted',
+  });
+  if (dbErr) return { error: dbErr.message };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function gradeSubmission(formData: FormData) {
+  await requireRole('teacher');
+  const id = String(formData.get('submission_id') || '');
+  const grade = Number(formData.get('grade'));
+  const feedback = String(formData.get('feedback') || '').trim();
+  if (isNaN(grade) || grade < 0 || grade > 100) return { error: 'Nilai harus 0-100.' };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('task_submissions')
+    .update({ grade, feedback, status: 'graded' })
+    .eq('id', id);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+`);
+
+wf('components/tasks/TaskCard.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { submitTask } from '@/lib/auth/task-actions';
+import SubmissionsSheet from './SubmissionsSheet';
+import { Clock, CheckCircle2, AlertCircle, Upload, Users, Paperclip } from 'lucide-react';
+
+export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { task: any; mySub: any; subCount: number; isStaff: boolean; userId: string }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [openSubs, setOpenSubs] = useState(false);
+  const late = !mySub && new Date(task.deadline) < new Date();
+
+  async function submit(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    try {
+      const res = await submitTask(fd);
+      if (res && res.error) setErr(res.error);
+      else router.refresh();
+    } catch (e: any) {
+      setErr('Error: ' + (e && e.message ? e.message : 'gagal mengirim'));
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-semibold text-white">{task.title}</div>
+          <div className="text-xs text-gray-400 mt-0.5">{task.subject}</div>
+        </div>
+        {mySub ? (
+          <span className="flex items-center gap-1 text-xs text-[#a3e635] shrink-0">
+            <CheckCircle2 className="h-4 w-4" />
+            {mySub.status === 'graded' ? 'Nilai: ' + mySub.grade : mySub.status === 'late' ? 'Terlambat' : 'Masuk'}
+          </span>
+        ) : late ? (
+          <span className="flex items-center gap-1 text-xs text-red-400 shrink-0">
+            <AlertCircle className="h-4 w-4" />
+            Lewat deadline
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-xs text-[#fb923c] shrink-0">
+            <Clock className="h-4 w-4" />
+            Aktif
+          </span>
+        )}
+      </div>
+
+      {task.description && <p className="text-sm text-gray-300 whitespace-pre-wrap">{task.description}</p>}
+
+      {task.attachment_url && (
+        <a href={task.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-[#a3e635] hover:underline">
+          <Paperclip className="h-3 w-3" />
+          Lampiran tugas
+        </a>
+      )}
+
+      <div className="text-xs text-gray-500">
+        Deadline: {new Date(task.deadline).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+      </div>
+
+      {mySub && mySub.feedback && (
+        <div className="p-3 rounded-xl bg-[#0a0a0a] border border-[#2a2a2a] text-sm text-gray-300">
+          <span className="text-[#a3e635] font-semibold">Feedback: </span>
+          {mySub.feedback}
+        </div>
+      )}
+
+      {!isStaff && !mySub && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); submit(new FormData(e.currentTarget)); }}
+          className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#2a2a2a]"
+        >
+          <input type="hidden" name="task_id" value={task.id} />
+          <input
+            type="file"
+            name="file"
+            required
+            className="flex-1 min-w-[160px] text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+          />
+          <button type="submit" disabled={busy} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-xs font-semibold disabled:opacity-50">
+            <Upload className="h-3 w-3" />
+            {busy ? 'Mengunggah...' : 'Kumpulkan'}
+          </button>
+          <div className="w-full text-[10px] text-gray-500">Maksimal 50MB per file</div>
+          {err && <div className="w-full text-xs text-red-400">{err}</div>}
+        </form>
+      )}
+
+      {isStaff && (
+        <button
+          onClick={() => setOpenSubs(true)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+        >
+          <Users className="h-3 w-3" />
+          Lihat Submission ({subCount})
+        </button>
+      )}
+
+      {openSubs && <SubmissionsSheet taskId={task.id} onClose={() => setOpenSubs(false)} />}
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part J2 done: limit 50MB + upsert + error handling submit');
+
+// === PART J3: MIGRATION STATUS COLUMN ===
+
+wf('supabase/migrations/003_add_submission_status.sql', `ALTER TABLE public.task_submissions
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'submitted';
+
+NOTIFY pgrst, 'reload schema';
+`);
+
+console.log('[OK] Part J3 done: migration file recorded');
+
+// === PART J4: FIX GRADING + ERROR TRANSPARAN ===
+
+wf('lib/auth/task-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const MAX_FILE = 50 * 1024 * 1024;
+
+export async function createTask(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const taskId = randomUUID();
+  let attachment_url: string | null = null;
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 50MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = user.id + '/' + taskId + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await admin.from('tasks').insert({
+    id: taskId,
+    created_by: user.id,
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+    attachment_url,
+    status: 'active',
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function submitTask(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get('task_id') || '');
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { error: 'Pilih file jawaban dulu.' };
+  if (file.size > MAX_FILE) return { error: 'File maksimal 50MB.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('task_submissions')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (existing) return { error: 'Kamu sudah mengumpulkan tugas ini.' };
+
+  const { data: task } = await admin.from('tasks').select('deadline').eq('id', taskId).maybeSingle();
+  if (!task) return { error: 'Tugas tidak ditemukan.' };
+  const late = new Date(task.deadline) < new Date();
+
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = user.id + '/' + taskId + '/submission.' + ext;
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('tasks')
+    .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+
+  const { error: dbErr } = await admin.from('task_submissions').insert({
+    task_id: taskId,
+    user_id: user.id,
+    file_url: url,
+    file_name: file.name,
+    status: late ? 'late' : 'submitted',
+  });
+  if (dbErr) return { error: dbErr.message };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function gradeSubmission(formData: FormData) {
+  await requireRole('teacher');
+  const id = String(formData.get('submission_id') || '');
+  const grade = Number(formData.get('grade'));
+  const feedback = String(formData.get('feedback') || '').trim();
+  if (!id) return { error: 'ID submission kosong.' };
+  if (isNaN(grade) || grade < 0 || grade > 100) return { error: 'Nilai harus 0-100.' };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('task_submissions')
+    .update({ grade, feedback, status: 'graded' })
+    .eq('id', id)
+    .select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: '0 baris terupdate — submission tidak ketemu.' };
+  revalidatePath('/tasks');
+  return { success: true };
+}
+`);
+
+wf('components/tasks/SubmissionsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { gradeSubmission } from '@/lib/auth/task-actions';
+import { X, FileText } from 'lucide-react';
+
+function GradeForm({ sub, onDone }: { sub: any; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    setSaved(false);
+    try {
+      const res = await gradeSubmission(fd);
+      if (res && res.error) {
+        setErr(res.error);
+      } else {
+        setSaved(true);
+        onDone();
+      }
+    } catch (e: any) {
+      console.error('gradeSubmission error:', e);
+      setErr('Error: ' + (e && e.message ? e.message : 'gagal menyimpan'));
+    }
+    setBusy(false);
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}
+      className="flex flex-wrap items-center gap-2 mt-2"
+    >
+      <input type="hidden" name="submission_id" value={sub.id} />
+      <input
+        type="number"
+        name="grade"
+        min={0}
+        max={100}
+        required
+        defaultValue={sub.grade ?? ''}
+        placeholder="0-100"
+        className="w-20 px-2 py-1.5 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-xs text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        type="text"
+        name="feedback"
+        defaultValue={sub.feedback ?? ''}
+        placeholder="Feedback..."
+        className="flex-1 min-w-[140px] px-2 py-1.5 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-xs text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <button
+        type="submit"
+        disabled={busy}
+        className="px-3 py-1.5 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-xs font-semibold disabled:opacity-50"
+      >
+        {busy ? '...' : 'Simpan Nilai'}
+      </button>
+      {saved && <span className="text-[#a3e635] text-xs">Tersimpan ✓</span>}
+      {err && <span className="text-red-400 text-xs">{err}</span>}
+    </form>
+  );
+}
+
+export default function SubmissionsSheet({ taskId, onClose }: { taskId: string; onClose: () => void }) {
+  const supabase = createClient();
+  const [subs, setSubs] = useState<any[]>([]);
+
+  async function load() {
+    const { data } = await supabase
+      .from('task_submissions')
+      .select('*, profiles(full_name, username)')
+      .eq('task_id', taskId)
+      .order('submitted_at');
+    setSubs(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [taskId]);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
+      <div className="bg-[#0f0f0f] w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+          <h3 className="font-semibold text-white">Submission ({subs.length})</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {subs.length === 0 ? (
+            <p className="text-center text-gray-500 text-sm py-8">Belum ada yang mengumpulkan.</p>
+          ) : (
+            subs.map((s) => (
+              <div key={s.id} className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-white">{s.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{s.profiles?.username}</div>
+                  </div>
+                  <a
+                    href={s.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-[#a3e635] hover:underline"
+                  >
+                    <FileText className="h-4 w-4" />
+                    {s.file_name}
+                  </a>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Status: {s.status === 'graded' ? 'Dinilai (' + s.grade + ')' : s.status === 'late' ? 'Terlambat' : 'Masuk'}
+                </div>
+                <GradeForm sub={s} onDone={load} />
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part J4 done: grading transparan + deteksi 0 baris');

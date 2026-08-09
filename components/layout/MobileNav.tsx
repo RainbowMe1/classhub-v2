@@ -3,6 +3,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
 
 type NavItem = { href: string; label: string; icon: any };
 
@@ -38,7 +40,7 @@ export default function MobileNav({ items, userId }: { items: NavItem[]; userId:
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="font-bold text-ink text-grad">Menu</span>
+              <span className="font-bold text-ink">Menu</span>
               <button onClick={() => setOpen(false)} className="p-2 text-mut" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
@@ -56,6 +58,11 @@ export default function MobileNav({ items, userId }: { items: NavItem[]; userId:
                   {item.href === '/notifications' && <NotifBadge userId={userId} />}
                 </Link>
               ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-line flex items-center gap-2">
+              <ThemeToggle />
+              <BackgroundPicker />
+              <span className="text-[10px] text-mut ml-auto">Tampilan</span>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import Lightbox from './Lightbox';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 
 function isVideo(u: string) {
   return u.includes('.mp4') || u.includes('.webm');
@@ -9,6 +9,7 @@ function isVideo(u: string) {
 
 function AutoVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
 
   useEffect(() => {
     const v = ref.current;
@@ -26,16 +27,33 @@ function AutoVideo({ src }: { src: string }) {
     return function () { ob.disconnect(); };
   }, [src]);
 
+  function toggleMute() {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+    if (!v.muted) v.play().catch(function () {});
+  }
+
   return (
-    <video
-      ref={ref}
-      src={src}
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      className="w-full aspect-[4/5] object-cover"
-    />
+    <div className="relative">
+      <video
+        ref={ref}
+        src={src}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="w-full h-auto max-h-[75vh] bg-black"
+      />
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
+        aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
+      >
+        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+      </button>
+    </div>
   );
 }
 

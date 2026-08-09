@@ -19,10 +19,10 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="fixed bottom-20 right-3 md:bottom-auto md:top-3 md:right-3 z-30 p-2.5 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
+      className="p-2 rounded-lg bg-line text-mut hover:text-ink"
       aria-label="Ganti mode gelap/terang"
     >
-      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   );
 }

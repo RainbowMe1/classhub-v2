@@ -7,6 +7,8 @@ import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
 import type { Profile } from '@/types/database';
 
 export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
@@ -53,6 +55,11 @@ export default function AppLayout({ children, profile, settings }: { children: R
           ))}
         </nav>
         <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
           <div className="flex items-center gap-3 px-2 pb-3">
             <Avatar data={profile} className="h-9 w-9" />
             <div className="min-w-0">

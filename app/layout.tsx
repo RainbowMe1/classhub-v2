@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import SWRegister from '@/components/SWRegister';
-import ThemeToggle from '@/components/ThemeToggle';
-import BackgroundPicker from '@/components/BackgroundPicker';
 import MusicProvider from '@/components/music/MusicProvider';
 
 export const metadata: Metadata = {
@@ -31,8 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased">
         <SWRegister />
         <MusicProvider>
-          <ThemeToggle />
-          <BackgroundPicker />
           {children}
         </MusicProvider>
       </body>

@@ -27,9 +27,9 @@ export default function BackgroundPicker() {
   }
 
   return (
-    <div className="fixed bottom-20 right-16 md:bottom-auto md:top-3 md:right-16 z-30">
+    <div className="relative">
       {open && (
-        <div className="absolute right-0 bottom-12 md:bottom-auto md:top-12 bg-card border border-line rounded-2xl p-3 space-y-1 shadow-xl w-40">
+        <div className="absolute left-0 bottom-11 bg-card border border-line rounded-2xl p-2 space-y-1 shadow-xl w-40 z-50">
           {BGS.map((b) => (
             <button
               key={b.id}
@@ -44,10 +44,10 @@ export default function BackgroundPicker() {
       )}
       <button
         onClick={() => setOpen(!open)}
-        className="p-2.5 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
-        aria-label="Ganti background"
+        className="p-2 rounded-lg bg-line text-mut hover:text-ink"
+        aria-label="Ganti aksen background"
       >
-        <Palette className="h-5 w-5" />
+        <Palette className="h-4 w-4" />
       </button>
     </div>
   );

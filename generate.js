@@ -17129,3 +17129,474 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
 `);
 
 console.log('[OK] Part Z18 done: glass everywhere + video autoplay + album delete');
+
+// === PART Z19: MUTE BUTTON + VIDEO NO-CROP + TOGGLE KE SIDEBAR ===
+
+wf('components/ThemeToggle.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
+
+export default function ThemeToggle() {
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+  }, []);
+
+  function toggle() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ch-theme', next); } catch (e) {}
+    setTheme(next);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="p-2 rounded-lg bg-line text-mut hover:text-ink"
+      aria-label="Ganti mode gelap/terang"
+    >
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </button>
+  );
+}
+`);
+
+wf('components/BackgroundPicker.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Palette } from 'lucide-react';
+
+const BGS = [
+  { id: 'default', label: 'Default', c1: '#a3e635', c2: '#2dd4bf' },
+  { id: 'ocean', label: 'Ocean', c1: '#38bdf8', c2: '#2dd4bf' },
+  { id: 'sunset', label: 'Sunset', c1: '#fb923c', c2: '#f472b6' },
+  { id: 'forest', label: 'Forest', c1: '#4ade80', c2: '#a3e635' },
+  { id: 'violet', label: 'Violet', c1: '#a78bfa', c2: '#f472b6' },
+];
+
+export default function BackgroundPicker() {
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState('default');
+
+  useEffect(() => {
+    setCur(document.documentElement.getAttribute('data-bg') || 'default');
+  }, []);
+
+  function pick(id: string) {
+    if (id === 'default') document.documentElement.removeAttribute('data-bg');
+    else document.documentElement.setAttribute('data-bg', id);
+    try { localStorage.setItem('ch-bg', id); } catch (e) {}
+    setCur(id);
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative">
+      {open && (
+        <div className="absolute left-0 bottom-11 bg-card border border-line rounded-2xl p-2 space-y-1 shadow-xl w-40 z-50">
+          {BGS.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => pick(b.id)}
+              className={'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ' + (cur === b.id ? 'bg-line text-ink' : 'text-mut hover:text-ink')}
+            >
+              <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundImage: 'linear-gradient(135deg, ' + b.c1 + ', ' + b.c2 + ')' }} />
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-2 rounded-lg bg-line text-mut hover:text-ink"
+        aria-label="Ganti aksen background"
+      >
+        <Palette className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+`);
+
+wf('app/layout.tsx', `import type { Metadata } from 'next';
+import './globals.css';
+import SWRegister from '@/components/SWRegister';
+import MusicProvider from '@/components/music/MusicProvider';
+
+export const metadata: Metadata = {
+  title: 'ClassHub',
+  description: 'Aplikasi kelas kamu',
+};
+
+const bootScript = "(function(){try{var t=localStorage.getItem('ch-theme')||'dark';document.documentElement.setAttribute('data-theme',t);var b=localStorage.getItem('ch-bg');if(b&&b!=='default')document.documentElement.setAttribute('data-bg',b);}catch(e){}})();";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap"
+          rel="stylesheet"
+        />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <body className="antialiased">
+        <SWRegister />
+        <MusicProvider>
+          {children}
+        </MusicProvider>
+      </body>
+    </html>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('components/layout/MobileNav.tsx', `'use client';
+import { useState } from 'react';
+import Link from 'next/link';
+import { Menu, X } from 'lucide-react';
+import NotifBadge from '@/components/NotifBadge';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+
+type NavItem = { href: string; label: string; icon: any };
+
+export default function MobileNav({ items, userId }: { items: NavItem[]; userId: string }) {
+  const [open, setOpen] = useState(false);
+  const notif = items.find((i) => i.href === '/notifications');
+  const bar = [items[0], items[1], items[2], notif].filter(Boolean) as NavItem[];
+
+  return (
+    <>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass border-t border-line">
+        <div className="flex items-center justify-around h-16">
+          {bar.map((item) => (
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-mut">
+              <item.icon className="h-6 w-6" />
+              <span className="text-[10px] flex items-center gap-1">
+                {item.label}
+                {item.href === '/notifications' && <NotifBadge userId={userId} />}
+              </span>
+            </Link>
+          ))}
+          <button onClick={() => setOpen(true)} className="flex flex-col items-center gap-1 text-mut" aria-label="Menu">
+            <Menu className="h-6 w-6" />
+            <span className="text-[10px]">Menu</span>
+          </button>
+        </div>
+      </nav>
+
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/70 md:hidden" onClick={() => setOpen(false)}>
+          <div
+            className="absolute right-0 top-0 bottom-0 w-72 glass border-l border-line p-4 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="font-bold text-ink">Menu</span>
+              <button onClick={() => setOpen(false)} className="p-2 text-mut" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              {items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink"
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                  {item.href === '/notifications' && <NotifBadge userId={userId} />}
+                </Link>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-line flex items-center gap-2">
+              <ThemeToggle />
+              <BackgroundPicker />
+              <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+`);
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+function AutoVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        for (const en of entries) {
+          if (en.isIntersecting) v.play().catch(function () {});
+          else v.pause();
+        }
+      },
+      { threshold: 0.6 }
+    );
+    ob.observe(v);
+    return function () { ob.disconnect(); };
+  }, [src]);
+
+  function toggleMute() {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+    if (!v.muted) v.play().catch(function () {});
+  }
+
+  return (
+    <div className="relative">
+      <video
+        ref={ref}
+        src={src}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="w-full h-auto max-h-[75vh] bg-black"
+      />
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
+        aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
+      >
+        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="mb-3 mx-auto w-full max-w-md block rounded-xl overflow-hidden border border-line bg-card-2"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <AutoVideo src={urls[0]} />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setOpen(i)}
+              className="snap-center shrink-0 w-full"
+              aria-label="Lihat detail"
+            >
+              {isVideo(url) ? (
+                <AutoVideo src={url} />
+              ) : (
+                <img src={url} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+console.log('[OK] Part Z19 done: mute button + video no-crop + toggle di sidebar/drawer');

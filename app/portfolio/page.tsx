@@ -1,12 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
-import { getUser } from '@/lib/auth/actions';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
 import PortfolioSections from '@/components/public/PortfolioSections';
 
-export default async function LandingPage() {
-  const user = await getUser();
-  if (user) redirect('/dashboard');
+export default async function PortfolioPage() {
+  const user = await requireUser();
   const supabase = await createClient();
   const [
     { data: settings },
@@ -30,18 +28,8 @@ export default async function LandingPage() {
   const s = settings && settings.length > 0 ? settings[0] : null;
 
   return (
-    <div className="min-h-screen text-ink">
-      <header className="max-w-5xl mx-auto flex items-center justify-between px-4 py-5">
-        <div className="flex items-center gap-3">
-          {s?.logo_url && <img src={s.logo_url} alt="" className="h-9 w-9 rounded-xl object-cover border border-line" />}
-          <span className="text-lg font-bold text-grad">{s?.class_name || 'ClassHub'}</span>
-        </div>
-        <Link href="/login" className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong">
-          Masuk
-        </Link>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4">
+    <AppLayout profile={user.profile}>
+      <div className="max-w-5xl mx-auto px-4 py-6">
         <PortfolioSections
           s={s}
           media={media}
@@ -51,13 +39,9 @@ export default async function LandingPage() {
           memberCount={memberCount}
           postCount={postCount}
           albumCount={albumCount}
-          cta={true}
+          cta={false}
         />
-      </main>
-
-      <footer className="border-t border-line py-6 text-center text-xs text-mut">
-        © {new Date().getFullYear()} {s?.class_name || 'ClassHub'}{s?.school_name ? ' • ' + s.school_name : ''}
-      </footer>
-    </div>
+      </div>
+    </AppLayout>
   );
 }

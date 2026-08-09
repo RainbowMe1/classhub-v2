@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Send, Loader2, MessageCircle, Image as ImageIcon, X } from 'lucide-react';
 import Lightbox from '@/components/feed/Lightbox';
+import AdminTag from '@/components/AdminTag';
 
 type Msg = {
   id: string;
@@ -12,7 +13,7 @@ type Msg = {
   created_at: string;
 };
 
-export default function ChatRoom({ userId, initial, names }: { userId: string; initial: Msg[]; names: Record<string, string> }) {
+export default function ChatRoom({ userId, initial, names, roles }: { userId: string; initial: Msg[]; names: Record<string, string>; roles: Record<string, string> }) {
   const supabase = createClient();
   const [messages, setMessages] = useState<Msg[]>(initial);
   const [text, setText] = useState('');
@@ -102,8 +103,9 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
                   }
                 >
                   {!own && (
-                    <div className="text-xs font-semibold mb-0.5 text-acc">
+                    <div className="text-xs font-semibold mb-0.5 text-acc flex items-center gap-2">
                       {names[m.user_id] || 'Warga Kelas'}
+                      <AdminTag role={roles[m.user_id] || ''} />
                     </div>
                   )}
                   {m.media_url && (
@@ -125,7 +127,7 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
         <div className="p-3 border-t border-line">
           {err && <div className="text-xs text-red-400 mb-2">{err}</div>}
           {pendingFile && (
-            <div className="flex items-center gap-2 mb-2 text-xs text-ink-soft">
+            <div className="flex items-center gap-2 mb-2 text-xs text-mut">
               <ImageIcon className="h-4 w-4 text-acc" />
               <span className="truncate">{pendingFile.name}</span>
               <button onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-mut hover:text-ink" aria-label="Hapus foto">

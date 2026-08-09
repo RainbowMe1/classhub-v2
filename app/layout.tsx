@@ -2,19 +2,21 @@ import type { Metadata } from 'next';
 import './globals.css';
 import SWRegister from '@/components/SWRegister';
 import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import MusicProvider from '@/components/music/MusicProvider';
 
 export const metadata: Metadata = {
   title: 'ClassHub',
   description: 'Aplikasi kelas kamu',
 };
 
-const themeScript = "(function(){try{var t=localStorage.getItem('ch-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();";
+const bootScript = "(function(){try{var t=localStorage.getItem('ch-theme')||'dark';document.documentElement.setAttribute('data-theme',t);var b=localStorage.getItem('ch-bg');if(b&&b!=='default')document.documentElement.setAttribute('data-bg',b);}catch(e){}})();";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -28,8 +30,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="antialiased">
         <SWRegister />
-        <ThemeToggle />
-        {children}
+        <MusicProvider>
+          <ThemeToggle />
+          <BackgroundPicker />
+          {children}
+        </MusicProvider>
       </body>
     </html>
   );

@@ -10,6 +10,7 @@
   --color-ink-soft: var(--t-inksoft);
   --color-mut: var(--t-mut);
   --color-acc: var(--t-acc);
+  --color-acc-2: var(--t-acc2);
   --color-acc-strong: var(--t-accstrong);
   --color-acc-ink: var(--t-accink);
   --color-warn: var(--t-warn);
@@ -26,6 +27,7 @@
   --t-inksoft: #e5e7eb;
   --t-mut: #9ca3af;
   --t-acc: #a3e635;
+  --t-acc2: #2dd4bf;
   --t-accstrong: #84cc16;
   --t-accink: #0a0a0a;
   --t-warn: #fef3c7;
@@ -42,6 +44,7 @@
   --t-inksoft: #1f2937;
   --t-mut: #64748b;
   --t-acc: #4d7c0f;
+  --t-acc2: #0f766e;
   --t-accstrong: #3f6212;
   --t-accink: #ffffff;
   --t-warn: #b45309;
@@ -52,6 +55,63 @@ html, body {
   background-color: var(--t-bg);
   color: var(--t-ink);
   font-family: var(--font-sans);
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--t-acc) 13%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, var(--t-acc2) 11%, transparent), transparent 60%);
+  background-attachment: fixed;
+}
+
+html[data-bg="ocean"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #38bdf8 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #2dd4bf 13%, transparent), transparent 60%);
+}
+html[data-bg="sunset"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #fb923c 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #f472b6 13%, transparent), transparent 60%);
+}
+html[data-bg="forest"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #4ade80 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #a3e635 13%, transparent), transparent 60%);
+}
+html[data-bg="violet"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #a78bfa 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #f472b6 13%, transparent), transparent 60%);
+}
+
+.bg-acc {
+  background-image: linear-gradient(135deg, var(--t-acc), var(--t-acc2));
+}
+.hover\:bg-acc-strong:hover {
+  background-image: linear-gradient(135deg, var(--t-accstrong), var(--t-acc2));
+}
+.bg-card {
+  background-image: linear-gradient(165deg, color-mix(in oklab, var(--t-card) 94%, var(--t-acc) 6%), var(--t-card) 60%);
+}
+.text-grad {
+  background-image: linear-gradient(90deg, var(--t-acc), var(--t-acc2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rainbow-text {
+  background-image: linear-gradient(90deg, #f43f5e, #f59e0b, #a3e635, #2dd4bf, #3b82f6, #a78bfa, #f43f5e);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rainbowMove 3s linear infinite;
+}
+@keyframes rainbowMove {
+  from { background-position: 0% 50%; }
+  to { background-position: 300% 50%; }
 }
 
 ::-webkit-scrollbar { width: 8px; }

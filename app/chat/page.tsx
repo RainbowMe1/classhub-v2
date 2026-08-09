@@ -12,16 +12,20 @@ export default async function ChatPage() {
       .select('id, user_id, content, media_url, media_type, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
-    supabase.from('profiles').select('user_id, full_name'),
+    supabase.from('profiles').select('user_id, full_name, role'),
   ]);
 
   const names: Record<string, string> = {};
-  for (const p of profs ?? []) names[p.user_id] = p.full_name;
+  const roles: Record<string, string> = {};
+  for (const p of profs ?? []) {
+    names[p.user_id] = p.full_name;
+    roles[p.user_id] = p.role;
+  }
   const initial = (messages ?? []).reverse();
 
   return (
     <AppLayout profile={user.profile}>
-      <ChatRoom userId={user.id} initial={initial} names={names} />
+      <ChatRoom userId={user.id} initial={initial} names={names} roles={roles} />
     </AppLayout>
   );
 }

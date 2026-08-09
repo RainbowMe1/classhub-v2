@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { deleteCommentAdmin } from '@/lib/auth/moderation-actions';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
 import { X, Send, Trash2 } from 'lucide-react';
 
 export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName, isStaff }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string; isStaff: boolean }) {
@@ -14,7 +16,7 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
   async function load() {
     const { data } = await supabase
       .from('comments')
-      .select('*, profiles(username, full_name)')
+      .select('*, profiles(*)')
       .eq('post_id', postId)
       .order('created_at');
     setComments(data ?? []);
@@ -66,7 +68,7 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
-      <div className="bg-card-2 w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+      <div className="bg-card w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-line">
           <h3 className="font-semibold text-ink">Komentar</h3>
           <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
@@ -81,12 +83,13 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
             top.map((c) => (
               <div key={c.id}>
                 <div className="flex gap-3">
-                  <div className="h-8 w-8 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold shrink-0">
-                    {(c.profiles?.full_name || 'U').charAt(0)}
-                  </div>
+                  <Avatar data={c.profiles} className="h-8 w-8" />
                   <div className="flex-1 min-w-0">
-                    <div className="bg-card rounded-2xl rounded-tl-sm px-3 py-2">
-                      <div className="text-xs font-semibold mb-0.5 text-ink">{c.profiles?.full_name}</div>
+                    <div className="bg-card-2 rounded-2xl rounded-tl-sm px-3 py-2">
+                      <div className="text-xs font-semibold mb-0.5 text-ink flex items-center gap-2">
+                        {c.profiles?.full_name}
+                        <AdminTag role={c.profiles?.role} />
+                      </div>
                       <div className="text-sm whitespace-pre-wrap text-ink-soft">{c.content}</div>
                     </div>
                     <div className="flex items-center gap-3 mt-1 ml-2 text-xs text-mut">
@@ -102,12 +105,13 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
                 <div className="ml-11 mt-2 space-y-2">
                   {repliesOf(c.id).map((r) => (
                     <div key={r.id} className="flex gap-3">
-                      <div className="h-7 w-7 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold shrink-0">
-                        {(r.profiles?.full_name || 'U').charAt(0)}
-                      </div>
+                      <Avatar data={r.profiles} className="h-7 w-7" />
                       <div className="flex-1 min-w-0">
-                        <div className="bg-card rounded-2xl rounded-tl-sm px-3 py-2">
-                          <div className="text-xs font-semibold mb-0.5 text-ink">{r.profiles?.full_name}</div>
+                        <div className="bg-card-2 rounded-2xl rounded-tl-sm px-3 py-2">
+                          <div className="text-xs font-semibold mb-0.5 text-ink flex items-center gap-2">
+                            {r.profiles?.full_name}
+                            <AdminTag role={r.profiles?.role} />
+                          </div>
                           <div className="text-sm whitespace-pre-wrap text-ink-soft">{r.content}</div>
                         </div>
                         {(r.user_id === userId || isStaff) && (
@@ -136,7 +140,7 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               placeholder="Tulis komentar..."
-              className="flex-1 px-4 py-2 rounded-full bg-card border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+              className="flex-1 px-4 py-2 rounded-full bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
             />
             <button onClick={submit} disabled={!text.trim()} className="p-2 rounded-full bg-acc text-acc-ink disabled:opacity-30" aria-label="Kirim">
               <Send className="h-4 w-4" />

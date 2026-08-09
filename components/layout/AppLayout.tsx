@@ -1,10 +1,12 @@
 'use client';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe } from 'lucide-react';
 import { logout } from '@/lib/auth/actions';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
 import type { Profile } from '@/types/database';
 
 export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
@@ -15,6 +17,8 @@ export default function AppLayout({ children, profile }: { children: React.React
     { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
     { href: '/schedule', icon: Calendar, label: 'Jadwal' },
     { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
     { href: '/notifications', icon: Bell, label: 'Notifikasi' },
     { href: '/members', icon: Users, label: 'Members' },
     { href: '/settings', icon: UserCog, label: 'Profil' },
@@ -23,13 +27,14 @@ export default function AppLayout({ children, profile }: { children: React.React
   if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
   if (profile.role !== 'student') {
     extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
     extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
   }
   const navItems = [...baseItems, ...extra];
 
   return (
-    <div className="min-h-screen bg-bg text-ink">
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-line bg-card-2">
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
         <div className="p-6 border-b border-line">
           <ClassBrand size="lg" />
         </div>
@@ -48,12 +53,14 @@ export default function AppLayout({ children, profile }: { children: React.React
         </nav>
         <div className="p-4 border-t border-line">
           <div className="flex items-center gap-3 px-2 pb-3">
-            <div className="h-9 w-9 rounded-full bg-line-2 flex items-center justify-center text-sm font-bold">
-              {profile.full_name.charAt(0)}
-            </div>
+            <Avatar data={profile} className="h-9 w-9" />
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">{profile.full_name}</div>
-              <div className="text-xs text-acc uppercase">{profile.role}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
             </div>
           </div>
           <form action={logout}>
@@ -72,6 +79,7 @@ export default function AppLayout({ children, profile }: { children: React.React
         <div className="flex items-center justify-between px-4 h-14">
           <ClassBrand size="sm" />
           <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
             <span className="text-xs text-mut">@{profile.username}</span>
             <form action={logout}>
               <button type="submit" className="p-2 text-mut" aria-label="Keluar">

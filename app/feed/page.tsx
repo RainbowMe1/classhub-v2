@@ -6,6 +6,8 @@ import CommentButton from '@/components/feed/CommentButton';
 import PostMedia from '@/components/feed/PostMedia';
 import StoryBar from '@/components/feed/StoryBar';
 import PostModMenu from '@/components/feed/PostModMenu';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -70,11 +72,12 @@ export default async function FeedPage() {
             {(posts ?? []).map((post: any) => (
               <div key={post.id} className="bg-card border border-line rounded-2xl p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="h-10 w-10 rounded-full bg-line-2 flex items-center justify-center text-sm font-semibold">
-                    {post.profiles?.full_name?.charAt(0) || 'U'}
-                  </div>
+                  <Avatar data={post.profiles} className="h-10 w-10" />
                   <div className="flex-1">
-                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="font-semibold flex items-center gap-2">
+                      {post.profiles?.full_name}
+                      <AdminTag role={post.profiles?.role} />
+                    </div>
                     <div className="text-xs text-mut">@{post.profiles?.username}</div>
                   </div>
                   {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}

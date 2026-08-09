@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
 import AppLayout from '@/components/layout/AppLayout';
 import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
 
 export default async function DashboardPage() {
   const user = await requireUser();
   const supabase = await createClient();
+  const s = await getClassSettings();
   const today = new Date();
   const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
 
@@ -25,66 +27,79 @@ export default async function DashboardPage() {
 
   return (
     <AppLayout profile={user.profile}>
-      <div className="max-w-5xl mx-auto px-4 py-6 md:py-8 space-y-6">
-        <div className="space-y-1">
-          <div className="text-sm text-mut">
-            {today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Halo, {user.profile.full_name.split(' ')[0]} 👋
-          </h1>
+      {s?.bg_url && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{ backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 0 }}
+        />
+      )}
+      {s?.bg_url && <div className="fixed inset-0 pointer-events-none bg-bg/60" style={{ zIndex: 0 }} />}
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-5 space-y-1">
+          <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+          <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+          {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+          {(s?.teacher_name || s?.school_year) && (
+            <div className="text-xs text-mut">
+              {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+              {s.teacher_name && s.school_year ? ' • ' : ''}
+              {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+            </div>
+          )}
+        </section>
+
+        <div>
+          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h2 className="text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {stats.map((s) => (
-            <div key={s.label} className="bg-card border border-line rounded-2xl p-4">
-              <div className={'h-10 w-10 rounded-xl flex items-center justify-center mb-3 ' + s.bg}>
-                <s.Icon className={'h-5 w-5 ' + s.color} />
+          {stats.map((st) => (
+            <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4">
+              <div className={'inline-flex p-2.5 rounded-xl mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
               </div>
-              <div className="text-xs text-mut">{s.label}</div>
-              <div className="text-2xl font-bold mt-0.5">{s.value}</div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-2xl font-bold">{st.value}</div>
             </div>
           ))}
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-card border border-line rounded-2xl p-5">
-            <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
               <Calendar className="h-5 w-5 text-acc" />
               Jadwal Hari Ini
-            </h2>
+            </h3>
             {(schedules?.length ?? 0) === 0 ? (
-              <p className="text-mut text-sm text-center py-8">Tidak ada jadwal hari ini 🎉</p>
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
             ) : (
               <div className="space-y-2">
-                {schedules?.map((s) => (
-                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl bg-bg border border-line">
-                    <div className="text-center min-w-[60px]">
-                      <div className="text-sm font-bold text-acc">{s.start_time.slice(0, 5)}</div>
-                      <div className="text-xs text-mut">{s.end_time.slice(0, 5)}</div>
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{s.subject}</div>
-                      {s.room && <div className="text-xs text-mut">Ruang {s.room}</div>}
-                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="bg-card border border-line rounded-2xl p-5">
-            <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
               <ClipboardList className="h-5 w-5 text-[#fb923c]" />
               Tugas Aktif
-            </h2>
+            </h3>
             {(tasks?.length ?? 0) === 0 ? (
-              <p className="text-mut text-sm text-center py-8">Tidak ada tugas aktif 🎉</p>
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
             ) : (
               <div className="space-y-2">
-                {tasks?.map((t) => (
-                  <div key={t.id} className="p-3 rounded-xl bg-bg border border-line">
-                    <div className="font-medium text-sm">{t.title}</div>
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
                     <div className="text-xs text-mut">{t.subject}</div>
                     <div className="text-xs text-[#fb923c] mt-1">
                       Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
@@ -97,16 +112,16 @@ export default async function DashboardPage() {
         </div>
 
         {(announcements?.length ?? 0) > 0 && (
-          <div className="bg-card border border-line rounded-2xl p-5">
-            <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
               <Megaphone className="h-5 w-5 text-blue-400" />
               Pengumuman
-            </h2>
-            <div className="space-y-3">
-              {announcements?.map((a) => (
-                <div key={a.id} className={'p-4 rounded-xl bg-bg border border-line ' + (a.is_pinned ? 'border-l-2 border-l-[#a3e635]' : '')}>
-                  <div className="font-semibold text-sm">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
-                  <p className="text-sm text-ink-soft mt-1 whitespace-pre-wrap">{a.content}</p>
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
                 </div>
               ))}
             </div>

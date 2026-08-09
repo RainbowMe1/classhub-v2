@@ -14,9 +14,9 @@ export default function ClassBrand({ size }: { size: 'lg' | 'sm' }) {
 
   if (size === 'sm') {
     return (
-      <span className="text-lg font-bold text-ink flex items-center gap-2">
+      <span className="text-lg font-bold flex items-center gap-2">
         {s?.logo_url ? <img src={s.logo_url} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
-        {s?.class_name ? <span>{s.class_name}</span> : <span>Class<span className="text-acc">Hub</span></span>}
+        {s?.class_name ? <span className="text-grad">{s.class_name}</span> : <span className="text-grad">ClassHub</span>}
       </span>
     );
   }
@@ -25,8 +25,8 @@ export default function ClassBrand({ size }: { size: 'lg' | 'sm' }) {
     <div className="flex items-center gap-3">
       {s?.logo_url && <img src={s.logo_url} alt="" className="h-10 w-10 rounded-xl object-cover border border-line" />}
       <div className="min-w-0">
-        <h1 className="text-xl font-bold tracking-tight text-ink truncate">
-          {s?.class_name ? s.class_name : <span>Class<span className="text-acc">Hub</span></span>}
+        <h1 className="text-xl font-bold tracking-tight truncate">
+          {s?.class_name ? <span className="text-grad">{s.class_name}</span> : <span className="text-grad">ClassHub</span>}
         </h1>
         <p className="text-xs text-mut mt-0.5 truncate">{s?.subtitle || 'Kelas kamu, satu aplikasi'}</p>
       </div>

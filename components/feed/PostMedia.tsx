@@ -29,13 +29,13 @@ export default function PostMedia({ urls }: { urls: string[] }) {
       <>
         <button
           onClick={() => setOpen(0)}
-          className="mb-3 rounded-xl overflow-hidden border border-line bg-card-2 mx-auto block w-fit max-w-full"
+          className="mb-3 w-full rounded-xl overflow-hidden border border-line bg-card-2"
           aria-label="Lihat detail"
         >
           {isVideo(urls[0]) ? (
-            <video src={urls[0]} muted preload="metadata" playsInline className="max-h-[520px] w-auto max-w-full" />
+            <video src={urls[0]} muted preload="metadata" playsInline className="w-full aspect-[4/5] object-cover" />
           ) : (
-            <img src={urls[0]} alt="" loading="lazy" className="max-h-[520px] w-auto max-w-full object-contain" />
+            <img src={urls[0]} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
           )}
         </button>
         {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
@@ -59,9 +59,9 @@ export default function PostMedia({ urls }: { urls: string[] }) {
               aria-label="Lihat detail"
             >
               {isVideo(url) ? (
-                <video src={url} muted preload="metadata" playsInline className="w-full h-auto max-h-[520px] object-contain" />
+                <video src={url} muted preload="metadata" playsInline className="w-full aspect-[4/5] object-cover" />
               ) : (
-                <img src={url} alt="" loading="lazy" className="w-full h-auto max-h-[520px] object-contain" />
+                <img src={url} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
               )}
             </button>
           ))}
@@ -70,7 +70,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
         {idx > 0 && (
           <button
             onClick={() => go(idx - 1)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-ink hover:bg-black/80"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
             aria-label="Sebelumnya"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -79,14 +79,14 @@ export default function PostMedia({ urls }: { urls: string[] }) {
         {idx < urls.length - 1 && (
           <button
             onClick={() => go(idx + 1)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-ink hover:bg-black/80"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
             aria-label="Berikutnya"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
         )}
 
-        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-ink text-xs">
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
           {idx + 1}/{urls.length}
         </div>
 

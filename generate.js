@@ -8800,3 +8800,5715 @@ body, aside, header, nav {
 `);
 
 console.log('[OK] Part W done: edit album + animasi');
+
+// === PART X: GRADIENT + LANDING PUBLIK + MUSIK ===
+
+wf('app/globals.css', `@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-card: var(--t-card);
+  --color-card-2: var(--t-card2);
+  --color-line: var(--t-line);
+  --color-line-2: var(--t-line2);
+  --color-ink: var(--t-ink);
+  --color-ink-soft: var(--t-inksoft);
+  --color-mut: var(--t-mut);
+  --color-acc: var(--t-acc);
+  --color-acc-2: var(--t-acc2);
+  --color-acc-strong: var(--t-accstrong);
+  --color-acc-ink: var(--t-accink);
+  --color-warn: var(--t-warn);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root, [data-theme="dark"] {
+  --t-bg: #0a0a0a;
+  --t-card: #161616;
+  --t-card2: #0f0f0f;
+  --t-line: #2a2a2a;
+  --t-line2: #3a3a3a;
+  --t-ink: #ffffff;
+  --t-inksoft: #e5e7eb;
+  --t-mut: #9ca3af;
+  --t-acc: #a3e635;
+  --t-acc2: #2dd4bf;
+  --t-accstrong: #84cc16;
+  --t-accink: #0a0a0a;
+  --t-warn: #fef3c7;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --t-bg: #f4f6f7;
+  --t-card: #ffffff;
+  --t-card2: #eef1f2;
+  --t-line: #e2e6e9;
+  --t-line2: #cfd6db;
+  --t-ink: #0f172a;
+  --t-inksoft: #1f2937;
+  --t-mut: #64748b;
+  --t-acc: #4d7c0f;
+  --t-acc2: #0f766e;
+  --t-accstrong: #3f6212;
+  --t-accink: #ffffff;
+  --t-warn: #b45309;
+  color-scheme: light;
+}
+
+html, body {
+  background-color: var(--t-bg);
+  color: var(--t-ink);
+  font-family: var(--font-sans);
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--t-acc) 13%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, var(--t-acc2) 11%, transparent), transparent 60%);
+  background-attachment: fixed;
+}
+
+.bg-acc {
+  background-image: linear-gradient(135deg, var(--t-acc), var(--t-acc2));
+}
+.hover\\:bg-acc-strong:hover {
+  background-image: linear-gradient(135deg, var(--t-accstrong), var(--t-acc2));
+}
+.bg-card {
+  background-image: linear-gradient(165deg, color-mix(in oklab, var(--t-card) 94%, var(--t-acc) 6%), var(--t-card) 60%);
+}
+.text-grad {
+  background-image: linear-gradient(90deg, var(--t-acc), var(--t-acc2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--t-bg); }
+::-webkit-scrollbar-thumb { background: var(--t-line2); border-radius: 4px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.anim-fade-up { animation: fadeUp 0.45s ease both; }
+.heart-pop { animation: heartPop 0.35s ease; }
+
+.space-y-4 > * { animation: fadeUp 0.45s ease both; }
+.space-y-4 > *:nth-child(2) { animation-delay: 60ms; }
+.space-y-4 > *:nth-child(3) { animation-delay: 120ms; }
+.space-y-4 > *:nth-child(4) { animation-delay: 180ms; }
+.space-y-4 > *:nth-child(5) { animation-delay: 240ms; }
+.space-y-4 > *:nth-child(n+6) { animation-delay: 300ms; }
+
+.fixed.inset-0 { animation: fadeIn 0.2s ease both; }
+.fixed.inset-0 > * { animation: popIn 0.25s ease both; }
+
+body, aside, header, nav {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+`);
+
+wf('components/ClassBrand.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+
+export default function ClassBrand({ size }: { size: 'lg' | 'sm' }) {
+  const [s, setS] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const d = await getClassSettings();
+      setS(d);
+    })();
+  }, []);
+
+  if (size === 'sm') {
+    return (
+      <span className="text-lg font-bold flex items-center gap-2">
+        {s?.logo_url ? <img src={s.logo_url} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
+        {s?.class_name ? <span className="text-grad">{s.class_name}</span> : <span className="text-grad">ClassHub</span>}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {s?.logo_url && <img src={s.logo_url} alt="" className="h-10 w-10 rounded-xl object-cover border border-line" />}
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight truncate">
+          {s?.class_name ? <span className="text-grad">{s.class_name}</span> : <span className="text-grad">ClassHub</span>}
+        </h1>
+        <p className="text-xs text-mut mt-0.5 truncate">{s?.subtitle || 'Kelas kamu, satu aplikasi'}</p>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth/actions';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowRight, Users, Newspaper, Image as ImageIcon, Music, MessageCircle, ClipboardList } from 'lucide-react';
+
+export default async function LandingPage() {
+  const user = await getUser();
+  if (user) redirect('/dashboard');
+  const supabase = await createClient();
+  const [{ data: settings }, { data: media }, { count: memberCount }, { count: postCount }, { count: albumCount }] = await Promise.all([
+    supabase.from('class_settings').select('*').limit(1),
+    supabase.from('gallery_media').select('media_url').order('created_at', { ascending: false }).limit(8),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
+    supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  const features = [
+    { Icon: Newspaper, t: 'Feed Kelas', d: 'Postingan, foto, like & komentar' },
+    { Icon: MessageCircle, t: 'Chat Realtime', d: 'Ngobrol sekelas langsung' },
+    { Icon: ClipboardList, t: 'Tugas & Nilai', d: 'Kumpul tugas, terima feedback' },
+    { Icon: Music, t: 'Musik Kelas', d: 'Playlist bersama buat belajar' },
+  ];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <header className="max-w-5xl mx-auto flex items-center justify-between px-4 py-5">
+        <div className="flex items-center gap-3">
+          {s?.logo_url && <img src={s.logo_url} alt="" className="h-9 w-9 rounded-xl object-cover border border-line" />}
+          <span className="text-lg font-bold text-grad">{s?.class_name || 'ClassHub'}</span>
+        </div>
+        <Link href="/login" className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong">
+          Masuk
+        </Link>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4">
+        <section className="py-16 text-center space-y-5">
+          <div className="text-xs uppercase tracking-[0.3em] text-mut">{s?.subtitle || 'Website resmi kelas'}</div>
+          <h1 className="text-4xl md:text-6xl font-bold text-grad leading-tight">{s?.class_name || 'ClassHub'}</h1>
+          <p className="max-w-xl mx-auto text-mut">
+            Satu tempat untuk feed, chat, tugas, galeri, dan musik kelas. Khusus warga kelas — pengunjung cukup menikmati portofolio ini.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong">
+              Masuk ke Kelas
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="flex items-center justify-center gap-8 pt-6 text-center">
+            <div>
+              <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+              <div className="text-xs text-mut">Anggota</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{postCount ?? 0}</div>
+              <div className="text-xs text-mut">Postingan</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{albumCount ?? 0}</div>
+              <div className="text-xs text-mut">Album</div>
+            </div>
+          </div>
+        </section>
+
+        {(media?.length ?? 0) > 0 && (
+          <section className="pb-14">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-acc" />
+              Galeri Kelas
+            </h2>
+            <div className="columns-2 md:columns-4 gap-2">
+              {(media ?? []).map((m: any, i: number) => (
+                <img
+                  key={i}
+                  src={m.media_url}
+                  alt=""
+                  loading="lazy"
+                  style={{ animationDelay: i * 60 + 'ms' }}
+                  className="anim-fade-up mb-2 w-full rounded-xl border border-line"
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="pb-20 grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {features.map((f, i) => (
+            <div key={f.t} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 70 + 'ms' }}>
+              <f.Icon className="h-5 w-5 text-acc mb-2" />
+              <div className="font-semibold text-sm">{f.t}</div>
+              <div className="text-xs text-mut mt-1">{f.d}</div>
+            </div>
+          ))}
+        </section>
+      </main>
+
+      <footer className="border-t border-line py-6 text-center text-xs text-mut">
+        © {new Date().getFullYear()} {s?.class_name || 'ClassHub'}{s?.school_name ? ' • ' + s.school_name : ''}
+      </footer>
+    </div>
+  );
+}
+`);
+
+wf('lib/auth/music-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function uploadTrack(formData: FormData) {
+  await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const artist = String(formData.get('artist') || '').trim();
+  const file = formData.get('file') as File | null;
+  if (!title || !file || file.size === 0) return { error: 'Judul dan file audio wajib diisi.' };
+  if (file.size > 20 * 1024 * 1024) return { error: 'Maksimal 20MB per lagu.' };
+  const admin = createAdminClient();
+  const id = randomUUID();
+  const ext = file.name.split('.').pop() || 'mp3';
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('music')
+    .upload(id + '.' + ext, buf, { contentType: file.type || 'audio/mpeg', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('music').getPublicUrl(id + '.' + ext).data.publicUrl;
+  const { error } = await admin.from('tracks').insert({ id, title, artist: artist || null, url });
+  if (error) return { error: error.message };
+  revalidatePath('/music');
+  return { success: true };
+}
+
+export async function deleteTrack(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('tracks').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/music');
+  return { success: true };
+}
+`);
+
+wf('components/music/MusicRoom.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { uploadTrack, deleteTrack } from '@/lib/auth/music-actions';
+import { Play, Pause, SkipBack, SkipForward, Music as MusicIcon, Trash2 } from 'lucide-react';
+
+export default function MusicRoom({ isStaff }: { isStaff: boolean }) {
+  const supabase = createClient();
+  const [tracks, setTracks] = useState<any[]>([]);
+  const [current, setCurrent] = useState<any | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  async function load() {
+    const { data } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
+    setTracks(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (current && audioRef.current) {
+      audioRef.current.src = current.url;
+      audioRef.current.play().catch(function () {});
+    }
+  }, [current ? current.id : '']);
+
+  function toggle() {
+    const a = audioRef.current;
+    if (!a || !current) return;
+    if (playing) a.pause();
+    else a.play().catch(function () {});
+  }
+
+  function step(dir: number) {
+    if (!current || tracks.length === 0) return;
+    const idx = tracks.findIndex((t) => t.id === current.id);
+    setCurrent(tracks[(idx + dir + tracks.length) % tracks.length]);
+  }
+
+  async function upload(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await uploadTrack(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else load();
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus lagu ini?')) return;
+    await deleteTrack(id);
+    if (current && current.id === id) { setCurrent(null); setPlaying(false); }
+    load();
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4 pb-32">
+      <h1 className="text-2xl font-bold flex items-center gap-2">
+        <MusicIcon className="h-6 w-6 text-acc" />
+        Musik Kelas
+      </h1>
+
+      {isStaff && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); upload(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-4 grid md:grid-cols-4 gap-3"
+        >
+          <input name="title" required placeholder="Judul lagu" className="px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />
+          <input name="artist" placeholder="Artis (opsional)" className="px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />
+          <input name="file" type="file" accept="audio/*" required className="text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
+          <button disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            {busy ? '...' : 'Unggah'}
+          </button>
+          {err && <div className="md:col-span-4 text-xs text-red-400">{err}</div>}
+        </form>
+      )}
+
+      <div className="space-y-2">
+        {tracks.length === 0 ? (
+          <div className="text-center py-16 text-mut">
+            Belum ada lagu. {isStaff ? 'Unggah lagu pertama!' : 'Tunggu admin menambahkan lagu.'}
+          </div>
+        ) : (
+          tracks.map((t) => (
+            <div
+              key={t.id}
+              className={'flex items-center gap-3 p-3 rounded-xl border ' + (current && current.id === t.id ? 'bg-acc/10 border-acc/30' : 'bg-card border-line')}
+            >
+              <button
+                onClick={() => (current && current.id === t.id ? toggle() : setCurrent(t))}
+                className="p-2 rounded-full bg-acc text-acc-ink"
+                aria-label="Putar"
+              >
+                {current && current.id === t.id && playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{t.title}</div>
+                <div className="text-xs text-mut truncate">{t.artist || 'Tidak diketahui'}</div>
+              </div>
+              {isStaff && (
+                <button onClick={() => remove(t.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg" aria-label="Hapus">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {current && (
+        <div className="fixed bottom-20 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-96 z-40 bg-card border border-line rounded-2xl p-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate">{current.title}</div>
+              <div className="text-xs text-mut truncate">{current.artist || 'Musik Kelas'}</div>
+            </div>
+            <button onClick={() => step(-1)} className="p-2 text-mut hover:text-ink" aria-label="Sebelumnya">
+              <SkipBack className="h-4 w-4" />
+            </button>
+            <button onClick={toggle} className="p-2.5 rounded-full bg-acc text-acc-ink" aria-label="Putar atau jeda">
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+            <button onClick={() => step(1)} className="p-2 text-mut hover:text-ink" aria-label="Berikutnya">
+              <SkipForward className="h-4 w-4" />
+            </button>
+          </div>
+          <audio ref={audioRef} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => step(1)} />
+        </div>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/music/page.tsx', `import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import MusicRoom from '@/components/music/MusicRoom';
+
+export default async function MusicPage() {
+  const user = await requireUser();
+  return (
+    <AppLayout profile={user.profile}>
+      <MusicRoom isStaff={user.profile.role !== 'student'} />
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-line-2 flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-acc uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part X done: gradient + landing publik + musik kelas');
+
+// === PART Y: GLOBAL MUSIC + SEARCH + PORTOFOLIO + BG PICKER ===
+
+wf('lib/auth/music-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function uploadTrack(formData: FormData) {
+  const user = await requireUser();
+  const title = String(formData.get('title') || '').trim();
+  const artist = String(formData.get('artist') || '').trim();
+  const file = formData.get('file') as File | null;
+  if (!title || !file || file.size === 0) return { error: 'Judul dan file audio wajib diisi.' };
+  if (file.size > 20 * 1024 * 1024) return { error: 'Maksimal 20MB per lagu.' };
+  const admin = createAdminClient();
+  const id = randomUUID();
+  const ext = file.name.split('.').pop() || 'mp3';
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('music')
+    .upload(id + '.' + ext, buf, { contentType: file.type || 'audio/mpeg', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('music').getPublicUrl(id + '.' + ext).data.publicUrl;
+  const { error } = await admin.from('tracks').insert({ id, title, artist: artist || null, url, created_by: user.id });
+  if (error) return { error: error.message };
+  revalidatePath('/music');
+  return { success: true };
+}
+
+export async function deleteTrack(id: string) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('tracks').select('created_by').eq('id', id).maybeSingle();
+  const isStaff = user.profile.role !== 'student';
+  if (!row || (row.created_by !== user.id && !isStaff)) return { error: 'Kamu tidak punya hak menghapus lagu ini.' };
+  const { error } = await admin.from('tracks').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/music');
+  return { success: true };
+}
+`);
+
+wf('lib/auth/portfolio-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function saveAbout(formData: FormData) {
+  await requireRole('teacher');
+  const about = String(formData.get('about') || '').trim();
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
+  const { error } = existing
+    ? await admin.from('class_settings').update({ about }).eq('id', existing.id)
+    : await admin.from('class_settings').insert({ class_name: 'ClassHub', about });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function addTeacher(formData: FormData) {
+  await requireRole('teacher');
+  const name = String(formData.get('name') || '').trim();
+  const role = String(formData.get('role') || '').trim();
+  if (!name) return { error: 'Nama wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('class_teachers').insert({ name, role: role || null });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteTeacher(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('class_teachers').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function addAchievement(formData: FormData) {
+  await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const year = String(formData.get('year') || '').trim();
+  const level = String(formData.get('level') || '').trim();
+  if (!title) return { error: 'Judul prestasi wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('class_achievements').insert({ title, year: year || null, level: level || null });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteAchievement(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('class_achievements').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function addJourney(formData: FormData) {
+  await requireRole('teacher');
+  const period = String(formData.get('period') || '').trim();
+  const title = String(formData.get('title') || '').trim();
+  const story = String(formData.get('story') || '').trim();
+  if (!period || !title) return { error: 'Periode dan judul wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('class_journey').insert({ period, title, story: story || null });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteJourney(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('class_journey').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+wf('components/music/MusicProvider.tsx', `'use client';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Music as MusicIcon } from 'lucide-react';
+
+type Track = { id: string; title: string; artist: string | null; url: string };
+
+const MusicCtx = createContext<{
+  current: Track | null;
+  playing: boolean;
+  playTrack: (t: Track, list: Track[]) => void;
+  toggle: () => void;
+  step: (d: number) => void;
+}>({ current: null, playing: false, playTrack: function () {}, toggle: function () {}, step: function () {} });
+
+export function useMusic() {
+  return useContext(MusicCtx);
+}
+
+export default function MusicProvider({ children }: { children: React.ReactNode }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [queue, setQueue] = useState<Track[]>([]);
+  const [current, setCurrent] = useState<Track | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (current && audioRef.current) {
+      audioRef.current.src = current.url;
+      audioRef.current.play().catch(function () {});
+    }
+  }, [current ? current.id : '']);
+
+  function playTrack(t: Track, list: Track[]) {
+    setQueue(list);
+    setCurrent(t);
+  }
+
+  function toggle() {
+    const a = audioRef.current;
+    if (!a || !current) return;
+    if (playing) a.pause();
+    else a.play().catch(function () {});
+  }
+
+  function step(dir: number) {
+    if (!current || queue.length === 0) return;
+    const idx = queue.findIndex((t) => t.id === current.id);
+    setCurrent(queue[(idx + dir + queue.length) % queue.length]);
+  }
+
+  return (
+    <MusicCtx.Provider value={{ current, playing, playTrack, toggle, step }}>
+      {children}
+      <audio ref={audioRef} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => step(1)} />
+      {current && (
+        <div className="fixed bottom-20 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-96 z-40 bg-card border border-line rounded-2xl p-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <MusicIcon className="h-4 w-4 text-acc shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate">{current.title}</div>
+              <div className="text-xs text-mut truncate">{current.artist || 'Musik Kelas'}</div>
+            </div>
+            <button onClick={() => step(-1)} className="p-2 text-mut hover:text-ink" aria-label="Sebelumnya">
+              <SkipBack className="h-4 w-4" />
+            </button>
+            <button onClick={toggle} className="p-2.5 rounded-full bg-acc text-acc-ink" aria-label="Putar atau jeda">
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+            <button onClick={() => step(1)} className="p-2 text-mut hover:text-ink" aria-label="Berikutnya">
+              <SkipForward className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </MusicCtx.Provider>
+  );
+}
+`);
+
+wf('components/music/MusicRoom.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useMusic } from './MusicProvider';
+import { uploadTrack, deleteTrack } from '@/lib/auth/music-actions';
+import { Play, Pause, Music as MusicIcon, Trash2, Search, Upload } from 'lucide-react';
+
+export default function MusicRoom({ userId, isStaff }: { userId: string; isStaff: boolean }) {
+  const supabase = createClient();
+  const { current, playing, playTrack, toggle } = useMusic();
+  const [tracks, setTracks] = useState<any[]>([]);
+  const [tab, setTab] = useState<'all' | 'mine'>('all');
+  const [q, setQ] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    const { data } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
+    setTracks(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const filtered = tracks.filter((t) => {
+    const matchTab = tab === 'all' ? true : t.created_by === userId;
+    const s = q.trim().toLowerCase();
+    const matchQ = !s || (t.title || '').toLowerCase().includes(s) || (t.artist || '').toLowerCase().includes(s);
+    return matchTab && matchQ;
+  });
+
+  async function upload(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await uploadTrack(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else load();
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus lagu ini?')) return;
+    const res = await deleteTrack(id);
+    if (res && res.error) setErr(res.error);
+    else load();
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4 pb-32">
+      <h1 className="text-2xl font-bold flex items-center gap-2">
+        <MusicIcon className="h-6 w-6 text-acc" />
+        Musik Kelas
+      </h1>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); upload(new FormData(e.currentTarget)); }}
+        className="bg-card border border-line rounded-2xl p-4 grid md:grid-cols-4 gap-3"
+      >
+        <input name="title" required placeholder="Judul lagu" className="px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />
+        <input name="artist" placeholder="Artis (opsional)" className="px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />
+        <input name="file" type="file" accept="audio/*" required className="text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
+        <button disabled={busy} className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+          <Upload className="h-4 w-4" />
+          {busy ? '...' : 'Unggah'}
+        </button>
+        {err && <div className="md:col-span-4 text-xs text-red-400">{err}</div>}
+      </form>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setTab('all')}
+          className={'px-3 py-1.5 rounded-lg text-xs font-semibold ' + (tab === 'all' ? 'bg-acc text-acc-ink' : 'bg-card border border-line text-mut')}
+        >
+          Semua Musik ({tracks.length})
+        </button>
+        <button
+          onClick={() => setTab('mine')}
+          className={'px-3 py-1.5 rounded-lg text-xs font-semibold ' + (tab === 'mine' ? 'bg-acc text-acc-ink' : 'bg-card border border-line text-mut')}
+        >
+          Upload Saya
+        </button>
+        <div className="flex-1 min-w-[160px] relative">
+          <Search className="h-4 w-4 text-mut absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Cari judul atau artis..."
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {filtered.length === 0 ? (
+          <div className="text-center py-16 text-mut">
+            {q ? 'Tidak ada hasil untuk "' + q + '".' : 'Belum ada lagu di perpustakaan. Unggah yang pertama!'}
+          </div>
+        ) : (
+          filtered.map((t) => (
+            <div
+              key={t.id}
+              className={'flex items-center gap-3 p-3 rounded-xl border ' + (current && current.id === t.id ? 'bg-acc/10 border-acc/30' : 'bg-card border-line')}
+            >
+              <button
+                onClick={() => (current && current.id === t.id ? toggle() : playTrack(t, filtered))}
+                className="p-2 rounded-full bg-acc text-acc-ink"
+                aria-label="Putar"
+              >
+                {current && current.id === t.id && playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{t.title}</div>
+                <div className="text-xs text-mut truncate">{t.artist || 'Tidak diketahui'}</div>
+              </div>
+              {(isStaff || t.created_by === userId) && (
+                <button onClick={() => remove(t.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg" aria-label="Hapus">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/music/page.tsx', `import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import MusicRoom from '@/components/music/MusicRoom';
+
+export default async function MusicPage() {
+  const user = await requireUser();
+  return (
+    <AppLayout profile={user.profile}>
+      <MusicRoom userId={user.id} isStaff={user.profile.role !== 'student'} />
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/ThemeToggle.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
+
+export default function ThemeToggle() {
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+  }, []);
+
+  function toggle() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ch-theme', next); } catch (e) {}
+    setTheme(next);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="fixed bottom-20 left-3 md:bottom-4 md:left-4 z-30 p-3 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
+      aria-label="Ganti mode gelap/terang"
+    >
+      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
+  );
+}
+`);
+
+wf('components/BackgroundPicker.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Palette } from 'lucide-react';
+
+const BGS = [
+  { id: 'default', label: 'Default', c1: '#a3e635', c2: '#2dd4bf' },
+  { id: 'ocean', label: 'Ocean', c1: '#38bdf8', c2: '#2dd4bf' },
+  { id: 'sunset', label: 'Sunset', c1: '#fb923c', c2: '#f472b6' },
+  { id: 'forest', label: 'Forest', c1: '#4ade80', c2: '#a3e635' },
+  { id: 'violet', label: 'Violet', c1: '#a78bfa', c2: '#f472b6' },
+];
+
+export default function BackgroundPicker() {
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState('default');
+
+  useEffect(() => {
+    setCur(document.documentElement.getAttribute('data-bg') || 'default');
+  }, []);
+
+  function pick(id: string) {
+    if (id === 'default') document.documentElement.removeAttribute('data-bg');
+    else document.documentElement.setAttribute('data-bg', id);
+    try { localStorage.setItem('ch-bg', id); } catch (e) {}
+    setCur(id);
+    setOpen(false);
+  }
+
+  return (
+    <div className="fixed bottom-32 left-3 md:bottom-16 md:left-4 z-30">
+      {open && (
+        <div className="mb-2 bg-card border border-line rounded-2xl p-3 space-y-1 shadow-xl w-40">
+          {BGS.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => pick(b.id)}
+              className={'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ' + (cur === b.id ? 'bg-line text-ink' : 'text-mut hover:text-ink')}
+            >
+              <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundImage: 'linear-gradient(135deg, ' + b.c1 + ', ' + b.c2 + ')' }} />
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-3 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
+        aria-label="Ganti background"
+      >
+        <Palette className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+`);
+
+wf('app/layout.tsx', `import type { Metadata } from 'next';
+import './globals.css';
+import SWRegister from '@/components/SWRegister';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import MusicProvider from '@/components/music/MusicProvider';
+
+export const metadata: Metadata = {
+  title: 'ClassHub',
+  description: 'Aplikasi kelas kamu',
+};
+
+const bootScript = "(function(){try{var t=localStorage.getItem('ch-theme')||'dark';document.documentElement.setAttribute('data-theme',t);var b=localStorage.getItem('ch-bg');if(b&&b!=='default')document.documentElement.setAttribute('data-bg',b);}catch(e){}})();";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap"
+          rel="stylesheet"
+        />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <body className="antialiased">
+        <SWRegister />
+        <MusicProvider>
+          <ThemeToggle />
+          <BackgroundPicker />
+          {children}
+        </MusicProvider>
+      </body>
+    </html>
+  );
+}
+`);
+
+wf('app/globals.css', `@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-card: var(--t-card);
+  --color-card-2: var(--t-card2);
+  --color-line: var(--t-line);
+  --color-line-2: var(--t-line2);
+  --color-ink: var(--t-ink);
+  --color-ink-soft: var(--t-inksoft);
+  --color-mut: var(--t-mut);
+  --color-acc: var(--t-acc);
+  --color-acc-2: var(--t-acc2);
+  --color-acc-strong: var(--t-accstrong);
+  --color-acc-ink: var(--t-accink);
+  --color-warn: var(--t-warn);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root, [data-theme="dark"] {
+  --t-bg: #0a0a0a;
+  --t-card: #161616;
+  --t-card2: #0f0f0f;
+  --t-line: #2a2a2a;
+  --t-line2: #3a3a3a;
+  --t-ink: #ffffff;
+  --t-inksoft: #e5e7eb;
+  --t-mut: #9ca3af;
+  --t-acc: #a3e635;
+  --t-acc2: #2dd4bf;
+  --t-accstrong: #84cc16;
+  --t-accink: #0a0a0a;
+  --t-warn: #fef3c7;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --t-bg: #f4f6f7;
+  --t-card: #ffffff;
+  --t-card2: #eef1f2;
+  --t-line: #e2e6e9;
+  --t-line2: #cfd6db;
+  --t-ink: #0f172a;
+  --t-inksoft: #1f2937;
+  --t-mut: #64748b;
+  --t-acc: #4d7c0f;
+  --t-acc2: #0f766e;
+  --t-accstrong: #3f6212;
+  --t-accink: #ffffff;
+  --t-warn: #b45309;
+  color-scheme: light;
+}
+
+html, body {
+  background-color: var(--t-bg);
+  color: var(--t-ink);
+  font-family: var(--font-sans);
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--t-acc) 13%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, var(--t-acc2) 11%, transparent), transparent 60%);
+  background-attachment: fixed;
+}
+
+html[data-bg="ocean"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #38bdf8 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #2dd4bf 13%, transparent), transparent 60%);
+}
+html[data-bg="sunset"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #fb923c 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #f472b6 13%, transparent), transparent 60%);
+}
+html[data-bg="forest"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #4ade80 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #a3e635 13%, transparent), transparent 60%);
+}
+html[data-bg="violet"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #a78bfa 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #f472b6 13%, transparent), transparent 60%);
+}
+
+.bg-acc {
+  background-image: linear-gradient(135deg, var(--t-acc), var(--t-acc2));
+}
+.hover\\:bg-acc-strong:hover {
+  background-image: linear-gradient(135deg, var(--t-accstrong), var(--t-acc2));
+}
+.bg-card {
+  background-image: linear-gradient(165deg, color-mix(in oklab, var(--t-card) 94%, var(--t-acc) 6%), var(--t-card) 60%);
+}
+.text-grad {
+  background-image: linear-gradient(90deg, var(--t-acc), var(--t-acc2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--t-bg); }
+::-webkit-scrollbar-thumb { background: var(--t-line2); border-radius: 4px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.anim-fade-up { animation: fadeUp 0.45s ease both; }
+.heart-pop { animation: heartPop 0.35s ease; }
+
+.space-y-4 > * { animation: fadeUp 0.45s ease both; }
+.space-y-4 > *:nth-child(2) { animation-delay: 60ms; }
+.space-y-4 > *:nth-child(3) { animation-delay: 120ms; }
+.space-y-4 > *:nth-child(4) { animation-delay: 180ms; }
+.space-y-4 > *:nth-child(5) { animation-delay: 240ms; }
+.space-y-4 > *:nth-child(n+6) { animation-delay: 300ms; }
+
+.fixed.inset-0 { animation: fadeIn 0.2s ease both; }
+.fixed.inset-0 > * { animation: popIn 0.25s ease both; }
+
+body, aside, header, nav {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+`);
+
+wf('app/login/page.tsx', `'use client';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import { LogIn, Eye, EyeOff, Loader2, Globe } from 'lucide-react';
+import Link from 'next/link';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, is_banned')
+        .eq('username', username.toLowerCase())
+        .maybeSingle();
+      if (!profile) { setError('Username tidak ditemukan'); setLoading(false); return; }
+      if (profile.is_banned) { setError('Akun ini telah diblokir'); setLoading(false); return; }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password,
+      });
+      if (error) { setError('Password salah'); setLoading(false); return; }
+      router.push('/dashboard');
+      router.refresh();
+    } catch {
+      setError('Terjadi kesalahan. Coba lagi.');
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-acc/10 border border-acc/30 mb-4">
+            <LogIn className="h-6 w-6 text-acc" />
+          </div>
+          <h1 className="text-3xl font-bold text-grad">ClassHub</h1>
+          <p className="text-mut text-sm mt-1">Masuk ke kelas kamu</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-card border border-line rounded-2xl p-6 space-y-4">
+          {error && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Username</label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              autoComplete="username"
+              className="w-full px-4 py-3 rounded-xl bg-card-2 border border-line text-ink placeholder-mut focus:outline-none focus:border-acc/50 focus:ring-1 focus:ring-acc/30 transition"
+              placeholder="username"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Password</label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full px-4 py-3 rounded-xl bg-card-2 border border-line text-ink placeholder-mut focus:outline-none focus:border-acc/50 focus:ring-1 focus:ring-acc/30 transition pr-12"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-mut hover:text-ink"
+                aria-label="Toggle password"
+              >
+                {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong disabled:opacity-50 transition"
+          >
+            {loading ? 'Memproses...' : 'Masuk'}
+          </button>
+          <Link
+            href="/"
+            className="w-full py-3 rounded-xl bg-card-2 border border-line text-mut text-sm font-medium hover:text-ink flex items-center justify-center gap-2 transition"
+          >
+            <Globe className="h-4 w-4" />
+            Lihat Portofolio Kelas
+          </Link>
+          <p className="text-center text-xs text-mut">Lupa password? Hubungi admin kelas kamu.</p>
+        </form>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/admin/PortfolioManager.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { saveAbout, addTeacher, deleteTeacher, addAchievement, deleteAchievement, addJourney, deleteJourney } from '@/lib/auth/portfolio-actions';
+import { Trash2, Save } from 'lucide-react';
+
+export default function PortfolioManager({ about, teachers, achievements, journey }: { about: string; teachers: any[]; achievements: any[]; journey: any[] }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
+
+  async function run(fn: () => Promise<any>, okMsg: string) {
+    setErr('');
+    setMsg('');
+    const res = await fn();
+    if (res && res.error) setErr(res.error);
+    else { setMsg(okMsg); router.refresh(); }
+  }
+
+  const inputCls = 'px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+  const btnCls = 'px-3 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong';
+
+  return (
+    <div className="space-y-6">
+      {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+      {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); run(() => saveAbout(new FormData(e.currentTarget)), 'Tentang kelas tersimpan ✓'); }}
+        className="bg-card border border-line rounded-2xl p-4 space-y-3"
+      >
+        <h2 className="font-semibold text-ink">Tentang Kelas</h2>
+        <textarea name="about" rows={4} defaultValue={about} placeholder="Ceritakan tentang kelas kalian..." className={inputCls + ' w-full resize-none'} />
+        <button type="submit" className={btnCls + ' flex items-center gap-2'}><Save className="h-4 w-4" />Simpan</button>
+      </form>
+
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold text-ink">Guru & Wali Kelas</h2>
+        <form onSubmit={(e) => { e.preventDefault(); run(() => addTeacher(new FormData(e.currentTarget)), 'Guru ditambahkan ✓'); }} className="grid md:grid-cols-3 gap-2">
+          <input name="name" required placeholder="Nama guru" className={inputCls} />
+          <input name="role" placeholder="Jabatan (mis. Wali Kelas)" className={inputCls} />
+          <button type="submit" className={btnCls}>Tambah</button>
+        </form>
+        <div className="space-y-2">
+          {teachers.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 p-2 rounded-lg bg-card-2 border border-line">
+              <div className="flex-1 text-sm text-ink">{t.name}{t.role ? ' • ' + t.role : ''}</div>
+              <button onClick={() => run(() => deleteTeacher(t.id), 'Guru dihapus ✓')} className="p-1.5 text-red-400" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold text-ink">Prestasi</h2>
+        <form onSubmit={(e) => { e.preventDefault(); run(() => addAchievement(new FormData(e.currentTarget)), 'Prestasi ditambahkan ✓'); }} className="grid md:grid-cols-4 gap-2">
+          <input name="title" required placeholder="Judul prestasi" className={inputCls + ' md:col-span-2'} />
+          <input name="year" placeholder="Tahun" className={inputCls} />
+          <input name="level" placeholder="Level (mis. Provinsi)" className={inputCls} />
+          <button type="submit" className={btnCls + ' md:col-span-4'}>Tambah</button>
+        </form>
+        <div className="space-y-2">
+          {achievements.map((a) => (
+            <div key={a.id} className="flex items-center gap-2 p-2 rounded-lg bg-card-2 border border-line">
+              <div className="flex-1 text-sm text-ink">{a.title}{a.year ? ' (' + a.year + ')' : ''}{a.level ? ' • ' + a.level : ''}</div>
+              <button onClick={() => run(() => deleteAchievement(a.id), 'Prestasi dihapus ✓')} className="p-1.5 text-red-400" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold text-ink">Perjalanan Kelas</h2>
+        <form onSubmit={(e) => { e.preventDefault(); run(() => addJourney(new FormData(e.currentTarget)), 'Perjalanan ditambahkan ✓'); }} className="grid md:grid-cols-3 gap-2">
+          <input name="period" required placeholder="Periode (mis. 2025)" className={inputCls} />
+          <input name="title" required placeholder="Judul momen" className={inputCls} />
+          <input name="story" placeholder="Cerita singkat" className={inputCls} />
+          <button type="submit" className={btnCls + ' md:col-span-3'}>Tambah</button>
+        </form>
+        <div className="space-y-2">
+          {journey.map((j) => (
+            <div key={j.id} className="flex items-center gap-2 p-2 rounded-lg bg-card-2 border border-line">
+              <div className="flex-1 text-sm text-ink"><span className="text-acc font-semibold">{j.period}</span> — {j.title}{j.story ? ' • ' + j.story : ''}</div>
+              <button onClick={() => run(() => deleteJourney(j.id), 'Perjalanan dihapus ✓')} className="p-1.5 text-red-400" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/admin/portfolio/page.tsx', `import { requireRole } from '@/lib/auth/actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import AppLayout from '@/components/layout/AppLayout';
+import PortfolioManager from '@/components/admin/PortfolioManager';
+import { Award } from 'lucide-react';
+
+export default async function AdminPortfolioPage() {
+  const user = await requireRole('teacher');
+  const admin = createAdminClient();
+  const [{ data: settings }, { data: teachers }, { data: achievements }, { data: journey }] = await Promise.all([
+    admin.from('class_settings').select('*').limit(1),
+    admin.from('class_teachers').select('*').order('created_at'),
+    admin.from('class_achievements').select('*').order('created_at'),
+    admin.from('class_journey').select('*').order('created_at'),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Award className="h-6 w-6 text-acc" />
+          Portofolio Kelas
+        </h1>
+        <PortfolioManager
+          about={s?.about || ''}
+          teachers={teachers ?? []}
+          achievements={achievements ?? []}
+          journey={journey ?? []}
+        />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-line-2 flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-acc uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('app/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth/actions';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowRight, Image as ImageIcon, Music, MessageCircle, ClipboardList, Newspaper, Award, GraduationCap, MapPin, Users as UsersIcon } from 'lucide-react';
+
+export default async function LandingPage() {
+  const user = await getUser();
+  if (user) redirect('/dashboard');
+  const supabase = await createClient();
+  const [
+    { data: settings },
+    { data: media },
+    { count: memberCount },
+    { count: postCount },
+    { count: albumCount },
+    { data: teachers },
+    { data: achievements },
+    { data: journey },
+  ] = await Promise.all([
+    supabase.from('class_settings').select('*').limit(1),
+    supabase.from('gallery_media').select('media_url').order('created_at', { ascending: false }).limit(8),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
+    supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
+    supabase.from('class_teachers').select('*').order('created_at'),
+    supabase.from('class_achievements').select('*').order('created_at'),
+    supabase.from('class_journey').select('*').order('created_at'),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  const features = [
+    { Icon: Newspaper, t: 'Feed Kelas', d: 'Postingan, foto, like & komentar' },
+    { Icon: MessageCircle, t: 'Chat Realtime', d: 'Ngobrol sekelas langsung' },
+    { Icon: ClipboardList, t: 'Tugas & Nilai', d: 'Kumpul tugas, terima feedback' },
+    { Icon: Music, t: 'Musik Kelas', d: 'Playlist bersama buat belajar' },
+  ];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <header className="max-w-5xl mx-auto flex items-center justify-between px-4 py-5">
+        <div className="flex items-center gap-3">
+          {s?.logo_url && <img src={s.logo_url} alt="" className="h-9 w-9 rounded-xl object-cover border border-line" />}
+          <span className="text-lg font-bold text-grad">{s?.class_name || 'ClassHub'}</span>
+        </div>
+        <Link href="/login" className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong">
+          Masuk
+        </Link>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4">
+        <section className="py-16 text-center space-y-5">
+          <div className="text-xs uppercase tracking-[0.3em] text-mut">{s?.subtitle || 'Website resmi kelas'}</div>
+          <h1 className="text-4xl md:text-6xl font-bold text-grad leading-tight">{s?.class_name || 'ClassHub'}</h1>
+          <p className="max-w-xl mx-auto text-mut">
+            Satu tempat untuk feed, chat, tugas, galeri, dan musik kelas. Khusus warga kelas — pengunjung cukup menikmati portofolio ini.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong">
+              Masuk ke Kelas
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="flex items-center justify-center gap-8 pt-6 text-center">
+            <div>
+              <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+              <div className="text-xs text-mut">Anggota</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{postCount ?? 0}</div>
+              <div className="text-xs text-mut">Postingan</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">{albumCount ?? 0}</div>
+              <div className="text-xs text-mut">Album</div>
+            </div>
+          </div>
+        </section>
+
+        {s?.about && (
+          <section className="pb-14 max-w-3xl mx-auto text-center">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3">Tentang Kelas</h2>
+            <p className="text-mut whitespace-pre-wrap leading-relaxed">{s.about}</p>
+          </section>
+        )}
+
+        {(teachers?.length ?? 0) > 0 && (
+          <section className="pb-14">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-acc" />
+              Guru & Wali Kelas
+            </h2>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {(teachers ?? []).map((t: any, i: number) => (
+                <div key={t.id} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 60 + 'ms' }}>
+                  <div className="font-semibold text-sm">{t.name}</div>
+                  {t.role && <div className="text-xs text-acc mt-1">{t.role}</div>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(achievements?.length ?? 0) > 0 && (
+          <section className="pb-14">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+              <Award className="h-4 w-4 text-acc" />
+              Prestasi
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {(achievements ?? []).map((a: any, i: number) => (
+                <div key={a.id} className="anim-fade-up flex items-center gap-3 bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 60 + 'ms' }}>
+                  <Award className="h-5 w-5 text-acc shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">{a.title}</div>
+                    <div className="text-xs text-mut">{[a.year, a.level].filter(Boolean).join(' • ')}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(journey?.length ?? 0) > 0 && (
+          <section className="pb-14">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-4 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-acc" />
+              Perjalanan Kelas
+            </h2>
+            <div className="border-l-2 border-line ml-2 pl-6 space-y-6">
+              {(journey ?? []).map((j: any, i: number) => (
+                <div key={j.id} className="anim-fade-up relative" style={{ animationDelay: i * 60 + 'ms' }}>
+                  <div className="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-acc" />
+                  <div className="text-xs text-acc font-semibold">{j.period}</div>
+                  <div className="font-semibold text-sm mt-0.5">{j.title}</div>
+                  {j.story && <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{j.story}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(media?.length ?? 0) > 0 && (
+          <section className="pb-14">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-acc" />
+              Galeri Kelas
+            </h2>
+            <div className="columns-2 md:columns-4 gap-2">
+              {(media ?? []).map((m: any, i: number) => (
+                <img
+                  key={i}
+                  src={m.media_url}
+                  alt=""
+                  loading="lazy"
+                  style={{ animationDelay: i * 60 + 'ms' }}
+                  className="anim-fade-up mb-2 w-full rounded-xl border border-line"
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="pb-20 grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {features.map((f, i) => (
+            <div key={f.t} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 70 + 'ms' }}>
+              <f.Icon className="h-5 w-5 text-acc mb-2" />
+              <div className="font-semibold text-sm">{f.t}</div>
+              <div className="text-xs text-mut mt-1">{f.d}</div>
+            </div>
+          ))}
+        </section>
+      </main>
+
+      <footer className="border-t border-line py-6 text-center text-xs text-mut">
+        © {new Date().getFullYear()} {s?.class_name || 'ClassHub'}{s?.school_name ? ' • ' + s.school_name : ''}
+      </footer>
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part Y done: musik global + search + portofolio lengkap + bg picker + login link');
+
+// === PART Z: IDENTITAS HOME + BG PNG + AVATAR + LIGHTBOX FULL ===
+
+wf('lib/auth/settings-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function getClassSettings() {
+  const admin = createAdminClient();
+  const { data } = await admin.from('class_settings').select('*').limit(1);
+  return data && data.length > 0 ? data[0] : null;
+}
+
+export async function saveClassSettings(formData: FormData) {
+  await requireRole('admin');
+  const class_name = String(formData.get('class_name') || '').trim();
+  const subtitle = String(formData.get('subtitle') || '').trim();
+  const teacher_name = String(formData.get('teacher_name') || '').trim();
+  const school_year = String(formData.get('school_year') || '').trim();
+  const remove_bg = formData.get('remove_bg') === 'on';
+  if (!class_name) return { error: 'Nama kelas wajib diisi.' };
+  const admin = createAdminClient();
+
+  let logo_url: string | null = null;
+  const file = formData.get('logo') as File | null;
+  if (file && file.size > 0) {
+    if (!file.type.startsWith('image/')) return { error: 'Logo harus gambar.' };
+    if (file.size > 2 * 1024 * 1024) return { error: 'Logo maksimal 2MB.' };
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('avatars')
+      .upload('class/logo.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload logo gagal: ' + upErr.message };
+    logo_url = admin.storage.from('avatars').getPublicUrl('class/logo.' + ext).data.publicUrl;
+  }
+
+  let bg_url: string | null = null;
+  const bgFile = formData.get('bg') as File | null;
+  if (bgFile && bgFile.size > 0) {
+    if (!bgFile.type.startsWith('image/')) return { error: 'Background harus gambar.' };
+    if (bgFile.size > 5 * 1024 * 1024) return { error: 'Background maksimal 5MB.' };
+    const ext = bgFile.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await bgFile.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('avatars')
+      .upload('class/bg.' + ext, buf, { contentType: bgFile.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload background gagal: ' + upErr.message };
+    bg_url = admin.storage.from('avatars').getPublicUrl('class/bg.' + ext).data.publicUrl;
+  }
+
+  const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
+  const payload: any = {
+    class_name,
+    subtitle: subtitle || null,
+    teacher_name: teacher_name || null,
+    school_year: school_year || null,
+  };
+  if (logo_url) payload.logo_url = logo_url;
+  if (bg_url) payload.bg_url = bg_url;
+  if (remove_bg) payload.bg_url = null;
+  const { error } = existing
+    ? await admin.from('class_settings').update(payload).eq('id', existing.id)
+    : await admin.from('class_settings').insert(payload);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+wf('components/admin/ClassSettingsForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { saveClassSettings } from '@/lib/auth/settings-actions';
+
+export default function ClassSettingsForm({ initial }: { initial: any }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    setSaved(false);
+    try {
+      const res = await saveClassSettings(fd);
+      if (res && res.error) setErr(res.error);
+      else { setSaved(true); router.refresh(); }
+    } catch (e: any) {
+      console.error('saveClassSettings error:', e);
+      setErr('Error: ' + (e && e.message ? e.message : 'gagal menyimpan'));
+    }
+    setBusy(false);
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}
+      className="bg-card border border-line rounded-2xl p-4 space-y-3"
+    >
+      <h2 className="font-semibold text-ink">Identitas Kelas</h2>
+      {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{err}</div>}
+      {saved && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">Tersimpan ✓</div>}
+      <input name="class_name" defaultValue={initial?.class_name || ''} required placeholder="Nama kelas" className={inputCls} />
+      <input name="subtitle" defaultValue={initial?.subtitle || ''} placeholder="Subtitle" className={inputCls} />
+      <div className="grid md:grid-cols-2 gap-3">
+        <input name="teacher_name" defaultValue={initial?.teacher_name || ''} placeholder="Wali kelas (mis. Budi, S.Pd.)" className={inputCls} />
+        <input name="school_year" defaultValue={initial?.school_year || ''} placeholder="Tahun ajaran (mis. 2025/2026)" className={inputCls} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-mut mb-1">Logo kelas</div>
+          <input name="logo" type="file" accept="image/*" className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
+        </div>
+        <div>
+          <div className="text-xs text-mut mb-1">Background Home (PNG)</div>
+          <input name="bg" type="file" accept="image/*" className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
+        </div>
+      </div>
+      {initial?.bg_url && (
+        <label className="flex items-center gap-2 text-sm text-mut">
+          <input name="remove_bg" type="checkbox" className="accent-acc" />
+          Hapus background saat ini
+        </label>
+      )}
+      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+        {busy ? 'Menyimpan...' : 'Simpan Identitas'}
+      </button>
+    </form>
+  );
+}
+`);
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
+  ];
+
+  return (
+    <AppLayout profile={user.profile}>
+      {s?.bg_url && (
+        <div className="fixed inset-0 -z-10 pointer-events-none">
+          <img src={s.bg_url} alt="" className="w-full h-full object-cover opacity-20" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-bg/60 to-bg" />
+        </div>
+      )}
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-5 space-y-1">
+          <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+          <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+          {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+          {(s?.teacher_name || s?.school_year) && (
+            <div className="text-xs text-mut">
+              {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+              {s.teacher_name && s.school_year ? ' • ' : ''}
+              {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+            </div>
+          )}
+        </section>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            <h2 className="text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {stats.map((st) => (
+            <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4">
+              <div className={'inline-flex p-2.5 rounded-xl mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
+              </div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-2xl font-bold">{st.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-acc" />
+              Jadwal Hari Ini
+            </h3>
+            {(schedules?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+              Tugas Aktif
+            </h3>
+            {(tasks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-mut">{t.subject}</div>
+                    <div className="text-xs text-[#fb923c] mt-1">
+                      Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(announcements?.length ?? 0) > 0 && (
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Megaphone className="h-5 w-5 text-blue-400" />
+              Pengumuman
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/feed/Lightbox.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function Lightbox({ urls, index, onClose }: { urls: string[]; index: number; onClose: () => void }) {
+  const [i, setI] = useState(index);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') setI((p) => Math.min(urls.length - 1, p + 1));
+      if (e.key === 'ArrowLeft') setI((p) => Math.max(0, p - 1));
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [urls.length, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black" onClick={onClose}>
+      <button
+        className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/60 text-white/80 hover:text-white"
+        aria-label="Tutup"
+        onClick={onClose}
+      >
+        <X className="h-6 w-6" />
+      </button>
+
+      {urls.length > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); setI((p) => Math.max(0, p - 1)); }}
+            disabled={i === 0}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/60 text-white/80 hover:text-white disabled:opacity-20"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-7 w-7" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setI((p) => Math.min(urls.length - 1, p + 1)); }}
+            disabled={i === urls.length - 1}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/60 text-white/80 hover:text-white disabled:opacity-20"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-7 w-7" />
+          </button>
+        </>
+      )}
+
+      {isVideo(urls[i]) ? (
+        <video
+          src={urls[i]}
+          controls
+          playsInline
+          className="absolute inset-0 w-full h-full object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <img
+          src={urls[i]}
+          alt=""
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-0 w-full h-full object-contain select-none"
+        />
+      )}
+
+      {urls.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 px-2 py-0.5 rounded-full bg-black/60 text-white/70 text-xs">
+          {i + 1} / {urls.length}
+        </div>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { UserCog, KeyRound, Camera } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); setAvatarUrl(p.avatar_url); }
+    })();
+  }, []);
+
+  async function uploadAvatar(file: File) {
+    if (!profile) return;
+    setBusy(true); setMsg(''); setErr('');
+    if (!file.type.startsWith('image/')) { setErr('Foto harus gambar.'); setBusy(false); return; }
+    if (file.size > 2 * 1024 * 1024) { setErr('Foto maksimal 2MB.'); setBusy(false); return; }
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = profile.user_id + '/avatar.' + ext;
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan foto: ' + error.message); return; }
+    setAvatarUrl(url);
+    setMsg('Foto profil tersimpan ✓');
+    router.refresh();
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓'); setPw(''); setPw2(''); }
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover border border-line" />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-line-2 flex items-center justify-center text-xl font-bold">
+                {profile.full_name.charAt(0)}
+              </div>
+            )}
+            <div className="flex-1">
+              <div className="text-sm font-semibold">{profile.full_name}</div>
+              <div className="text-xs text-mut">@{profile.username} • <span className="uppercase text-acc">{profile.role}</span></div>
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold cursor-pointer hover:bg-line-2">
+            <Camera className="h-4 w-4" />
+            Ganti Foto Profil
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) uploadAvatar(f);
+              }}
+            />
+          </label>
+          {busy && <div className="text-xs text-mut">Menyimpan...</div>}
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-semibold">Nama Tampilan</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <KeyRound className="h-4 w-4 text-acc" />
+            Ganti Password
+          </div>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 6 karakter)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="w-full py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover border border-line" />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-line-2 flex items-center justify-center text-sm font-bold">
+                {profile.full_name.charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-acc uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            {profile.avatar_url && <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover border border-line" />}
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import LikeButton from '@/components/feed/LikeButton';
+import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
+import StoryBar from '@/components/feed/StoryBar';
+import PostModMenu from '@/components/feed/PostModMenu';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+  const isAdmin = user.profile.role === 'admin';
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postIds = (posts ?? []).map((p: any) => p.id);
+  let likes: any[] = [];
+  let commentRows: any[] = [];
+  if (postIds.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+    likes = l.data ?? [];
+    commentRows = c.data ?? [];
+  }
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  for (const l of likes) {
+    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
+    if (l.user_id === user.id) likedByMe[l.target_id] = true;
+  }
+  const commentCounts: Record<string, number> = {};
+  for (const c of commentRows) {
+    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-medium hover:bg-acc-strong transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        {(posts?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-mut">
+            <p className="text-lg mb-2">Belum ada postingan</p>
+            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(posts ?? []).map((post: any) => (
+              <div key={post.id} className="bg-card border border-line rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  {post.profiles?.avatar_url ? (
+                    <img src={post.profiles.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover border border-line" />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-line-2 flex items-center justify-center text-sm font-semibold">
+                      {post.profiles?.full_name?.charAt(0) || 'U'}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="text-xs text-mut">@{post.profiles?.username}</div>
+                  </div>
+                  {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
+                </div>
+                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+                <div className="flex items-center gap-4 pt-3 border-t border-line">
+                  <LikeButton
+                    postId={post.id}
+                    userId={user.id}
+                    initialCount={likeCounts[post.id] ?? 0}
+                    initialLiked={!!likedByMe[post.id]}
+                    ownerId={post.user_id}
+                    actorName={user.profile.full_name}
+                  />
+                  <CommentButton
+                    postId={post.id}
+                    userId={user.id}
+                    count={commentCounts[post.id] ?? 0}
+                    postOwnerId={post.user_id}
+                    actorName={user.profile.full_name}
+                    isStaff={isStaff}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/members/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+
+export default async function MembersPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: members } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('is_banned', false)
+    .order('full_name');
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold">Anggota Kelas</h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {(members ?? []).map((m: any) => (
+            <div key={m.user_id} className="anim-fade-up bg-card border border-line rounded-2xl p-4 text-center">
+              {m.avatar_url ? (
+                <img src={m.avatar_url} alt="" className="h-16 w-16 rounded-full object-cover mx-auto border border-line" />
+              ) : (
+                <div className="h-16 w-16 rounded-full bg-line-2 flex items-center justify-center text-xl font-bold mx-auto">
+                  {m.full_name.charAt(0)}
+                </div>
+              )}
+              <div className="font-semibold text-sm mt-2 truncate">{m.full_name}</div>
+              <div className="text-xs text-mut">@{m.username}</div>
+              <div className="text-[10px] uppercase text-acc mt-1">{m.role}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part Z done: identitas home + bg png + avatar + lightbox fullscreen');
+
+// === PART Z2: BG KE BUCKET GALLERY + LIMIT NAIK ===
+
+wf('lib/auth/settings-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function getClassSettings() {
+  const admin = createAdminClient();
+  const { data } = await admin.from('class_settings').select('*').limit(1);
+  return data && data.length > 0 ? data[0] : null;
+}
+
+export async function saveClassSettings(formData: FormData) {
+  await requireRole('admin');
+  const class_name = String(formData.get('class_name') || '').trim();
+  const subtitle = String(formData.get('subtitle') || '').trim();
+  const teacher_name = String(formData.get('teacher_name') || '').trim();
+  const school_year = String(formData.get('school_year') || '').trim();
+  const remove_bg = formData.get('remove_bg') === 'on';
+  if (!class_name) return { error: 'Nama kelas wajib diisi.' };
+  const admin = createAdminClient();
+
+  let logo_url: string | null = null;
+  const file = formData.get('logo') as File | null;
+  if (file && file.size > 0) {
+    if (!file.type.startsWith('image/')) return { error: 'Logo harus gambar.' };
+    if (file.size > 2 * 1024 * 1024) return { error: 'Logo maksimal 2MB.' };
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('avatars')
+      .upload('class/logo.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload logo gagal: ' + upErr.message };
+    logo_url = admin.storage.from('avatars').getPublicUrl('class/logo.' + ext).data.publicUrl;
+  }
+
+  let bg_url: string | null = null;
+  const bgFile = formData.get('bg') as File | null;
+  if (bgFile && bgFile.size > 0) {
+    if (!bgFile.type.startsWith('image/')) return { error: 'Background harus gambar.' };
+    if (bgFile.size > 10 * 1024 * 1024) return { error: 'Background maksimal 10MB.' };
+    const ext = bgFile.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await bgFile.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('gallery')
+      .upload('class/bg.' + ext, buf, { contentType: bgFile.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload background gagal: ' + upErr.message };
+    bg_url = admin.storage.from('gallery').getPublicUrl('class/bg.' + ext).data.publicUrl;
+  }
+
+  const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
+  const payload: any = {
+    class_name,
+    subtitle: subtitle || null,
+    teacher_name: teacher_name || null,
+    school_year: school_year || null,
+  };
+  if (logo_url) payload.logo_url = logo_url;
+  if (bg_url) payload.bg_url = bg_url;
+  if (remove_bg) payload.bg_url = null;
+  const { error } = existing
+    ? await admin.from('class_settings').update(payload).eq('id', existing.id)
+    : await admin.from('class_settings').insert(payload);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+console.log('[OK] Part Z2 done: bg ke bucket gallery + limit 10MB');
+
+// === PART Z3: BG KELIHATAN + CROP AVATAR + FEED 4:5 ===
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
+  ];
+
+  return (
+    <AppLayout profile={user.profile}>
+      {s?.bg_url && (
+        <div className="fixed inset-0 -z-10 pointer-events-none">
+          <img src={s.bg_url} alt="" className="w-full h-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-bg/20 via-bg/50 to-bg" />
+        </div>
+      )}
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-5 space-y-1">
+          <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+          <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+          {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+          {(s?.teacher_name || s?.school_year) && (
+            <div className="text-xs text-mut">
+              {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+              {s.teacher_name && s.school_year ? ' • ' : ''}
+              {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+            </div>
+          )}
+        </section>
+
+        <div>
+          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h2 className="text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {stats.map((st) => (
+            <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4">
+              <div className={'inline-flex p-2.5 rounded-xl mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
+              </div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-2xl font-bold">{st.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-acc" />
+              Jadwal Hari Ini
+            </h3>
+            {(schedules?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+              Tugas Aktif
+            </h3>
+            {(tasks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-mut">{t.subject}</div>
+                    <div className="text-xs text-[#fb923c] mt-1">
+                      Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(announcements?.length ?? 0) > 0 && (
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Megaphone className="h-5 w-5 text-blue-400" />
+              Pengumuman
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <button
+          onClick={() => setOpen(0)}
+          className="mb-3 w-full rounded-xl overflow-hidden border border-line bg-card-2"
+          aria-label="Lihat detail"
+        >
+          {isVideo(urls[0]) ? (
+            <video src={urls[0]} muted preload="metadata" playsInline className="w-full aspect-[4/5] object-cover" />
+          ) : (
+            <img src={urls[0]} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+          )}
+        </button>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setOpen(i)}
+              className="snap-center shrink-0 w-full"
+              aria-label="Lihat detail"
+            >
+              {isVideo(url) ? (
+                <video src={url} muted preload="metadata" playsInline className="w-full aspect-[4/5] object-cover" />
+              ) : (
+                <img src={url} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { UserCog, KeyRound, Camera, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+function CropModal({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    const S = 320;
+    c.width = S;
+    c.height = S;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = S / 2 - pos.x * dw;
+    const dy = S / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const S = 320;
+    const base = Math.max(S / img.width, S / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - (e.clientX - d.sx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - (e.clientY - d.sy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'avatar.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.9);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Atur Foto</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-full aspect-square rounded-xl border border-line touch-none cursor-move"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser foto buat atur posisi, zoom buat ukuran.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Simpan Foto
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); setAvatarUrl(p.avatar_url); }
+    })();
+  }, []);
+
+  async function uploadAvatar(file: File) {
+    if (!profile) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error: upErr } = await supabase.storage.from('avatars').upload(profile.user_id + '/avatar.jpg', file, { upsert: true, contentType: 'image/jpeg' });
+    if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(profile.user_id + '/avatar.jpg').data.publicUrl;
+    const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan foto: ' + error.message); return; }
+    setAvatarUrl(url);
+    setMsg('Foto profil tersimpan ✓');
+    router.refresh();
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓'); setPw(''); setPw2(''); }
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover border border-line" />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-line-2 flex items-center justify-center text-xl font-bold">
+                {profile.full_name.charAt(0)}
+              </div>
+            )}
+            <div className="flex-1">
+              <div className="text-sm font-semibold">{profile.full_name}</div>
+              <div className="text-xs text-mut">@{profile.username} • <span className="uppercase text-acc">{profile.role}</span></div>
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold cursor-pointer hover:bg-line-2">
+            <Camera className="h-4 w-4" />
+            Ganti Foto Profil
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setCropFile(f);
+              }}
+            />
+          </label>
+          {busy && <div className="text-xs text-mut">Menyimpan...</div>}
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-semibold">Nama Tampilan</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <KeyRound className="h-4 w-4 text-acc" />
+            Ganti Password
+          </div>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 6 karakter)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="w-full py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+
+      {cropFile && (
+        <CropModal
+          file={cropFile}
+          onClose={() => setCropFile(null)}
+          onDone={(f) => {
+            setCropFile(null);
+            uploadAvatar(f);
+          }}
+        />
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part Z3 done: bg visible + crop avatar + feed 4:5');
+
+// === PART Z4: BG Z-INDEX FIX + GIF ADMIN + RAINBOW + CROP GUIDE ===
+
+wf('app/globals.css', `@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-card: var(--t-card);
+  --color-card-2: var(--t-card2);
+  --color-line: var(--t-line);
+  --color-line-2: var(--t-line2);
+  --color-ink: var(--t-ink);
+  --color-ink-soft: var(--t-inksoft);
+  --color-mut: var(--t-mut);
+  --color-acc: var(--t-acc);
+  --color-acc-2: var(--t-acc2);
+  --color-acc-strong: var(--t-accstrong);
+  --color-acc-ink: var(--t-accink);
+  --color-warn: var(--t-warn);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root, [data-theme="dark"] {
+  --t-bg: #0a0a0a;
+  --t-card: #161616;
+  --t-card2: #0f0f0f;
+  --t-line: #2a2a2a;
+  --t-line2: #3a3a3a;
+  --t-ink: #ffffff;
+  --t-inksoft: #e5e7eb;
+  --t-mut: #9ca3af;
+  --t-acc: #a3e635;
+  --t-acc2: #2dd4bf;
+  --t-accstrong: #84cc16;
+  --t-accink: #0a0a0a;
+  --t-warn: #fef3c7;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --t-bg: #f4f6f7;
+  --t-card: #ffffff;
+  --t-card2: #eef1f2;
+  --t-line: #e2e6e9;
+  --t-line2: #cfd6db;
+  --t-ink: #0f172a;
+  --t-inksoft: #1f2937;
+  --t-mut: #64748b;
+  --t-acc: #4d7c0f;
+  --t-acc2: #0f766e;
+  --t-accstrong: #3f6212;
+  --t-accink: #ffffff;
+  --t-warn: #b45309;
+  color-scheme: light;
+}
+
+html, body {
+  background-color: var(--t-bg);
+  color: var(--t-ink);
+  font-family: var(--font-sans);
+}
+
+body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--t-acc) 13%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, var(--t-acc2) 11%, transparent), transparent 60%);
+  background-attachment: fixed;
+}
+
+html[data-bg="ocean"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #38bdf8 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #2dd4bf 13%, transparent), transparent 60%);
+}
+html[data-bg="sunset"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #fb923c 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #f472b6 13%, transparent), transparent 60%);
+}
+html[data-bg="forest"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #4ade80 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #a3e635 13%, transparent), transparent 60%);
+}
+html[data-bg="violet"] body {
+  background-image:
+    radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, #a78bfa 15%, transparent), transparent 60%),
+    radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, #f472b6 13%, transparent), transparent 60%);
+}
+
+.bg-acc {
+  background-image: linear-gradient(135deg, var(--t-acc), var(--t-acc2));
+}
+.hover\\:bg-acc-strong:hover {
+  background-image: linear-gradient(135deg, var(--t-accstrong), var(--t-acc2));
+}
+.bg-card {
+  background-image: linear-gradient(165deg, color-mix(in oklab, var(--t-card) 94%, var(--t-acc) 6%), var(--t-card) 60%);
+}
+.text-grad {
+  background-image: linear-gradient(90deg, var(--t-acc), var(--t-acc2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rainbow-text {
+  background-image: linear-gradient(90deg, #f43f5e, #f59e0b, #a3e635, #2dd4bf, #3b82f6, #a78bfa, #f43f5e);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rainbowMove 3s linear infinite;
+}
+@keyframes rainbowMove {
+  from { background-position: 0% 50%; }
+  to { background-position: 300% 50%; }
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--t-bg); }
+::-webkit-scrollbar-thumb { background: var(--t-line2); border-radius: 4px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.anim-fade-up { animation: fadeUp 0.45s ease both; }
+.heart-pop { animation: heartPop 0.35s ease; }
+
+.space-y-4 > * { animation: fadeUp 0.45s ease both; }
+.space-y-4 > *:nth-child(2) { animation-delay: 60ms; }
+.space-y-4 > *:nth-child(3) { animation-delay: 120ms; }
+.space-y-4 > *:nth-child(4) { animation-delay: 180ms; }
+.space-y-4 > *:nth-child(5) { animation-delay: 240ms; }
+.space-y-4 > *:nth-child(n+6) { animation-delay: 300ms; }
+
+.fixed.inset-0 { animation: fadeIn 0.2s ease both; }
+.fixed.inset-0 > * { animation: popIn 0.25s ease both; }
+
+body, aside, header, nav {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover border border-line" />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-line-2 flex items-center justify-center text-sm font-bold">
+                {profile.full_name.charAt(0)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <div className="rainbow-text text-xs font-bold uppercase">The Admin</div>
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            {profile.avatar_url && <img src={profile.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover border border-line" />}
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
+  ];
+
+  return (
+    <AppLayout profile={user.profile}>
+      {s?.bg_url && (
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <img src={s.bg_url} alt="" className="w-full h-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-bg/20 via-bg/50 to-bg" />
+        </div>
+      )}
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-5 space-y-1">
+          <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+          <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+          {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+          {(s?.teacher_name || s?.school_year) && (
+            <div className="text-xs text-mut">
+              {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+              {s.teacher_name && s.school_year ? ' • ' : ''}
+              {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+            </div>
+          )}
+        </section>
+
+        <div>
+          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h2 className="text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {stats.map((st) => (
+            <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4">
+              <div className={'inline-flex p-2.5 rounded-xl mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
+              </div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-2xl font-bold">{st.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-acc" />
+              Jadwal Hari Ini
+            </h3>
+            {(schedules?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+              Tugas Aktif
+            </h3>
+            {(tasks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-mut">{t.subject}</div>
+                    <div className="text-xs text-[#fb923c] mt-1">
+                      Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(announcements?.length ?? 0) > 0 && (
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Megaphone className="h-5 w-5 text-blue-400" />
+              Pengumuman
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { UserCog, KeyRound, Camera, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+function CropModal({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    const S = 320;
+    c.width = S;
+    c.height = S;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = S / 2 - pos.x * dw;
+    const dy = S / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const S = 320;
+    const base = Math.max(S / img.width, S / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - (e.clientX - d.sx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - (e.clientY - d.sy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'avatar.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.9);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Atur Foto (1:1)</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="relative">
+          <canvas
+            ref={canvasRef}
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={up}
+            className="w-full aspect-square rounded-xl border border-line touch-none cursor-move"
+          />
+          <div className="absolute inset-0 pointer-events-none rounded-full border-2 border-white/80 z-10" />
+        </div>
+        <div className="relative z-20 flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="relative z-20 text-xs text-mut">Geser foto buat atur posisi di dalam lingkaran, zoom buat ukuran.</p>
+        <button onClick={save} className="relative z-20 w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Simpan Foto
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); setAvatarUrl(p.avatar_url); }
+    })();
+  }, []);
+
+  async function uploadAvatar(file: File, ext: string) {
+    if (!profile) return;
+    setBusy(true); setMsg(''); setErr('');
+    const path = profile.user_id + '/avatar.' + ext;
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const { error } = await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan foto: ' + error.message); return; }
+    setAvatarUrl(url);
+    setMsg('Foto profil tersimpan ✓');
+    router.refresh();
+  }
+
+  function onPick(f: File) {
+    setErr('');
+    if (f.type === 'image/gif') {
+      if (profile.role !== 'admin') { setErr('GIF khusus role admin.'); return; }
+      if (f.size > 5 * 1024 * 1024) { setErr('GIF maksimal 5MB.'); return; }
+      uploadAvatar(f, 'gif');
+      return;
+    }
+    if (!f.type.startsWith('image/')) { setErr('File harus gambar.'); return; }
+    setCropFile(f);
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓'); setPw(''); setPw2(''); }
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover border border-line" />
+            ) : (
+              <div className="h-16 w-16 rounded-full bg-line-2 flex items-center justify-center text-xl font-bold">
+                {profile.full_name.charAt(0)}
+              </div>
+            )}
+            <div className="flex-1">
+              <div className="text-sm font-semibold">{profile.full_name}</div>
+              <div className="text-xs text-mut">@{profile.username} • <span className="uppercase text-acc">{profile.role}</span></div>
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold cursor-pointer hover:bg-line-2">
+            <Camera className="h-4 w-4" />
+            Ganti Foto Profil (GIF khusus admin)
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPick(f);
+              }}
+            />
+          </label>
+          {busy && <div className="text-xs text-mut">Menyimpan...</div>}
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-semibold">Nama Tampilan</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <KeyRound className="h-4 w-4 text-acc" />
+            Ganti Password
+          </div>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 6 karakter)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="w-full py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+
+      {cropFile && (
+        <CropModal
+          file={cropFile}
+          onClose={() => setCropFile(null)}
+          onDone={(f) => {
+            setCropFile(null);
+            uploadAvatar(f, 'jpg');
+          }}
+        />
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part Z4 done: bg z-index + gif admin + rainbow + crop guide');
+
+// === PART Z5: THE ADMIN EVERYWHERE + BG BULLETPROOF + GIF EDITOR ===
+
+wf('components/Avatar.tsx', `export default function Avatar({ data, className }: { data: any; className?: string }) {
+  const size = className || 'h-10 w-10';
+  if (!data?.avatar_url) {
+    return (
+      <div className={'rounded-full bg-line-2 flex items-center justify-center font-bold shrink-0 ' + size}>
+        {(data?.full_name || 'U').charAt(0)}
+      </div>
+    );
+  }
+  const z = data.avatar_zoom && Number(data.avatar_zoom) > 1 ? Number(data.avatar_zoom) : 1;
+  const style =
+    z > 1
+      ? {
+          transform:
+            'scale(' + z + ') translate(' + ((0.5 - Number(data.avatar_x ?? 0.5)) * 100) + '%, ' + ((0.5 - Number(data.avatar_y ?? 0.5)) * 100) + '%)',
+        }
+      : undefined;
+  return (
+    <div className={'relative overflow-hidden rounded-full shrink-0 ' + size}>
+      <img src={data.avatar_url} alt="" className="h-full w-full object-cover" style={style} />
+    </div>
+  );
+}
+`);
+
+wf('components/AdminTag.tsx', `export default function AdminTag({ role, className }: { role: string; className?: string }) {
+  if (role !== 'admin') return null;
+  return <span className={'rainbow-text font-bold uppercase ' + (className || 'text-[10px]')}>The Admin</span>;
+}
+`);
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
+  ];
+
+  const bgStyle = s?.bg_url
+    ? { backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }
+    : undefined;
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="relative max-w-5xl mx-auto px-4 py-6" style={bgStyle}>
+        {s?.bg_url && <div className="absolute inset-0 bg-bg/70 pointer-events-none" />}
+        <div className="relative space-y-6">
+          <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-5 space-y-1">
+            <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+            <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+            {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+            {(s?.teacher_name || s?.school_year) && (
+              <div className="text-xs text-mut">
+                {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+                {s.teacher_name && s.school_year ? ' • ' : ''}
+                {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+              </div>
+            )}
+          </section>
+
+          <div>
+            <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            <h2 className="text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {stats.map((st) => (
+              <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4">
+                <div className={'inline-flex p-2.5 rounded-xl mb-3 ' + st.bg}>
+                  <st.Icon className={'h-5 w-5 ' + st.color} />
+                </div>
+                <div className="text-xs text-mut">{st.label}</div>
+                <div className="text-2xl font-bold">{st.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <Calendar className="h-5 w-5 text-acc" />
+                Jadwal Hari Ini
+              </h3>
+              {(schedules?.length ?? 0) === 0 ? (
+                <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+              ) : (
+                <div className="space-y-2">
+                  {schedules?.map((sc: any) => (
+                    <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                      <div className="text-sm font-bold text-acc min-w-[90px]">
+                        {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                      </div>
+                      <div className="flex-1 text-sm">{sc.subject}</div>
+                      {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+                Tugas Aktif
+              </h3>
+              {(tasks?.length ?? 0) === 0 ? (
+                <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+              ) : (
+                <div className="space-y-2">
+                  {tasks?.map((t: any) => (
+                    <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                      <div className="text-sm font-semibold">{t.title}</div>
+                      <div className="text-xs text-mut">{t.subject}</div>
+                      <div className="text-xs text-[#fb923c] mt-1">
+                        Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {(announcements?.length ?? 0) > 0 && (
+            <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <Megaphone className="h-5 w-5 text-blue-400" />
+                Pengumuman
+              </h3>
+              <div className="space-y-2">
+                {announcements?.map((a: any) => (
+                  <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                    <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                    <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import LikeButton from '@/components/feed/LikeButton';
+import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
+import StoryBar from '@/components/feed/StoryBar';
+import PostModMenu from '@/components/feed/PostModMenu';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+  const isAdmin = user.profile.role === 'admin';
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postIds = (posts ?? []).map((p: any) => p.id);
+  let likes: any[] = [];
+  let commentRows: any[] = [];
+  if (postIds.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+    likes = l.data ?? [];
+    commentRows = c.data ?? [];
+  }
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  for (const l of likes) {
+    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
+    if (l.user_id === user.id) likedByMe[l.target_id] = true;
+  }
+  const commentCounts: Record<string, number> = {};
+  for (const c of commentRows) {
+    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-medium hover:bg-acc-strong transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        {(posts?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-mut">
+            <p className="text-lg mb-2">Belum ada postingan</p>
+            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(posts ?? []).map((post: any) => (
+              <div key={post.id} className="bg-card border border-line rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Avatar data={post.profiles} className="h-10 w-10" />
+                  <div className="flex-1">
+                    <div className="font-semibold flex items-center gap-2">
+                      {post.profiles?.full_name}
+                      <AdminTag role={post.profiles?.role} />
+                    </div>
+                    <div className="text-xs text-mut">@{post.profiles?.username}</div>
+                  </div>
+                  {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
+                </div>
+                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+                <div className="flex items-center gap-4 pt-3 border-t border-line">
+                  <LikeButton
+                    postId={post.id}
+                    userId={user.id}
+                    initialCount={likeCounts[post.id] ?? 0}
+                    initialLiked={!!likedByMe[post.id]}
+                    ownerId={post.user_id}
+                    actorName={user.profile.full_name}
+                  />
+                  <CommentButton
+                    postId={post.id}
+                    userId={user.id}
+                    count={commentCounts[post.id] ?? 0}
+                    postOwnerId={post.user_id}
+                    actorName={user.profile.full_name}
+                    isStaff={isStaff}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/feed/CommentsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { deleteCommentAdmin } from '@/lib/auth/moderation-actions';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import { X, Send, Trash2 } from 'lucide-react';
+
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName, isStaff }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string; isStaff: boolean }) {
+  const supabase = createClient();
+  const [comments, setComments] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [err, setErr] = useState('');
+
+  async function load() {
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(*)')
+      .eq('post_id', postId)
+      .order('created_at');
+    setComments(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [postId]);
+
+  async function submit() {
+    if (!text.trim()) return;
+    setErr('');
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: userId,
+      content: text.trim(),
+      parent_id: replyTo ? replyTo.id : null,
+    });
+    if (error) { setErr('Gagal kirim: ' + error.message); return; }
+    const target = replyTo ? replyTo.user_id : postOwnerId;
+    if (target && target !== userId) {
+      await supabase.from('notifications').insert({
+        user_id: target,
+        type: 'comment',
+        title: actorName + (replyTo ? ' membalas komentarmu' : ' mengomentari postinganmu'),
+        actor_id: userId,
+        target_type: 'post',
+        target_id: postId,
+      });
+    }
+    setText('');
+    setReplyTo(null);
+    load();
+  }
+
+  async function del(id: string, ownerId: string) {
+    if (ownerId === userId) {
+      const { error } = await supabase.from('comments').delete().eq('id', id);
+      if (!error) load();
+    } else {
+      const res = await deleteCommentAdmin(id);
+      if (res && res.error) setErr('Gagal hapus: ' + res.error);
+      else load();
+    }
+  }
+
+  const top = comments.filter((c) => !c.parent_id);
+  const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
+      <div className="bg-card w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-line">
+          <h3 className="font-semibold text-ink">Komentar</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+          {top.length === 0 ? (
+            <p className="text-center text-mut py-8 text-sm">Belum ada komentar. Mulai diskusi!</p>
+          ) : (
+            top.map((c) => (
+              <div key={c.id}>
+                <div className="flex gap-3">
+                  <Avatar data={c.profiles} className="h-8 w-8" />
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-card-2 rounded-2xl rounded-tl-sm px-3 py-2">
+                      <div className="text-xs font-semibold mb-0.5 text-ink flex items-center gap-2">
+                        {c.profiles?.full_name}
+                        <AdminTag role={c.profiles?.role} />
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap text-ink-soft">{c.content}</div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 ml-2 text-xs text-mut">
+                      <button onClick={() => setReplyTo(c)} className="hover:text-ink">Balas</button>
+                      {(c.user_id === userId || isStaff) && (
+                        <button onClick={() => del(c.id, c.user_id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
+                          <Trash2 className="h-3 w-3" /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="ml-11 mt-2 space-y-2">
+                  {repliesOf(c.id).map((r) => (
+                    <div key={r.id} className="flex gap-3">
+                      <Avatar data={r.profiles} className="h-7 w-7" />
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-card-2 rounded-2xl rounded-tl-sm px-3 py-2">
+                          <div className="text-xs font-semibold mb-0.5 text-ink flex items-center gap-2">
+                            {r.profiles?.full_name}
+                            <AdminTag role={r.profiles?.role} />
+                          </div>
+                          <div className="text-sm whitespace-pre-wrap text-ink-soft">{r.content}</div>
+                        </div>
+                        {(r.user_id === userId || isStaff) && (
+                          <div className="ml-2 mt-1">
+                            <button onClick={() => del(r.id, r.user_id)} className="text-xs text-red-400">Hapus</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="p-3 border-t border-line">
+          {replyTo && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-mut">
+              <span>Membalas {replyTo.profiles?.full_name}</span>
+              <button onClick={() => setReplyTo(null)} className="text-mut hover:text-ink"><X className="h-3 w-3" /></button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Tulis komentar..."
+              className="flex-1 px-4 py-2 rounded-full bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <button onClick={submit} disabled={!text.trim()} className="p-2 rounded-full bg-acc text-acc-ink disabled:opacity-30" aria-label="Kirim">
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/members/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+
+export default async function MembersPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: members } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('is_banned', false)
+    .order('full_name');
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold">Anggota Kelas</h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {(members ?? []).map((m: any) => (
+            <div key={m.user_id} className="anim-fade-up bg-card border border-line rounded-2xl p-4 text-center">
+              <Avatar data={m} className="h-16 w-16 mx-auto text-xl" />
+              <div className="font-semibold text-sm mt-2 truncate flex items-center justify-center gap-2">
+                {m.full_name}
+                <AdminTag role={m.role} />
+              </div>
+              <div className="text-xs text-mut">@{m.username}</div>
+              {m.role !== 'admin' && <div className="text-[10px] uppercase text-acc mt-1">{m.role}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/chat/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import ChatRoom from '@/components/chat/ChatRoom';
+
+export default async function ChatPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const [{ data: messages }, { data: profs }] = await Promise.all([
+    supabase
+      .from('chat_messages')
+      .select('id, user_id, content, media_url, media_type, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase.from('profiles').select('user_id, full_name, role'),
+  ]);
+
+  const names: Record<string, string> = {};
+  const roles: Record<string, string> = {};
+  for (const p of profs ?? []) {
+    names[p.user_id] = p.full_name;
+    roles[p.user_id] = p.role;
+  }
+  const initial = (messages ?? []).reverse();
+
+  return (
+    <AppLayout profile={user.profile}>
+      <ChatRoom userId={user.id} initial={initial} names={names} roles={roles} />
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/chat/ChatRoom.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Send, Loader2, MessageCircle, Image as ImageIcon, X } from 'lucide-react';
+import Lightbox from '@/components/feed/Lightbox';
+import AdminTag from '@/components/AdminTag';
+
+type Msg = {
+  id: string;
+  user_id: string;
+  content: string | null;
+  media_url: string | null;
+  created_at: string;
+};
+
+export default function ChatRoom({ userId, initial, names, roles }: { userId: string; initial: Msg[]; names: Record<string, string>; roles: Record<string, string> }) {
+  const supabase = createClient();
+  const [messages, setMessages] = useState<Msg[]>(initial);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState('');
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('chat-room')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload: any) => {
+          const row = payload.new as Msg;
+          setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function send() {
+    if ((!text.trim() && !pendingFile) || sending) return;
+    setSending(true);
+    setErr('');
+    try {
+      let media_url: string | null = null;
+      if (pendingFile) {
+        if (!pendingFile.type.startsWith('image/')) { setErr('Hanya file gambar.'); setSending(false); return; }
+        if (pendingFile.size > 10 * 1024 * 1024) { setErr('Foto maksimal 10MB.'); setSending(false); return; }
+        const id = crypto.randomUUID();
+        const ext = pendingFile.name.split('.').pop() || 'jpg';
+        const path = userId + '/' + id + '.' + ext;
+        const { error: upErr } = await supabase.storage.from('chat').upload(path, pendingFile, { upsert: true });
+        if (upErr) { setErr('Upload gagal: ' + upErr.message); setSending(false); return; }
+        media_url = supabase.storage.from('chat').getPublicUrl(path).data.publicUrl;
+      }
+      const { error } = await supabase.from('chat_messages').insert({
+        user_id: userId,
+        content: text.trim() || null,
+        media_url,
+        media_type: media_url ? 'image' : null,
+      });
+      if (error) { setErr('Gagal kirim: ' + error.message); setSending(false); return; }
+      setText('');
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch {
+      setErr('Terjadi kesalahan.');
+    }
+    setSending(false);
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="bg-card border border-line rounded-2xl flex flex-col h-[calc(100vh-140px)]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
+          <MessageCircle className="h-5 w-5 text-acc" />
+          <div>
+            <div className="font-semibold text-ink text-sm">Chat Kelas</div>
+            <div className="text-xs text-mut">Realtime • semua anggota</div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <p className="text-center text-mut text-sm py-8">Belum ada pesan. Sapa kelas lu!</p>
+          )}
+          {messages.map((m) => {
+            const own = m.user_id === userId;
+            return (
+              <div key={m.id} className={'flex ' + (own ? 'justify-end' : 'justify-start')}>
+                <div
+                  className={
+                    'max-w-[75%] rounded-2xl px-3 py-2 ' +
+                    (own ? 'bg-acc text-acc-ink rounded-br-sm' : 'bg-card-2 border border-line rounded-bl-sm')
+                  }
+                >
+                  {!own && (
+                    <div className="text-xs font-semibold mb-0.5 text-acc flex items-center gap-2">
+                      {names[m.user_id] || 'Warga Kelas'}
+                      <AdminTag role={roles[m.user_id] || ''} />
+                    </div>
+                  )}
+                  {m.media_url && (
+                    <button onClick={() => setLightbox(m.media_url)} className="block mb-1 rounded-xl overflow-hidden" aria-label="Lihat foto">
+                      <img src={m.media_url} alt="" loading="lazy" className="max-h-64 w-full object-contain rounded-xl" />
+                    </button>
+                  )}
+                  {m.content && <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>}
+                  <div className={'text-[10px] mt-1 ' + (own ? 'text-acc-ink/60' : 'text-mut')}>
+                    {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={endRef} />
+        </div>
+
+        <div className="p-3 border-t border-line">
+          {err && <div className="text-xs text-red-400 mb-2">{err}</div>}
+          {pendingFile && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-mut">
+              <ImageIcon className="h-4 w-4 text-acc" />
+              <span className="truncate">{pendingFile.name}</span>
+              <button onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-mut hover:text-ink" aria-label="Hapus foto">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="p-2.5 rounded-full bg-card-2 border border-line text-mut hover:text-ink"
+              aria-label="Kirim foto"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
+            />
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && send()}
+              placeholder="Tulis pesan..."
+              className="flex-1 px-4 py-2.5 rounded-full bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <button
+              onClick={send}
+              disabled={!text.trim() && !pendingFile ? true : sending}
+              className="p-2.5 rounded-full bg-acc text-acc-ink disabled:opacity-30"
+              aria-label="Kirim pesan"
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {lightbox && <Lightbox urls={[lightbox]} index={0} onClose={() => setLightbox(null)} />}
+    </div>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import { UserCog, KeyRound, Camera, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+function CropModal({ file, onDone, onCrop, onClose }: { file: File; onDone: (f: File) => void; onCrop: (p: { zoom: number; x: number; y: number }) => void; onClose: () => void }) {
+  const isGif = file.type === 'image/gif';
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img || isGif) return;
+    const S = 320;
+    c.width = S;
+    c.height = S;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = S / 2 - pos.x * dw;
+    const dy = S / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const S = 320;
+    const base = Math.max(S / img.width, S / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - (e.clientX - d.sx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - (e.clientY - d.sy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  const gifStyle = {
+    transform: 'scale(' + zoom + ') translate(' + ((0.5 - pos.x) * 100) + '%, ' + ((0.5 - pos.y) * 100) + '%)',
+  };
+
+  function save() {
+    if (isGif) {
+      onCrop({ zoom, x: pos.x, y: pos.y });
+      return;
+    }
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'avatar.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.9);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Atur Foto (1:1){isGif ? ' — GIF' : ''}</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="relative">
+          {isGif ? (
+            <div className="w-full aspect-square rounded-xl border border-line overflow-hidden bg-card-2">
+              <img
+                src={previewUrl}
+                alt=""
+                onPointerDown={down}
+                onPointerMove={move}
+                onPointerUp={up}
+                className="h-full w-full object-cover touch-none cursor-move"
+                style={gifStyle}
+              />
+            </div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              onPointerDown={down}
+              onPointerMove={move}
+              onPointerUp={up}
+              className="w-full aspect-square rounded-xl border border-line touch-none cursor-move"
+            />
+          )}
+          <div className="absolute inset-0 pointer-events-none rounded-full border-2 border-white/80 z-10" />
+        </div>
+        <div className="relative z-20 flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="relative z-20 text-xs text-mut">Geser foto buat atur posisi di dalam lingkaran, zoom buat ukuran.</p>
+        <button onClick={save} className="relative z-20 w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          {isGif ? 'Simpan GIF' : 'Simpan Foto'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); }
+    })();
+  }, []);
+
+  async function uploadAvatar(file: File, ext: string, params: { zoom: number; x: number; y: number } | null) {
+    if (!profile) return;
+    setBusy(true); setMsg(''); setErr('');
+    const path = profile.user_id + '/avatar.' + ext;
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const payload: any = { avatar_url: url };
+    if (params) {
+      payload.avatar_zoom = params.zoom;
+      payload.avatar_x = params.x;
+      payload.avatar_y = params.y;
+    } else {
+      payload.avatar_zoom = 1;
+      payload.avatar_x = 0.5;
+      payload.avatar_y = 0.5;
+    }
+    const { error } = await supabase.from('profiles').update(payload).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan foto: ' + error.message); return; }
+    setProfile({ ...profile, ...payload });
+    setMsg('Foto profil tersimpan ✓');
+    router.refresh();
+  }
+
+  function onPick(f: File) {
+    setErr('');
+    if (f.type === 'image/gif') {
+      if (profile.role !== 'admin') { setErr('GIF khusus role admin.'); return; }
+      if (f.size > 5 * 1024 * 1024) { setErr('GIF maksimal 5MB.'); return; }
+    } else if (!f.type.startsWith('image/')) {
+      setErr('File harus gambar.');
+      return;
+    }
+    setCropFile(f);
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓'); setPw(''); setPw2(''); }
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <Avatar data={profile} className="h-16 w-16" />
+            <div className="flex-1">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                {profile.full_name}
+                <AdminTag role={profile.role} className="text-xs" />
+              </div>
+              <div className="text-xs text-mut">@{profile.username} • <span className="uppercase text-acc">{profile.role}</span></div>
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold cursor-pointer hover:bg-line-2">
+            <Camera className="h-4 w-4" />
+            Ganti Foto Profil (GIF khusus admin)
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPick(f);
+              }}
+            />
+          </label>
+          {busy && <div className="text-xs text-mut">Menyimpan...</div>}
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-semibold">Nama Tampilan</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <KeyRound className="h-4 w-4 text-acc" />
+            Ganti Password
+          </div>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 6 karakter)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="w-full py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+
+      {cropFile && (
+        <CropModal
+          file={cropFile}
+          onClose={() => setCropFile(null)}
+          onDone={(f) => {
+            setCropFile(null);
+            uploadAvatar(f, 'jpg', null);
+          }}
+          onCrop={(p) => {
+            const f = cropFile;
+            setCropFile(null);
+            uploadAvatar(f, 'gif', p);
+          }}
+        />
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part Z5 done: the admin everywhere + bg bulletproof + gif editor');
+
+// === PART Z6: BG FULLSCREEN + TOGGLE PINDAH + AVATAR HD + TAB PORTOFOLIO ===
+
+wf('components/ThemeToggle.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
+
+export default function ThemeToggle() {
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+  }, []);
+
+  function toggle() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ch-theme', next); } catch (e) {}
+    setTheme(next);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="fixed top-16 right-3 md:top-3 md:right-3 z-30 p-2.5 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
+      aria-label="Ganti mode gelap/terang"
+    >
+      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
+  );
+}
+`);
+
+wf('components/BackgroundPicker.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Palette } from 'lucide-react';
+
+const BGS = [
+  { id: 'default', label: 'Default', c1: '#a3e635', c2: '#2dd4bf' },
+  { id: 'ocean', label: 'Ocean', c1: '#38bdf8', c2: '#2dd4bf' },
+  { id: 'sunset', label: 'Sunset', c1: '#fb923c', c2: '#f472b6' },
+  { id: 'forest', label: 'Forest', c1: '#4ade80', c2: '#a3e635' },
+  { id: 'violet', label: 'Violet', c1: '#a78bfa', c2: '#f472b6' },
+];
+
+export default function BackgroundPicker() {
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState('default');
+
+  useEffect(() => {
+    setCur(document.documentElement.getAttribute('data-bg') || 'default');
+  }, []);
+
+  function pick(id: string) {
+    if (id === 'default') document.documentElement.removeAttribute('data-bg');
+    else document.documentElement.setAttribute('data-bg', id);
+    try { localStorage.setItem('ch-bg', id); } catch (e) {}
+    setCur(id);
+    setOpen(false);
+  }
+
+  return (
+    <div className="fixed top-16 right-16 md:top-3 md:right-16 z-30">
+      {open && (
+        <div className="absolute right-0 top-12 bg-card border border-line rounded-2xl p-3 space-y-1 shadow-xl w-40">
+          {BGS.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => pick(b.id)}
+              className={'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ' + (cur === b.id ? 'bg-line text-ink' : 'text-mut hover:text-ink')}
+            >
+              <span className="h-4 w-4 rounded-full shrink-0" style={{ backgroundImage: 'linear-gradient(135deg, ' + b.c1 + ', ' + b.c2 + ')' }} />
+              {b.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-2.5 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
+        aria-label="Ganti background"
+      >
+        <Palette className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+`);
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
+  ];
+
+  return (
+    <AppLayout profile={user.profile}>
+      {s?.bg_url && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{ backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 0 }}
+        />
+      )}
+      {s?.bg_url && <div className="fixed inset-0 pointer-events-none bg-bg/60" style={{ zIndex: 0 }} />}
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-5 space-y-1">
+          <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+          <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+          {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+          {(s?.teacher_name || s?.school_year) && (
+            <div className="text-xs text-mut">
+              {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+              {s.teacher_name && s.school_year ? ' • ' : ''}
+              {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+            </div>
+          )}
+        </section>
+
+        <div>
+          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h2 className="text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {stats.map((st) => (
+            <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4">
+              <div className={'inline-flex p-2.5 rounded-xl mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
+              </div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-2xl font-bold">{st.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-acc" />
+              Jadwal Hari Ini
+            </h3>
+            {(schedules?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+              Tugas Aktif
+            </h3>
+            {(tasks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-mut">{t.subject}</div>
+                    <div className="text-xs text-[#fb923c] mt-1">
+                      Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(announcements?.length ?? 0) > 0 && (
+          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Megaphone className="h-5 w-5 text-blue-400" />
+              Pengumuman
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/public/PortfolioSections.tsx', `import { ArrowRight, Image as ImageIcon, Music, MessageCircle, ClipboardList, Newspaper, Award, GraduationCap, MapPin } from 'lucide-react';
+import Link from 'next/link';
+
+export default function PortfolioSections({ s, media, teachers, achievements, journey, memberCount, postCount, albumCount, cta }: any) {
+  const features = [
+    { Icon: Newspaper, t: 'Feed Kelas', d: 'Postingan, foto, like & komentar' },
+    { Icon: MessageCircle, t: 'Chat Realtime', d: 'Ngobrol sekelas langsung' },
+    { Icon: ClipboardList, t: 'Tugas & Nilai', d: 'Kumpul tugas, terima feedback' },
+    { Icon: Music, t: 'Musik Kelas', d: 'Playlist bersama buat belajar' },
+  ];
+
+  return (
+    <>
+      <section className="py-14 text-center space-y-5">
+        <div className="text-xs uppercase tracking-[0.3em] text-mut">{s?.subtitle || 'Website resmi kelas'}</div>
+        <h1 className="text-4xl md:text-6xl font-bold text-grad leading-tight">{s?.class_name || 'ClassHub'}</h1>
+        <p className="max-w-xl mx-auto text-mut">
+          Satu tempat untuk feed, chat, tugas, galeri, dan musik kelas. Khusus warga kelas — pengunjung cukup menikmati portofolio ini.
+        </p>
+        {cta && (
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong">
+              Masuk ke Kelas
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-8 pt-4 text-center">
+          <div>
+            <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+            <div className="text-xs text-mut">Anggota</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{postCount ?? 0}</div>
+            <div className="text-xs text-mut">Postingan</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{albumCount ?? 0}</div>
+            <div className="text-xs text-mut">Album</div>
+          </div>
+        </div>
+      </section>
+
+      {s?.about && (
+        <section className="pb-14 max-w-3xl mx-auto text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3">Tentang Kelas</h2>
+          <p className="text-mut whitespace-pre-wrap leading-relaxed">{s.about}</p>
+        </section>
+      )}
+
+      {(teachers?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-acc" />
+            Guru & Wali Kelas
+          </h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {(teachers ?? []).map((t: any, i: number) => (
+              <div key={t.id} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 60 + 'ms' }}>
+                <div className="font-semibold text-sm">{t.name}</div>
+                {t.role && <div className="text-xs text-acc mt-1">{t.role}</div>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(achievements?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+            <Award className="h-4 w-4 text-acc" />
+            Prestasi
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {(achievements ?? []).map((a: any, i: number) => (
+              <div key={a.id} className="anim-fade-up flex items-center gap-3 bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 60 + 'ms' }}>
+                <Award className="h-5 w-5 text-acc shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{a.title}</div>
+                  <div className="text-xs text-mut">{[a.year, a.level].filter(Boolean).join(' • ')}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(journey?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-4 flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-acc" />
+            Perjalanan Kelas
+          </h2>
+          <div className="border-l-2 border-line ml-2 pl-6 space-y-6">
+            {(journey ?? []).map((j: any, i: number) => (
+              <div key={j.id} className="anim-fade-up relative" style={{ animationDelay: i * 60 + 'ms' }}>
+                <div className="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-acc" />
+                <div className="text-xs text-acc font-semibold">{j.period}</div>
+                <div className="font-semibold text-sm mt-0.5">{j.title}</div>
+                {j.story && <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{j.story}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(media?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+            <ImageIcon className="h-4 w-4 text-acc" />
+            Galeri Kelas
+          </h2>
+          <div className="columns-2 md:columns-4 gap-2">
+            {(media ?? []).map((m: any, i: number) => (
+              <img
+                key={i}
+                src={m.media_url}
+                alt=""
+                loading="lazy"
+                style={{ animationDelay: i * 60 + 'ms' }}
+                className="anim-fade-up mb-2 w-full rounded-xl border border-line"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="pb-16 grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+        {features.map((f, i) => (
+          <div key={f.t} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 70 + 'ms' }}>
+            <f.Icon className="h-5 w-5 text-acc mb-2" />
+            <div className="font-semibold text-sm">{f.t}</div>
+            <div className="text-xs text-mut mt-1">{f.d}</div>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+`);
+
+wf('app/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth/actions';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import PortfolioSections from '@/components/public/PortfolioSections';
+
+export default async function LandingPage() {
+  const user = await getUser();
+  if (user) redirect('/dashboard');
+  const supabase = await createClient();
+  const [
+    { data: settings },
+    { data: media },
+    { count: memberCount },
+    { count: postCount },
+    { count: albumCount },
+    { data: teachers },
+    { data: achievements },
+    { data: journey },
+  ] = await Promise.all([
+    supabase.from('class_settings').select('*').limit(1),
+    supabase.from('gallery_media').select('media_url').order('created_at', { ascending: false }).limit(8),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
+    supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
+    supabase.from('class_teachers').select('*').order('created_at'),
+    supabase.from('class_achievements').select('*').order('created_at'),
+    supabase.from('class_journey').select('*').order('created_at'),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  return (
+    <div className="min-h-screen text-ink">
+      <header className="max-w-5xl mx-auto flex items-center justify-between px-4 py-5">
+        <div className="flex items-center gap-3">
+          {s?.logo_url && <img src={s.logo_url} alt="" className="h-9 w-9 rounded-xl object-cover border border-line" />}
+          <span className="text-lg font-bold text-grad">{s?.class_name || 'ClassHub'}</span>
+        </div>
+        <Link href="/login" className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong">
+          Masuk
+        </Link>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4">
+        <PortfolioSections
+          s={s}
+          media={media}
+          teachers={teachers}
+          achievements={achievements}
+          journey={journey}
+          memberCount={memberCount}
+          postCount={postCount}
+          albumCount={albumCount}
+          cta={true}
+        />
+      </main>
+
+      <footer className="border-t border-line py-6 text-center text-xs text-mut">
+        © {new Date().getFullYear()} {s?.class_name || 'ClassHub'}{s?.school_name ? ' • ' + s.school_name : ''}
+      </footer>
+    </div>
+  );
+}
+`);
+
+wf('app/portfolio/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import PortfolioSections from '@/components/public/PortfolioSections';
+
+export default async function PortfolioPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const [
+    { data: settings },
+    { data: media },
+    { count: memberCount },
+    { count: postCount },
+    { count: albumCount },
+    { data: teachers },
+    { data: achievements },
+    { data: journey },
+  ] = await Promise.all([
+    supabase.from('class_settings').select('*').limit(1),
+    supabase.from('gallery_media').select('media_url').order('created_at', { ascending: false }).limit(8),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
+    supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
+    supabase.from('class_teachers').select('*').order('created_at'),
+    supabase.from('class_achievements').select('*').order('created_at'),
+    supabase.from('class_journey').select('*').order('created_at'),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <PortfolioSections
+          s={s}
+          media={media}
+          teachers={teachers}
+          achievements={achievements}
+          journey={journey}
+          memberCount={memberCount}
+          postCount={postCount}
+          albumCount={albumCount}
+          cta={false}
+        />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import { UserCog, KeyRound, Camera, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+const S = 640;
+
+function CropModal({ file, onDone, onCrop, onClose }: { file: File; onDone: (f: File) => void; onCrop: (p: { zoom: number; x: number; y: number }) => void; onClose: () => void }) {
+  const isGif = file.type === 'image/gif';
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+  const [previewUrl, setPreviewUrl] = useState('');
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img || isGif) return;
+    c.width = S;
+    c.height = S;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = S / 2 - pos.x * dw;
+    const dy = S / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - (e.clientX - d.sx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - (e.clientY - d.sy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  const gifStyle = {
+    transform: 'scale(' + zoom + ') translate(' + ((0.5 - pos.x) * 100) + '%, ' + ((0.5 - pos.y) * 100) + '%)',
+  };
+
+  function save() {
+    if (isGif) {
+      onCrop({ zoom, x: pos.x, y: pos.y });
+      return;
+    }
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'avatar.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.92);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Atur Foto (1:1){isGif ? ' — GIF' : ''}</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="relative">
+          {isGif ? (
+            <div className="w-full aspect-square rounded-xl border border-line overflow-hidden bg-card-2">
+              <img
+                src={previewUrl}
+                alt=""
+                onPointerDown={down}
+                onPointerMove={move}
+                onPointerUp={up}
+                className="h-full w-full object-cover touch-none cursor-move"
+                style={gifStyle}
+              />
+            </div>
+          ) : (
+            <canvas
+              ref={canvasRef}
+              onPointerDown={down}
+              onPointerMove={move}
+              onPointerUp={up}
+              className="w-full aspect-square rounded-xl border border-line touch-none cursor-move"
+            />
+          )}
+          <div className="absolute inset-0 pointer-events-none rounded-full border-2 border-white/80 z-10" />
+        </div>
+        <div className="relative z-20 flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="relative z-20 text-xs text-mut">Geser foto buat atur posisi di dalam lingkaran, zoom buat ukuran.</p>
+        <button onClick={save} className="relative z-20 w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          {isGif ? 'Simpan GIF' : 'Simpan Foto'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); }
+    })();
+  }, []);
+
+  async function uploadAvatar(file: File, ext: string, params: { zoom: number; x: number; y: number } | null) {
+    if (!profile) return;
+    setBusy(true); setMsg(''); setErr('');
+    const path = profile.user_id + '/avatar.' + ext;
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;
+    const payload: any = { avatar_url: url };
+    if (params) {
+      payload.avatar_zoom = params.zoom;
+      payload.avatar_x = params.x;
+      payload.avatar_y = params.y;
+    } else {
+      payload.avatar_zoom = 1;
+      payload.avatar_x = 0.5;
+      payload.avatar_y = 0.5;
+    }
+    const { error } = await supabase.from('profiles').update(payload).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan foto: ' + error.message); return; }
+    setProfile({ ...profile, ...payload });
+    setMsg('Foto profil tersimpan ✓');
+    router.refresh();
+  }
+
+  function onPick(f: File) {
+    setErr('');
+    if (f.type === 'image/gif') {
+      if (profile.role !== 'admin') { setErr('GIF khusus role admin.'); return; }
+      if (f.size > 5 * 1024 * 1024) { setErr('GIF maksimal 5MB.'); return; }
+    } else if (!f.type.startsWith('image/')) {
+      setErr('File harus gambar.');
+      return;
+    }
+    setCropFile(f);
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓'); setPw(''); setPw2(''); }
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <Avatar data={profile} className="h-16 w-16" />
+            <div className="flex-1">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                {profile.full_name}
+                <AdminTag role={profile.role} className="text-xs" />
+              </div>
+              <div className="text-xs text-mut">@{profile.username} • <span className="uppercase text-acc">{profile.role}</span></div>
+            </div>
+          </div>
+          <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold cursor-pointer hover:bg-line-2">
+            <Camera className="h-4 w-4" />
+            Ganti Foto Profil (GIF khusus admin)
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPick(f);
+              }}
+            />
+          </label>
+          {busy && <div className="text-xs text-mut">Menyimpan...</div>}
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="text-sm font-semibold">Nama Tampilan</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <KeyRound className="h-4 w-4 text-acc" />
+            Ganti Password
+          </div>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 6 karakter)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="w-full py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+
+      {cropFile && (
+        <CropModal
+          file={cropFile}
+          onClose={() => setCropFile(null)}
+          onDone={(f) => {
+            setCropFile(null);
+            uploadAvatar(f, 'jpg', null);
+          }}
+          onCrop={(p) => {
+            const f = cropFile;
+            setCropFile(null);
+            uploadAvatar(f, 'gif', p);
+          }}
+        />
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part Z6 done: bg fullscreen + toggle pindah + avatar HD + tab portofolio');
+
+// === PART Z7: CACHE-BUST AVATAR URL ===
+
+(function () {
+  const sp = 'app/settings/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const target = "const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl;";
+  const replacement = "const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();";
+  if (c.indexOf(target) === -1) {
+    console.log('[SKIP] Part Z7: target tidak ketemu (mungkin udah dipatch)');
+  } else {
+    c = c.split(target).join(replacement);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z7 done: avatar URL pakai stempel waktu');
+  }
+})();
+
+// === PART Z8: FIX EMPTY SRC DI CROP MODAL ===
+
+(function () {
+  const sp = 'app/settings/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+
+  const t1 = "const [previewUrl, setPreviewUrl] = useState('');";
+  const r1 = "const [previewUrl, setPreviewUrl] = useState(function () { return URL.createObjectURL(file); });";
+
+  const t2 = "    const url = URL.createObjectURL(file);\n    setPreviewUrl(url);\n    const i = new Image();";
+  const r2 = "    const url = previewUrl;\n    setPreviewUrl(url);\n    const i = new Image();";
+
+  let changed = false;
+  if (c.indexOf(t1) !== -1) { c = c.split(t1).join(r1); changed = true; }
+  if (c.indexOf(t2) !== -1) { c = c.split(t2).join(r2); changed = true; }
+
+  if (changed) {
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z8 done: preview URL lazy init, no empty src');
+  } else {
+    console.log('[SKIP] Part Z8: pola tidak ketemu');
+  }
+})();
+
+// === PART Z9: HAPUS REVOKE YANG NGERUSAK STRICTMODE ===
+
+(function () {
+  const sp = 'app/settings/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const target = "    i.src = url;\n    return function () { URL.revokeObjectURL(url); };\n  }, [file]);";
+  const replacement = "    i.src = url;\n  }, [file]);";
+  if (c.indexOf(target) !== -1) {
+    c = c.split(target).join(replacement);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z9 done: revoke dihapus, canvas aman di StrictMode');
+  } else {
+    console.log('[SKIP] Part Z9: pola tidak ketemu');
+  }
+})();

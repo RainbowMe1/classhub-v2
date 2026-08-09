@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import CommentsSheet from './CommentsSheet';
 
-export default function CommentButton({ postId, userId, count, postOwnerId, actorName }: { postId: string; userId: string; count: number; postOwnerId: string; actorName: string }) {
+export default function CommentButton({ postId, userId, count, postOwnerId, actorName, isStaff }: { postId: string; userId: string; count: number; postOwnerId: string; actorName: string; isStaff: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -18,6 +18,7 @@ export default function CommentButton({ postId, userId, count, postOwnerId, acto
           onClose={() => setOpen(false)}
           postOwnerId={postOwnerId}
           actorName={actorName}
+          isStaff={isStaff}
         />
       )}
     </>

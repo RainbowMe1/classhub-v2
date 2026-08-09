@@ -5,12 +5,15 @@ import LikeButton from '@/components/feed/LikeButton';
 import CommentButton from '@/components/feed/CommentButton';
 import PostMedia from '@/components/feed/PostMedia';
 import StoryBar from '@/components/feed/StoryBar';
+import PostModMenu from '@/components/feed/PostModMenu';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function FeedPage() {
   const user = await requireUser();
   const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+  const isAdmin = user.profile.role === 'admin';
   const { data: posts } = await supabase
     .from('posts')
     .select('*, profiles(*)')
@@ -74,6 +77,7 @@ export default async function FeedPage() {
                     <div className="font-semibold">{post.profiles?.full_name}</div>
                     <div className="text-xs text-gray-400">@{post.profiles?.username}</div>
                   </div>
+                  {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
                 </div>
                 {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
                 {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
@@ -92,6 +96,7 @@ export default async function FeedPage() {
                     count={commentCounts[post.id] ?? 0}
                     postOwnerId={post.user_id}
                     actorName={user.profile.full_name}
+                    isStaff={isStaff}
                   />
                 </div>
               </div>

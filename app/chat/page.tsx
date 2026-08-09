@@ -9,7 +9,7 @@ export default async function ChatPage() {
   const [{ data: messages }, { data: profs }] = await Promise.all([
     supabase
       .from('chat_messages')
-      .select('id, user_id, content, created_at')
+      .select('id, user_id, content, media_url, media_type, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
     supabase.from('profiles').select('user_id, full_name'),

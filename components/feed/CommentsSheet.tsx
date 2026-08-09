@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { deleteCommentAdmin } from '@/lib/auth/moderation-actions';
 import { X, Send, Trash2 } from 'lucide-react';
 
-export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string }) {
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName, isStaff }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string; isStaff: boolean }) {
   const supabase = createClient();
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState('');
@@ -49,9 +50,15 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
     load();
   }
 
-  async function del(id: string) {
-    const { error } = await supabase.from('comments').delete().eq('id', id);
-    if (!error) load();
+  async function del(id: string, ownerId: string) {
+    if (ownerId === userId) {
+      const { error } = await supabase.from('comments').delete().eq('id', id);
+      if (!error) load();
+    } else {
+      const res = await deleteCommentAdmin(id);
+      if (res && res.error) setErr('Gagal hapus: ' + res.error);
+      else load();
+    }
   }
 
   const top = comments.filter((c) => !c.parent_id);
@@ -84,8 +91,8 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
                     </div>
                     <div className="flex items-center gap-3 mt-1 ml-2 text-xs text-gray-500">
                       <button onClick={() => setReplyTo(c)} className="hover:text-white">Balas</button>
-                      {c.user_id === userId && (
-                        <button onClick={() => del(c.id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
+                      {(c.user_id === userId || isStaff) && (
+                        <button onClick={() => del(c.id, c.user_id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
                           <Trash2 className="h-3 w-3" /> Hapus
                         </button>
                       )}
@@ -103,9 +110,9 @@ export default function CommentsSheet({ postId, userId, onClose, postOwnerId, ac
                           <div className="text-xs font-semibold mb-0.5 text-white">{r.profiles?.full_name}</div>
                           <div className="text-sm whitespace-pre-wrap text-gray-200">{r.content}</div>
                         </div>
-                        {r.user_id === userId && (
+                        {(r.user_id === userId || isStaff) && (
                           <div className="ml-2 mt-1">
-                            <button onClick={() => del(r.id)} className="text-xs text-red-400">Hapus</button>
+                            <button onClick={() => del(r.id, r.user_id)} className="text-xs text-red-400">Hapus</button>
                           </div>
                         )}
                       </div>

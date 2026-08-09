@@ -1,15 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
 import AppLayout from '@/components/layout/AppLayout';
+import ClassSettingsForm from '@/components/admin/ClassSettingsForm';
 import { Users, Newspaper, Shield } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function AdminPage() {
   const user = await requireRole('admin');
   const supabase = await createClient();
-  const [{ count: memberCount }, { count: postCount }] = await Promise.all([
+  const [{ count: memberCount }, { count: postCount }, settings] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('posts').select('*', { count: 'exact', head: true }),
+    getClassSettings(),
   ]);
 
   return (
@@ -34,6 +37,7 @@ export default async function AdminPage() {
         <Link href="/admin/users" className="block p-4 rounded-2xl bg-[#a3e635] text-[#0a0a0a] font-semibold hover:bg-[#84cc16] transition">
           Kelola Anggota → buat akun, ubah role, ban
         </Link>
+        <ClassSettingsForm initial={settings} />
       </div>
     </AppLayout>
   );

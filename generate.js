@@ -6899,3 +6899,1410 @@ export default function AppLayout({ children, profile }: { children: React.React
 `);
 
 console.log('[OK] Part Q4 done: AppLayout as client component');
+
+// === PART R: CHAT ATTACHMENTS ===
+
+wf('app/chat/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import ChatRoom from '@/components/chat/ChatRoom';
+
+export default async function ChatPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const [{ data: messages }, { data: profs }] = await Promise.all([
+    supabase
+      .from('chat_messages')
+      .select('id, user_id, content, media_url, media_type, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase.from('profiles').select('user_id, full_name'),
+  ]);
+
+  const names: Record<string, string> = {};
+  for (const p of profs ?? []) names[p.user_id] = p.full_name;
+  const initial = (messages ?? []).reverse();
+
+  return (
+    <AppLayout profile={user.profile}>
+      <ChatRoom userId={user.id} initial={initial} names={names} />
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/chat/ChatRoom.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Send, Loader2, MessageCircle, Image as ImageIcon, X } from 'lucide-react';
+import Lightbox from '@/components/feed/Lightbox';
+
+type Msg = {
+  id: string;
+  user_id: string;
+  content: string | null;
+  media_url: string | null;
+  created_at: string;
+};
+
+export default function ChatRoom({ userId, initial, names }: { userId: string; initial: Msg[]; names: Record<string, string> }) {
+  const supabase = createClient();
+  const [messages, setMessages] = useState<Msg[]>(initial);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState('');
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('chat-room')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload: any) => {
+          const row = payload.new as Msg;
+          setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function send() {
+    if ((!text.trim() && !pendingFile) || sending) return;
+    setSending(true);
+    setErr('');
+    try {
+      let media_url: string | null = null;
+      if (pendingFile) {
+        if (!pendingFile.type.startsWith('image/')) { setErr('Hanya file gambar.'); setSending(false); return; }
+        if (pendingFile.size > 10 * 1024 * 1024) { setErr('Foto maksimal 10MB.'); setSending(false); return; }
+        const id = crypto.randomUUID();
+        const ext = pendingFile.name.split('.').pop() || 'jpg';
+        const path = userId + '/' + id + '.' + ext;
+        const { error: upErr } = await supabase.storage.from('chat').upload(path, pendingFile, { upsert: true });
+        if (upErr) { setErr('Upload gagal: ' + upErr.message); setSending(false); return; }
+        media_url = supabase.storage.from('chat').getPublicUrl(path).data.publicUrl;
+      }
+      const { error } = await supabase.from('chat_messages').insert({
+        user_id: userId,
+        content: text.trim() || null,
+        media_url,
+        media_type: media_url ? 'image' : null,
+      });
+      if (error) { setErr('Gagal kirim: ' + error.message); setSending(false); return; }
+      setText('');
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch {
+      setErr('Terjadi kesalahan.');
+    }
+    setSending(false);
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl flex flex-col h-[calc(100vh-140px)]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2a2a2a]">
+          <MessageCircle className="h-5 w-5 text-[#a3e635]" />
+          <div>
+            <div className="font-semibold text-white text-sm">Chat Kelas</div>
+            <div className="text-xs text-gray-500">Realtime • semua anggota</div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && (
+            <p className="text-center text-gray-500 text-sm py-8">Belum ada pesan. Sapa kelas lu!</p>
+          )}
+          {messages.map((m) => {
+            const own = m.user_id === userId;
+            return (
+              <div key={m.id} className={'flex ' + (own ? 'justify-end' : 'justify-start')}>
+                <div
+                  className={
+                    'max-w-[75%] rounded-2xl px-3 py-2 ' +
+                    (own ? 'bg-[#a3e635] text-[#0a0a0a] rounded-br-sm' : 'bg-[#0f0f0f] border border-[#2a2a2a] rounded-bl-sm')
+                  }
+                >
+                  {!own && (
+                    <div className="text-xs font-semibold mb-0.5 text-[#a3e635]">
+                      {names[m.user_id] || 'Warga Kelas'}
+                    </div>
+                  )}
+                  {m.media_url && (
+                    <button onClick={() => setLightbox(m.media_url)} className="block mb-1 rounded-xl overflow-hidden" aria-label="Lihat foto">
+                      <img src={m.media_url} alt="" loading="lazy" className="max-h-64 w-full object-contain rounded-xl" />
+                    </button>
+                  )}
+                  {m.content && <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>}
+                  <div className={'text-[10px] mt-1 ' + (own ? 'text-[#0a0a0a]/60' : 'text-gray-500')}>
+                    {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={endRef} />
+        </div>
+
+        <div className="p-3 border-t border-[#2a2a2a]">
+          {err && <div className="text-xs text-red-400 mb-2">{err}</div>}
+          {pendingFile && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-300">
+              <ImageIcon className="h-4 w-4 text-[#a3e635]" />
+              <span className="truncate">{pendingFile.name}</span>
+              <button onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-gray-500 hover:text-white" aria-label="Hapus foto">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="p-2.5 rounded-full bg-[#0f0f0f] border border-[#2a2a2a] text-gray-400 hover:text-white"
+              aria-label="Kirim foto"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
+            />
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && send()}
+              placeholder="Tulis pesan..."
+              className="flex-1 px-4 py-2.5 rounded-full bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+            />
+            <button
+              onClick={send}
+              disabled={!text.trim() && !pendingFile ? true : sending}
+              className="p-2.5 rounded-full bg-[#a3e635] text-[#0a0a0a] disabled:opacity-30"
+              aria-label="Kirim pesan"
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {lightbox && <Lightbox urls={[lightbox]} index={0} onClose={() => setLightbox(null)} />}
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part R done: chat kirim foto + lightbox');
+
+// === PART S: MODERASI ===
+
+wf('lib/auth/moderation-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function hidePost(postId: string, hidden: boolean) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').update({ is_hidden: hidden }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/admin/moderation');
+  return { success: true };
+}
+
+export async function deletePost(postId: string) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').delete().eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  return { success: true };
+}
+
+export async function deleteCommentAdmin(commentId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('comments').delete().eq('id', commentId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+`);
+
+wf('components/feed/PostModMenu.tsx', `'use client';
+import { useRouter } from 'next/navigation';
+import { hidePost, deletePost } from '@/lib/auth/moderation-actions';
+import { EyeOff, Trash2 } from 'lucide-react';
+
+export default function PostModMenu({ postId, canDelete }: { postId: string; canDelete: boolean }) {
+  const router = useRouter();
+
+  async function hide() {
+    if (!window.confirm('Sembunyikan postingan ini dari feed?')) return;
+    const res = await hidePost(postId, true);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  async function remove() {
+    if (!window.confirm('Hapus postingan ini permanen?')) return;
+    const res = await deletePost(postId);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <button onClick={hide} className="p-1.5 text-gray-500 hover:text-white" aria-label="Sembunyikan postingan">
+        <EyeOff className="h-4 w-4" />
+      </button>
+      {canDelete && (
+        <button onClick={remove} className="p-1.5 text-gray-500 hover:text-red-400" aria-label="Hapus postingan">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('components/admin/ModerationList.tsx', `'use client';
+import { useRouter } from 'next/navigation';
+import { hidePost } from '@/lib/auth/moderation-actions';
+import { Eye, ShieldAlert } from 'lucide-react';
+
+export default function ModerationList({ posts }: { posts: any[] }) {
+  const router = useRouter();
+
+  async function unhide(id: string) {
+    const res = await hidePost(id, false);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <h1 className="text-2xl font-bold flex items-center gap-2">
+        <ShieldAlert className="h-6 w-6 text-[#fb923c]" />
+        Moderasi
+      </h1>
+      <p className="text-sm text-gray-400">Postingan yang disembunyikan dari feed kelas.</p>
+      {posts.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">Tidak ada postingan tersembunyi.</div>
+      ) : (
+        posts.map((p) => (
+          <div key={p.id} className="p-3 rounded-xl bg-[#161616] border border-[#2a2a2a]">
+            <div className="text-xs text-gray-400 mb-1">
+              {p.profiles?.full_name} @{p.profiles?.username}
+            </div>
+            {p.content && <p className="text-sm text-gray-200 whitespace-pre-wrap">{p.content}</p>}
+            {p.media_urls && p.media_urls.length > 0 && (
+              <p className="text-xs text-gray-500 mt-1">{p.media_urls.length} media</p>
+            )}
+            <button
+              onClick={() => unhide(p.id)}
+              className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+            >
+              <Eye className="h-3 w-3" />
+              Tampilkan lagi
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/admin/moderation/page.tsx', `import { requireRole } from '@/lib/auth/actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import AppLayout from '@/components/layout/AppLayout';
+import ModerationList from '@/components/admin/ModerationList';
+
+export default async function ModerationPage() {
+  const user = await requireRole('teacher');
+  const admin = createAdminClient();
+  const { data: hiddenPosts } = await admin
+    .from('posts')
+    .select('*, profiles(full_name, username)')
+    .eq('is_hidden', true)
+    .order('created_at', { ascending: false });
+
+  return (
+    <AppLayout profile={user.profile}>
+      <ModerationList posts={hiddenPosts ?? []} />
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
+        <div className="p-6 border-b border-[#2a2a2a]">
+          <h1 className="text-xl font-bold tracking-tight">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">Kelas kamu, satu aplikasi</p>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-[#2a2a2a] hover:text-white transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-[#a3e635] uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-[#2a2a2a] transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 h-14">
+          <h1 className="text-lg font-bold">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-gray-400" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+wf('components/feed/CommentsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { deleteCommentAdmin } from '@/lib/auth/moderation-actions';
+import { X, Send, Trash2 } from 'lucide-react';
+
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName, isStaff }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string; isStaff: boolean }) {
+  const supabase = createClient();
+  const [comments, setComments] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [err, setErr] = useState('');
+
+  async function load() {
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(username, full_name)')
+      .eq('post_id', postId)
+      .order('created_at');
+    setComments(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [postId]);
+
+  async function submit() {
+    if (!text.trim()) return;
+    setErr('');
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: userId,
+      content: text.trim(),
+      parent_id: replyTo ? replyTo.id : null,
+    });
+    if (error) { setErr('Gagal kirim: ' + error.message); return; }
+    const target = replyTo ? replyTo.user_id : postOwnerId;
+    if (target && target !== userId) {
+      await supabase.from('notifications').insert({
+        user_id: target,
+        type: 'comment',
+        title: actorName + (replyTo ? ' membalas komentarmu' : ' mengomentari postinganmu'),
+        actor_id: userId,
+        target_type: 'post',
+        target_id: postId,
+      });
+    }
+    setText('');
+    setReplyTo(null);
+    load();
+  }
+
+  async function del(id: string, ownerId: string) {
+    if (ownerId === userId) {
+      const { error } = await supabase.from('comments').delete().eq('id', id);
+      if (!error) load();
+    } else {
+      const res = await deleteCommentAdmin(id);
+      if (res && res.error) setErr('Gagal hapus: ' + res.error);
+      else load();
+    }
+  }
+
+  const top = comments.filter((c) => !c.parent_id);
+  const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
+      <div className="bg-[#0f0f0f] w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+          <h3 className="font-semibold text-white">Komentar</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+          {top.length === 0 ? (
+            <p className="text-center text-gray-500 py-8 text-sm">Belum ada komentar. Mulai diskusi!</p>
+          ) : (
+            top.map((c) => (
+              <div key={c.id}>
+                <div className="flex gap-3">
+                  <div className="h-8 w-8 rounded-full bg-[#3a3a3a] flex items-center justify-center text-xs font-bold shrink-0">
+                    {(c.profiles?.full_name || 'U').charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-[#161616] rounded-2xl rounded-tl-sm px-3 py-2">
+                      <div className="text-xs font-semibold mb-0.5 text-white">{c.profiles?.full_name}</div>
+                      <div className="text-sm whitespace-pre-wrap text-gray-200">{c.content}</div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 ml-2 text-xs text-gray-500">
+                      <button onClick={() => setReplyTo(c)} className="hover:text-white">Balas</button>
+                      {(c.user_id === userId || isStaff) && (
+                        <button onClick={() => del(c.id, c.user_id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
+                          <Trash2 className="h-3 w-3" /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="ml-11 mt-2 space-y-2">
+                  {repliesOf(c.id).map((r) => (
+                    <div key={r.id} className="flex gap-3">
+                      <div className="h-7 w-7 rounded-full bg-[#3a3a3a] flex items-center justify-center text-xs font-bold shrink-0">
+                        {(r.profiles?.full_name || 'U').charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-[#161616] rounded-2xl rounded-tl-sm px-3 py-2">
+                          <div className="text-xs font-semibold mb-0.5 text-white">{r.profiles?.full_name}</div>
+                          <div className="text-sm whitespace-pre-wrap text-gray-200">{r.content}</div>
+                        </div>
+                        {(r.user_id === userId || isStaff) && (
+                          <div className="ml-2 mt-1">
+                            <button onClick={() => del(r.id, r.user_id)} className="text-xs text-red-400">Hapus</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="p-3 border-t border-[#2a2a2a]">
+          {replyTo && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
+              <span>Membalas {replyTo.profiles?.full_name}</span>
+              <button onClick={() => setReplyTo(null)} className="text-gray-500 hover:text-white"><X className="h-3 w-3" /></button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Tulis komentar..."
+              className="flex-1 px-4 py-2 rounded-full bg-[#161616] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+            />
+            <button onClick={submit} disabled={!text.trim()} className="p-2 rounded-full bg-[#a3e635] text-[#0a0a0a] disabled:opacity-30" aria-label="Kirim">
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/feed/CommentButton.tsx', `'use client';
+import { useState } from 'react';
+import { MessageCircle } from 'lucide-react';
+import CommentsSheet from './CommentsSheet';
+
+export default function CommentButton({ postId, userId, count, postOwnerId, actorName, isStaff }: { postId: string; userId: string; count: number; postOwnerId: string; actorName: string; isStaff: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition">
+        <MessageCircle className="h-5 w-5" />
+        <span>{count}</span>
+      </button>
+      {open && (
+        <CommentsSheet
+          postId={postId}
+          userId={userId}
+          onClose={() => setOpen(false)}
+          postOwnerId={postOwnerId}
+          actorName={actorName}
+          isStaff={isStaff}
+        />
+      )}
+    </>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import LikeButton from '@/components/feed/LikeButton';
+import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
+import StoryBar from '@/components/feed/StoryBar';
+import PostModMenu from '@/components/feed/PostModMenu';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const isStaff = user.profile.role !== 'student';
+  const isAdmin = user.profile.role === 'admin';
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postIds = (posts ?? []).map((p: any) => p.id);
+  let likes: any[] = [];
+  let commentRows: any[] = [];
+  if (postIds.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+    likes = l.data ?? [];
+    commentRows = c.data ?? [];
+  }
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  for (const l of likes) {
+    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
+    if (l.user_id === user.id) likedByMe[l.target_id] = true;
+  }
+  const commentCounts: Record<string, number> = {};
+  for (const c of commentRows) {
+    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-medium hover:bg-[#84cc16] transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        {(posts?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-lg mb-2">Belum ada postingan</p>
+            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(posts ?? []).map((post: any) => (
+              <div key={post.id} className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-semibold">
+                    {post.profiles?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{post.profiles?.username}</div>
+                  </div>
+                  {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
+                </div>
+                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+                <div className="flex items-center gap-4 pt-3 border-t border-[#2a2a2a]">
+                  <LikeButton
+                    postId={post.id}
+                    userId={user.id}
+                    initialCount={likeCounts[post.id] ?? 0}
+                    initialLiked={!!likedByMe[post.id]}
+                    ownerId={post.user_id}
+                    actorName={user.profile.full_name}
+                  />
+                  <CommentButton
+                    postId={post.id}
+                    userId={user.id}
+                    count={commentCounts[post.id] ?? 0}
+                    postOwnerId={post.user_id}
+                    actorName={user.profile.full_name}
+                    isStaff={isStaff}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part S done: moderasi - hide/delete post, delete komentar, halaman moderasi');
+
+// === PART T: IDENTITAS KELAS ===
+
+wf('lib/auth/settings-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function saveClassSettings(formData: FormData) {
+  await requireRole('admin');
+  const class_name = String(formData.get('class_name') || '').trim();
+  const subtitle = String(formData.get('subtitle') || '').trim();
+  if (!class_name) return { error: 'Nama kelas wajib diisi.' };
+  const admin = createAdminClient();
+
+  let logo_url: string | null = null;
+  const file = formData.get('logo') as File | null;
+  if (file && file.size > 0) {
+    if (!file.type.startsWith('image/')) return { error: 'Logo harus gambar.' };
+    if (file.size > 2 * 1024 * 1024) return { error: 'Logo maksimal 2MB.' };
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('avatars')
+      .upload('class/logo.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload logo gagal: ' + upErr.message };
+    logo_url = admin.storage.from('avatars').getPublicUrl('class/logo.' + ext).data.publicUrl;
+  }
+
+  const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
+  const payload: any = { class_name, subtitle: subtitle || null };
+  if (logo_url) payload.logo_url = logo_url;
+  const { error } = existing
+    ? await admin.from('class_settings').update(payload).eq('id', existing.id)
+    : await admin.from('class_settings').insert(payload);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+wf('components/ClassBrand.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+
+export default function ClassBrand({ size }: { size: 'lg' | 'sm' }) {
+  const supabase = createClient();
+  const [s, setS] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('class_settings').select('*').limit(1).maybeSingle();
+      setS(data || null);
+    })();
+  }, []);
+
+  if (size === 'sm') {
+    return (
+      <span className="text-lg font-bold text-white flex items-center gap-2">
+        {s?.logo_url ? <img src={s.logo_url} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
+        {s?.class_name ? <span>{s.class_name}</span> : <span>Class<span className="text-[#a3e635]">Hub</span></span>}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {s?.logo_url && <img src={s.logo_url} alt="" className="h-10 w-10 rounded-xl object-cover border border-[#2a2a2a]" />}
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight text-white truncate">
+          {s?.class_name ? s.class_name : <span>Class<span className="text-[#a3e635]">Hub</span></span>}
+        </h1>
+        <p className="text-xs text-gray-500 mt-0.5 truncate">{s?.subtitle || 'Kelas kamu, satu aplikasi'}</p>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/admin/ClassSettingsForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { saveClassSettings } from '@/lib/auth/settings-actions';
+
+export default function ClassSettingsForm({ initial }: { initial: any }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await saveClassSettings(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}
+      className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3"
+    >
+      <h2 className="font-semibold text-white">Identitas Kelas</h2>
+      {err && <div className="text-xs text-red-400">{err}</div>}
+      <input
+        name="class_name"
+        defaultValue={initial?.class_name || ''}
+        required
+        placeholder="Nama kelas (mis. XII SAINSTECH 2)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        name="subtitle"
+        defaultValue={initial?.subtitle || ''}
+        placeholder="Subtitle (mis. nama sekolah)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        name="logo"
+        type="file"
+        accept="image/*"
+        className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+      />
+      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+        {busy ? 'Menyimpan...' : 'Simpan Identitas'}
+      </button>
+    </form>
+  );
+}
+`);
+
+wf('app/admin/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import ClassSettingsForm from '@/components/admin/ClassSettingsForm';
+import { Users, Newspaper, Shield } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function AdminPage() {
+  const user = await requireRole('admin');
+  const supabase = await createClient();
+  const [{ count: memberCount }, { count: postCount }, { data: settings }] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }),
+    supabase.from('class_settings').select('*').limit(1),
+  ]);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-6 w-6 text-[#a3e635]" />
+          Panel Admin
+        </h1>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+            <Users className="h-5 w-5 text-[#a3e635] mb-2" />
+            <div className="text-xs text-gray-400">Total Anggota</div>
+            <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+          </div>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+            <Newspaper className="h-5 w-5 text-[#fb923c] mb-2" />
+            <div className="text-xs text-gray-400">Total Post</div>
+            <div className="text-2xl font-bold">{postCount ?? 0}</div>
+          </div>
+        </div>
+        <Link href="/admin/users" className="block p-4 rounded-2xl bg-[#a3e635] text-[#0a0a0a] font-semibold hover:bg-[#84cc16] transition">
+          Kelola Anggota → buat akun, ubah role, ban
+        </Link>
+        <ClassSettingsForm initial={settings && settings.length > 0 ? settings[0] : null} />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
+        <div className="p-6 border-b border-[#2a2a2a]">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-[#2a2a2a] hover:text-white transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-[#a3e635] uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-[#2a2a2a] transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-gray-400" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part T done: identitas kelas');
+
+// === PART T2: SETTINGS FORM TRANSPARAN ===
+
+wf('components/admin/ClassSettingsForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { saveClassSettings } from '@/lib/auth/settings-actions';
+
+export default function ClassSettingsForm({ initial }: { initial: any }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    setSaved(false);
+    try {
+      const res = await saveClassSettings(fd);
+      if (res && res.error) {
+        setErr(res.error);
+      } else {
+        setSaved(true);
+        router.refresh();
+      }
+    } catch (e: any) {
+      console.error('saveClassSettings error:', e);
+      setErr('Error: ' + (e && e.message ? e.message : 'gagal menyimpan'));
+    }
+    setBusy(false);
+  }
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}
+      className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3"
+    >
+      <h2 className="font-semibold text-white">Identitas Kelas</h2>
+      {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{err}</div>}
+      {saved && <div className="p-2 rounded-lg bg-[#a3e635]/10 border border-[#a3e635]/30 text-[#a3e635] text-sm">Tersimpan ✓ — buka halaman lain / refresh buat lihat sidebar berubah.</div>}
+      <input
+        name="class_name"
+        defaultValue={initial?.class_name || ''}
+        required
+        placeholder="Nama kelas (mis. XII SAINSTECH 2)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        name="subtitle"
+        defaultValue={initial?.subtitle || ''}
+        placeholder="Subtitle (mis. nama sekolah)"
+        className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+      />
+      <input
+        name="logo"
+        type="file"
+        accept="image/*"
+        className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+      />
+      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+        {busy ? 'Menyimpan...' : 'Simpan Identitas'}
+      </button>
+    </form>
+  );
+}
+`);
+
+console.log('[OK] Part T2 done: settings form transparan');
+
+// === PART T3: SETTINGS READ VIA SERVICE ROLE ===
+
+wf('lib/auth/settings-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function getClassSettings() {
+  const admin = createAdminClient();
+  const { data } = await admin.from('class_settings').select('*').limit(1);
+  return data && data.length > 0 ? data[0] : null;
+}
+
+export async function saveClassSettings(formData: FormData) {
+  await requireRole('admin');
+  const class_name = String(formData.get('class_name') || '').trim();
+  const subtitle = String(formData.get('subtitle') || '').trim();
+  if (!class_name) return { error: 'Nama kelas wajib diisi.' };
+  const admin = createAdminClient();
+
+  let logo_url: string | null = null;
+  const file = formData.get('logo') as File | null;
+  if (file && file.size > 0) {
+    if (!file.type.startsWith('image/')) return { error: 'Logo harus gambar.' };
+    if (file.size > 2 * 1024 * 1024) return { error: 'Logo maksimal 2MB.' };
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('avatars')
+      .upload('class/logo.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload logo gagal: ' + upErr.message };
+    logo_url = admin.storage.from('avatars').getPublicUrl('class/logo.' + ext).data.publicUrl;
+  }
+
+  const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
+  const payload: any = { class_name, subtitle: subtitle || null };
+  if (logo_url) payload.logo_url = logo_url;
+  const { error } = existing
+    ? await admin.from('class_settings').update(payload).eq('id', existing.id)
+    : await admin.from('class_settings').insert(payload);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+wf('components/ClassBrand.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+
+export default function ClassBrand({ size }: { size: 'lg' | 'sm' }) {
+  const [s, setS] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const d = await getClassSettings();
+      setS(d);
+    })();
+  }, []);
+
+  if (size === 'sm') {
+    return (
+      <span className="text-lg font-bold text-white flex items-center gap-2">
+        {s?.logo_url ? <img src={s.logo_url} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
+        {s?.class_name ? <span>{s.class_name}</span> : <span>Class<span className="text-[#a3e635]">Hub</span></span>}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {s?.logo_url && <img src={s.logo_url} alt="" className="h-10 w-10 rounded-xl object-cover border border-[#2a2a2a]" />}
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold tracking-tight text-white truncate">
+          {s?.class_name ? s.class_name : <span>Class<span className="text-[#a3e635]">Hub</span></span>}
+        </h1>
+        <p className="text-xs text-gray-500 mt-0.5 truncate">{s?.subtitle || 'Kelas kamu, satu aplikasi'}</p>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/admin/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import ClassSettingsForm from '@/components/admin/ClassSettingsForm';
+import { Users, Newspaper, Shield } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function AdminPage() {
+  const user = await requireRole('admin');
+  const supabase = await createClient();
+  const [{ count: memberCount }, { count: postCount }, settings] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }),
+    getClassSettings(),
+  ]);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-6 w-6 text-[#a3e635]" />
+          Panel Admin
+        </h1>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+            <Users className="h-5 w-5 text-[#a3e635] mb-2" />
+            <div className="text-xs text-gray-400">Total Anggota</div>
+            <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+          </div>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+            <Newspaper className="h-5 w-5 text-[#fb923c] mb-2" />
+            <div className="text-xs text-gray-400">Total Post</div>
+            <div className="text-2xl font-bold">{postCount ?? 0}</div>
+          </div>
+        </div>
+        <Link href="/admin/users" className="block p-4 rounded-2xl bg-[#a3e635] text-[#0a0a0a] font-semibold hover:bg-[#84cc16] transition">
+          Kelola Anggota → buat akun, ubah role, ban
+        </Link>
+        <ClassSettingsForm initial={settings} />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part T3 done: settings read via service role');
+
+// === PART U: SETTINGS PROFIL ===
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { UserCog, KeyRound } from 'lucide-react';
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); }
+    })();
+  }, []);
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓ Gunakan password baru mulai sekarang.'); setPw(''); setPw2(''); }
+  }
+
+  if (!profile) return <div className="min-h-screen bg-[#0a0a0a]" />;
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-[#a3e635]" />
+          Profil Saya
+        </h1>
+        {msg && <div className="p-2 rounded-lg bg-[#a3e635]/10 border border-[#a3e635]/30 text-[#a3e635] text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+          <div className="text-xs text-gray-400">
+            Username: <span className="text-white">@{profile.username}</span> • Role: <span className="uppercase text-[#a3e635]">{profile.role}</span>
+          </div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+          />
+          <button onClick={saveName} disabled={busy} className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <KeyRound className="h-4 w-4 text-[#a3e635]" />
+            Ganti Password
+          </div>
+          <input
+            type="password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            placeholder="Password baru (min. 6 karakter)"
+            className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+          />
+          <input
+            type="password"
+            value={pw2}
+            onChange={(e) => setPw2(e.target.value)}
+            placeholder="Ulangi password baru"
+            className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+          />
+          <button onClick={savePw} disabled={busy} className="w-full py-2 rounded-lg bg-[#2a2a2a] text-white text-sm font-semibold hover:bg-[#3a3a3a] disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
+        <div className="p-6 border-b border-[#2a2a2a]">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-[#2a2a2a] hover:text-white transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-[#a3e635] uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-[#2a2a2a] transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-gray-400" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part U done: profil - ganti nama + password');

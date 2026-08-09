@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2 } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog } from 'lucide-react';
 import { logout } from '@/lib/auth/actions';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
 import type { Profile } from '@/types/database';
 
 export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
@@ -16,20 +17,21 @@ export default function AppLayout({ children, profile }: { children: React.React
     { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
     { href: '/notifications', icon: Bell, label: 'Notifikasi' },
     { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
   ];
   const extra: typeof baseItems = [];
   if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
-  if (profile.role !== 'student') extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
   const navItems = [...baseItems, ...extra];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
         <div className="p-6 border-b border-[#2a2a2a]">
-          <h1 className="text-xl font-bold tracking-tight">
-            Class<span className="text-[#a3e635]">Hub</span>
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">Kelas kamu, satu aplikasi</p>
+          <ClassBrand size="lg" />
         </div>
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
@@ -68,9 +70,7 @@ export default function AppLayout({ children, profile }: { children: React.React
 
       <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
         <div className="flex items-center justify-between px-4 h-14">
-          <h1 className="text-lg font-bold">
-            Class<span className="text-[#a3e635]">Hub</span>
-          </h1>
+          <ClassBrand size="sm" />
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">@{profile.username}</span>
             <form action={logout}>

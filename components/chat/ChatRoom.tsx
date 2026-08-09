@@ -1,12 +1,14 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Send, Loader2, MessageCircle } from 'lucide-react';
+import { Send, Loader2, MessageCircle, Image as ImageIcon, X } from 'lucide-react';
+import Lightbox from '@/components/feed/Lightbox';
 
 type Msg = {
   id: string;
   user_id: string;
-  content: string;
+  content: string | null;
+  media_url: string | null;
   created_at: string;
 };
 
@@ -16,7 +18,10 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState('');
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const channel = supabase
@@ -40,15 +45,34 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
   }, [messages]);
 
   async function send() {
-    if (!text.trim() || sending) return;
+    if ((!text.trim() && !pendingFile) || sending) return;
     setSending(true);
     setErr('');
-    const { error } = await supabase.from('chat_messages').insert({
-      user_id: userId,
-      content: text.trim(),
-    });
-    if (error) setErr('Gagal kirim: ' + error.message);
-    setText('');
+    try {
+      let media_url: string | null = null;
+      if (pendingFile) {
+        if (!pendingFile.type.startsWith('image/')) { setErr('Hanya file gambar.'); setSending(false); return; }
+        if (pendingFile.size > 10 * 1024 * 1024) { setErr('Foto maksimal 10MB.'); setSending(false); return; }
+        const id = crypto.randomUUID();
+        const ext = pendingFile.name.split('.').pop() || 'jpg';
+        const path = userId + '/' + id + '.' + ext;
+        const { error: upErr } = await supabase.storage.from('chat').upload(path, pendingFile, { upsert: true });
+        if (upErr) { setErr('Upload gagal: ' + upErr.message); setSending(false); return; }
+        media_url = supabase.storage.from('chat').getPublicUrl(path).data.publicUrl;
+      }
+      const { error } = await supabase.from('chat_messages').insert({
+        user_id: userId,
+        content: text.trim() || null,
+        media_url,
+        media_type: media_url ? 'image' : null,
+      });
+      if (error) { setErr('Gagal kirim: ' + error.message); setSending(false); return; }
+      setText('');
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = '';
+    } catch {
+      setErr('Terjadi kesalahan.');
+    }
     setSending(false);
   }
 
@@ -82,7 +106,12 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
                       {names[m.user_id] || 'Warga Kelas'}
                     </div>
                   )}
-                  <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                  {m.media_url && (
+                    <button onClick={() => setLightbox(m.media_url)} className="block mb-1 rounded-xl overflow-hidden" aria-label="Lihat foto">
+                      <img src={m.media_url} alt="" loading="lazy" className="max-h-64 w-full object-contain rounded-xl" />
+                    </button>
+                  )}
+                  {m.content && <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>}
                   <div className={'text-[10px] mt-1 ' + (own ? 'text-[#0a0a0a]/60' : 'text-gray-500')}>
                     {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                   </div>
@@ -95,7 +124,30 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
 
         <div className="p-3 border-t border-[#2a2a2a]">
           {err && <div className="text-xs text-red-400 mb-2">{err}</div>}
+          {pendingFile && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-300">
+              <ImageIcon className="h-4 w-4 text-[#a3e635]" />
+              <span className="truncate">{pendingFile.name}</span>
+              <button onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-gray-500 hover:text-white" aria-label="Hapus foto">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="p-2.5 rounded-full bg-[#0f0f0f] border border-[#2a2a2a] text-gray-400 hover:text-white"
+              aria-label="Kirim foto"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
+            />
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -105,7 +157,7 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
             />
             <button
               onClick={send}
-              disabled={!text.trim() || sending}
+              disabled={!text.trim() && !pendingFile ? true : sending}
               className="p-2.5 rounded-full bg-[#a3e635] text-[#0a0a0a] disabled:opacity-30"
               aria-label="Kirim pesan"
             >
@@ -114,6 +166,8 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
           </div>
         </div>
       </div>
+
+      {lightbox && <Lightbox urls={[lightbox]} index={0} onClose={() => setLightbox(null)} />}
     </div>
   );
 }

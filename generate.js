@@ -17600,3 +17600,459 @@ export default function PostMedia({ urls }: { urls: string[] }) {
 `);
 
 console.log('[OK] Part Z19 done: mute button + video no-crop + toggle di sidebar/drawer');
+
+// === PART Z20: FOTO RASIO ASLI + EDITOR POST + MUTE FIX ===
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        for (const en of entries) {
+          if (en.isIntersecting) v.play().catch(function () {});
+          else v.pause();
+        }
+      },
+      { threshold: 0.6 }
+    );
+    ob.observe(v);
+    return function () { ob.disconnect(); };
+  }, [src]);
+
+  function toggleMute() {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+    if (!v.muted) v.play().catch(function () {});
+  }
+
+  return (
+    <div className="relative">
+      <button onClick={onOpen} className="block w-full" aria-label="Lihat detail">
+        <video
+          ref={ref}
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="w-full h-auto max-h-[75vh] bg-black"
+        />
+      </button>
+      <button
+        onClick={toggleMute}
+        className="absolute bottom-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
+        aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
+      >
+        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <div className="mb-3 mx-auto w-full max-w-md rounded-xl overflow-hidden border border-line bg-card-2">
+          {isVideo(urls[0]) ? (
+            <AutoVideo src={urls[0]} onOpen={() => setOpen(0)} />
+          ) : (
+            <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
+              <img src={urls[0]} alt="" loading="lazy" className="w-full h-auto" />
+            </button>
+          )}
+        </div>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <div key={i} className="snap-center shrink-0 w-full">
+              {isVideo(url) ? (
+                <AutoVideo src={url} onOpen={() => setOpen(i)} />
+              ) : (
+                <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
+                  <img src={url} alt="" loading="lazy" className="w-full h-auto" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+wf('components/PostEditor.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+
+export default function PostEditor({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function dims(img: HTMLImageElement) {
+    const W = 1080;
+    const H = Math.min(1620, Math.max(540, Math.round((W * img.height) / img.width)));
+    return { W, H };
+  }
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    const { W, H } = dims(img);
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = W / 2 - pos.x * dw;
+    const dy = H / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    const c = canvasRef.current;
+    if (!d || !img || !c) return;
+    const base = Math.max(c.width / img.width, c.height / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const fx = dw / rect.width;
+    const fy = dh / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - ((e.clientX - d.sx) * fx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - ((e.clientY - d.sy) * fy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'post.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Atur Foto</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Lewati">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-full h-auto rounded-xl border border-line touch-none cursor-move"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser buat atur posisi, zoom buat ukuran. Rasio foto tetap asli.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Pakai Foto Ini
+        </button>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/feed/new/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import PostEditor from '@/components/PostEditor';
+import { ArrowLeft, Loader2, X } from 'lucide-react';
+
+export default function NewPostPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [content, setContent] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [queue, setQueue] = useState<File[]>([]);
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [myCount, setMyCount] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      setMyCount(count ?? 0);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!editFile && queue.length > 0) setEditFile(queue[0]);
+  }, [queue, editFile]);
+
+  function addFile(f: File) {
+    setFiles((p) => [...p, f].slice(0, 4));
+    setPreviews((p) => [...p, URL.createObjectURL(f)].slice(0, 4));
+  }
+
+  function onPick(list: FileList) {
+    setErr('');
+    const imgs: File[] = [];
+    for (const f of Array.from(list)) {
+      if (f.type.startsWith('image/')) {
+        imgs.push(f);
+      } else if (f.type.startsWith('video/')) {
+        if (f.size > 20 * 1024 * 1024) { setErr('Video maksimal 20MB.'); continue; }
+        addFile(f);
+      }
+    }
+    if (imgs.length > 0) setQueue((q) => [...q, ...imgs]);
+  }
+
+  async function submit() {
+    if (!content.trim() && files.length === 0) { setErr('Isi sesuatu atau pilih media.'); return; }
+    setBusy(true);
+    setErr('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setErr('Login dulu.'); setBusy(false); return; }
+    const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    if ((count ?? 0) >= 8) {
+      setErr('Limit 8 postingan tercapai. Hapus yang lama di menu Postinganku dulu.');
+      setBusy(false);
+      return;
+    }
+    const postId = crypto.randomUUID();
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const ext = f.name.split('.').pop() || 'jpg';
+      const path = user.id + '/' + postId + '/' + i + '.' + ext;
+      const { error: upErr } = await supabase.storage.from('posts').upload(path, f, { upsert: true });
+      if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+      urls.push(supabase.storage.from('posts').getPublicUrl(path).data.publicUrl);
+    }
+    const type = urls.length === 0 ? null : files[0].type.startsWith('video/') ? 'video' : 'image';
+    const { error } = await supabase.from('posts').insert({
+      user_id: user.id,
+      content: content.trim() || null,
+      media_urls: urls,
+      media_type: type,
+    });
+    if (error) { setErr(error.message); setBusy(false); return; }
+    router.push('/feed');
+  }
+
+  return (
+    <div className="min-h-screen bg-bg text-ink">
+      <header className="sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 h-14">
+          <Link href="/feed" className="p-2 text-mut hover:text-ink" aria-label="Kembali">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="font-semibold">Posting Baru</h1>
+          {myCount !== null && (
+            <span className="ml-auto text-xs text-mut">
+              Postingan: <span className="font-bold text-acc">{myCount}/8</span>
+            </span>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={4}
+          placeholder="Apa yang mau kamu bagikan?"
+          className="w-full px-4 py-3 rounded-xl bg-card border border-line text-sm focus:outline-none focus:border-acc/50 resize-none"
+        />
+        {previews.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {previews.map((p, i) => (
+              <div key={i} className="relative shrink-0">
+                <img src={p} alt="" className="h-24 w-24 rounded-xl object-cover border border-line" />
+                <button
+                  onClick={() => {
+                    setFiles((f) => f.filter((_, j) => j !== i));
+                    setPreviews((f) => f.filter((_, j) => j !== i));
+                  }}
+                  className="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white"
+                  aria-label="Hapus media"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="w-full py-3 rounded-xl bg-card border border-line text-sm text-mut hover:text-ink"
+        >
+          + Tambah Foto/Video (foto bisa diedit dulu biar pas)
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) onPick(e.target.files);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={submit}
+          disabled={busy}
+          className="w-full py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? 'Mengunggah...' : 'Terbitkan'}
+        </button>
+      </main>
+
+      {editFile && (
+        <PostEditor
+          file={editFile}
+          onClose={() => {
+            setQueue((q) => q.slice(1));
+            setEditFile(null);
+          }}
+          onDone={(f) => {
+            addFile(f);
+            setQueue((q) => q.slice(1));
+            setEditFile(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part Z20 done: foto rasio asli + editor post + mute tanpa nested button');

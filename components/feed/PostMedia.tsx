@@ -7,7 +7,7 @@ function isVideo(u: string) {
   return u.includes('.mp4') || u.includes('.webm');
 }
 
-function AutoVideo({ src }: { src: string }) {
+function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
 
@@ -37,15 +37,17 @@ function AutoVideo({ src }: { src: string }) {
 
   return (
     <div className="relative">
-      <video
-        ref={ref}
-        src={src}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        className="w-full h-auto max-h-[75vh] bg-black"
-      />
+      <button onClick={onOpen} className="block w-full" aria-label="Lihat detail">
+        <video
+          ref={ref}
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="w-full h-auto max-h-[75vh] bg-black"
+        />
+      </button>
       <button
         onClick={toggleMute}
         className="absolute bottom-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
@@ -77,17 +79,15 @@ export default function PostMedia({ urls }: { urls: string[] }) {
   if (urls.length === 1) {
     return (
       <>
-        <button
-          onClick={() => setOpen(0)}
-          className="mb-3 mx-auto w-full max-w-md block rounded-xl overflow-hidden border border-line bg-card-2"
-          aria-label="Lihat detail"
-        >
+        <div className="mb-3 mx-auto w-full max-w-md rounded-xl overflow-hidden border border-line bg-card-2">
           {isVideo(urls[0]) ? (
-            <AutoVideo src={urls[0]} />
+            <AutoVideo src={urls[0]} onOpen={() => setOpen(0)} />
           ) : (
-            <img src={urls[0]} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+            <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
+              <img src={urls[0]} alt="" loading="lazy" className="w-full h-auto" />
+            </button>
           )}
-        </button>
+        </div>
         {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
       </>
     );
@@ -102,18 +102,15 @@ export default function PostMedia({ urls }: { urls: string[] }) {
           className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
         >
           {urls.map((url, i) => (
-            <button
-              key={i}
-              onClick={() => setOpen(i)}
-              className="snap-center shrink-0 w-full"
-              aria-label="Lihat detail"
-            >
+            <div key={i} className="snap-center shrink-0 w-full">
               {isVideo(url) ? (
-                <AutoVideo src={url} />
+                <AutoVideo src={url} onOpen={() => setOpen(i)} />
               ) : (
-                <img src={url} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
+                <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
+                  <img src={url} alt="" loading="lazy" className="w-full h-auto" />
+                </button>
               )}
-            </button>
+            </div>
           ))}
         </div>
 

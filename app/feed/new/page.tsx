@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { compressImage } from '@/lib/compress';
+import PostEditor from '@/components/PostEditor';
 import { ArrowLeft, Loader2, X } from 'lucide-react';
 
 export default function NewPostPage() {
@@ -12,6 +12,8 @@ export default function NewPostPage() {
   const [content, setContent] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [queue, setQueue] = useState<File[]>([]);
+  const [editFile, setEditFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [myCount, setMyCount] = useState<number | null>(null);
@@ -26,19 +28,27 @@ export default function NewPostPage() {
     })();
   }, []);
 
-  async function onPick(list: FileList) {
+  useEffect(() => {
+    if (!editFile && queue.length > 0) setEditFile(queue[0]);
+  }, [queue, editFile]);
+
+  function addFile(f: File) {
+    setFiles((p) => [...p, f].slice(0, 4));
+    setPreviews((p) => [...p, URL.createObjectURL(f)].slice(0, 4));
+  }
+
+  function onPick(list: FileList) {
     setErr('');
-    const next: File[] = [];
+    const imgs: File[] = [];
     for (const f of Array.from(list)) {
       if (f.type.startsWith('image/')) {
-        next.push(await compressImage(f));
+        imgs.push(f);
       } else if (f.type.startsWith('video/')) {
         if (f.size > 20 * 1024 * 1024) { setErr('Video maksimal 20MB.'); continue; }
-        next.push(f);
+        addFile(f);
       }
     }
-    setFiles((p) => [...p, ...next].slice(0, 4));
-    setPreviews((p) => [...p, ...next.map((f) => URL.createObjectURL(f))].slice(0, 4));
+    if (imgs.length > 0) setQueue((q) => [...q, ...imgs]);
   }
 
   async function submit() {
@@ -122,7 +132,7 @@ export default function NewPostPage() {
           onClick={() => fileRef.current?.click()}
           className="w-full py-3 rounded-xl bg-card border border-line text-sm text-mut hover:text-ink"
         >
-          + Tambah Foto/Video (foto otomatis dikompres biar hemat kuota)
+          + Tambah Foto/Video (foto bisa diedit dulu biar pas)
         </button>
         <input
           ref={fileRef}
@@ -144,6 +154,21 @@ export default function NewPostPage() {
           {busy ? 'Mengunggah...' : 'Terbitkan'}
         </button>
       </main>
+
+      {editFile && (
+        <PostEditor
+          file={editFile}
+          onClose={() => {
+            setQueue((q) => q.slice(1));
+            setEditFile(null);
+          }}
+          onDone={(f) => {
+            addFile(f);
+            setQueue((q) => q.slice(1));
+            setEditFile(null);
+          }}
+        />
+      )}
     </div>
   );
 }

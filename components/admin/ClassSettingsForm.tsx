@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveClassSettings } from '@/lib/auth/settings-actions';
+import { compressImage } from '@/lib/compress';
 
 export default function ClassSettingsForm({ initial }: { initial: any }) {
   const router = useRouter();
@@ -14,7 +15,18 @@ export default function ClassSettingsForm({ initial }: { initial: any }) {
     setErr('');
     setSaved(false);
     try {
-      const res = await saveClassSettings(fd);
+      const out = new FormData();
+      const keys = ['class_name', 'subtitle', 'teacher_name', 'school_year'];
+      for (const k of keys) {
+        const v = fd.get(k);
+        if (v) out.append(k, v as string);
+      }
+      if (fd.get('remove_bg') === 'on') out.append('remove_bg', 'on');
+      const bg = fd.get('bg') as File | null;
+      if (bg && bg.size > 0) out.append('bg', await compressImage(bg, 1600, 0.8));
+      const logo = fd.get('logo') as File | null;
+      if (logo && logo.size > 0) out.append('logo', await compressImage(logo, 512, 0.85));
+      const res = await saveClassSettings(out);
       if (res && res.error) setErr(res.error);
       else { setSaved(true); router.refresh(); }
     } catch (e: any) {
@@ -33,7 +45,7 @@ export default function ClassSettingsForm({ initial }: { initial: any }) {
     >
       <h2 className="font-semibold text-ink">Identitas Kelas</h2>
       {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{err}</div>}
-      {saved && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">Tersimpan ✓</div>}
+      {saved && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">Tersimpan ✓ (background otomatis dikompres biar ringan)</div>}
       <input name="class_name" defaultValue={initial?.class_name || ''} required placeholder="Nama kelas" className={inputCls} />
       <input name="subtitle" defaultValue={initial?.subtitle || ''} placeholder="Subtitle" className={inputCls} />
       <div className="grid md:grid-cols-2 gap-3">
@@ -46,7 +58,7 @@ export default function ClassSettingsForm({ initial }: { initial: any }) {
           <input name="logo" type="file" accept="image/*" className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
         </div>
         <div>
-          <div className="text-xs text-mut mb-1">Background Home (PNG)</div>
+          <div className="text-xs text-mut mb-1">Background Home (auto-kompres)</div>
           <input name="bg" type="file" accept="image/*" className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
         </div>
       </div>

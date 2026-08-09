@@ -27,9 +27,9 @@ export default function BackgroundPicker() {
   }
 
   return (
-    <div className="fixed top-16 right-16 md:top-3 md:right-16 z-30">
+    <div className="fixed bottom-20 right-16 md:bottom-auto md:top-3 md:right-16 z-30">
       {open && (
-        <div className="absolute right-0 top-12 bg-card border border-line rounded-2xl p-3 space-y-1 shadow-xl w-40">
+        <div className="absolute right-0 bottom-12 md:bottom-auto md:top-12 bg-card border border-line rounded-2xl p-3 space-y-1 shadow-xl w-40">
           {BGS.map((b) => (
             <button
               key={b.id}

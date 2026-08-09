@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react';
 import { getClassSettings } from '@/lib/auth/settings-actions';
 
-export default function ClassBrand({ size }: { size: 'lg' | 'sm' }) {
-  const [s, setS] = useState<any>(null);
+export default function ClassBrand({ size, initial }: { size: 'lg' | 'sm'; initial?: any }) {
+  const [s, setS] = useState<any>(initial || null);
 
   useEffect(() => {
+    if (initial) return;
     (async () => {
       const d = await getClassSettings();
       setS(d);

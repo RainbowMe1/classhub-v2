@@ -25,13 +25,17 @@ export default async function DashboardPage() {
     { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
   ];
 
+  const bgStyle = s?.bg_url
+    ? { backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center' }
+    : undefined;
+
   return (
-    <AppLayout profile={user.profile}>
+    <AppLayout profile={user.profile} settings={s}>
       {s?.bg_url && (
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{ backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 0 }}
-        />
+        <>
+          <div className="md:hidden absolute inset-0 pointer-events-none -z-10" style={bgStyle} />
+          <div className="hidden md:block fixed inset-0 pointer-events-none" style={{ ...bgStyle, zIndex: 0, backgroundAttachment: 'fixed' }} />
+        </>
       )}
       {s?.bg_url && <div className="fixed inset-0 pointer-events-none bg-bg/80 md:bg-bg/60" style={{ zIndex: 0 }} />}
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6">

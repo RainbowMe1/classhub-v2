@@ -9,7 +9,7 @@ import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import type { Profile } from '@/types/database';
 
-export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
   const baseItems = [
     { href: '/dashboard', icon: Home, label: 'Home' },
     { href: '/feed', icon: Newspaper, label: 'Feed' },
@@ -34,10 +34,10 @@ export default function AppLayout({ children, profile }: { children: React.React
   const navItems = [...baseItems, ...extra];
 
   return (
-    <div className="min-h-screen text-ink">
+    <div className="min-h-screen text-ink relative">
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
         <div className="p-6 border-b border-line">
-          <ClassBrand size="lg" />
+          <ClassBrand size="lg" initial={settings} />
         </div>
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
@@ -78,7 +78,7 @@ export default function AppLayout({ children, profile }: { children: React.React
 
       <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
         <div className="flex items-center justify-between px-4 h-14">
-          <ClassBrand size="sm" />
+          <ClassBrand size="sm" initial={settings} />
           <div className="flex items-center gap-2">
             <Avatar data={profile} className="h-7 w-7" />
             <span className="text-xs text-mut">@{profile.username}</span>

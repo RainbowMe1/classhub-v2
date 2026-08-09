@@ -35,7 +35,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
 
   return (
     <div className="min-h-screen text-ink relative">
-      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
         <div className="p-6 border-b border-line">
           <ClassBrand size="lg" initial={settings} />
         </div>
@@ -76,7 +76,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
         </div>
       </aside>
 
-      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
         <div className="flex items-center justify-between px-4 h-14">
           <ClassBrand size="sm" initial={settings} />
           <div className="flex items-center gap-2">

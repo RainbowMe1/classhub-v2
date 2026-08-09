@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Lightbox from '@/components/feed/Lightbox';
 import UploadModal from './UploadModal';
-import { updateAlbum, deleteAlbum } from '@/lib/auth/gallery-actions';
-import { Upload, Trash2, Pencil, X, Check } from 'lucide-react';
+import { updateAlbum, deleteAlbum, deleteGalleryMedia } from '@/lib/auth/gallery-actions';
+import { Upload, Trash2, Pencil, X, Check, Image as ImageIcon } from 'lucide-react';
 
 export default function GalleryAlbum({ album, userId, isStaff }: { album: any; userId: string; isStaff: boolean }) {
   const router = useRouter();
@@ -23,6 +23,13 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
     router.refresh();
   }
 
+  async function removeMedia(id: string) {
+    if (!window.confirm('Hapus foto ini dari album?')) return;
+    const res = await deleteGalleryMedia(id);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
   async function saveEdit() {
     if (!name.trim()) return;
     const res = await updateAlbum(album.id, name.trim(), desc.trim());
@@ -32,8 +39,8 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
   }
 
   return (
-    <div className="anim-fade-up">
-      <div className="flex items-center justify-between gap-2 mb-2">
+    <div className="anim-fade-up bg-card border border-line rounded-2xl p-4">
+      <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-line">
         {editing ? (
           <div className="flex-1 space-y-2">
             <input
@@ -62,7 +69,13 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
           <>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-ink truncate">{album.name}</h2>
-              {album.description && <p className="text-sm text-mut">{album.description}</p>}
+              <div className="flex items-center gap-2 text-xs text-mut">
+                {album.description && <span className="truncate">{album.description}</span>}
+                <span className="inline-flex items-center gap-1 shrink-0">
+                  <ImageIcon className="h-3 w-3" />
+                  {media.length} foto
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -88,23 +101,32 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
       </div>
 
       {media.length === 0 ? (
-        <p className="text-sm text-mut py-4">Album kosong. Tambah foto pertama!</p>
+        <p className="text-sm text-mut py-4 text-center">Album kosong. Tambah foto pertama!</p>
       ) : (
         <div className="columns-2 md:columns-3 gap-2">
           {media.map((m: any, i: number) => (
-            <button
-              key={m.id}
-              onClick={() => setOpen(i)}
-              style={{ animationDelay: i * 60 + 'ms' }}
-              className="anim-fade-up mb-2 w-full rounded-xl overflow-hidden border border-line bg-card-2 break-inside-avoid"
-              aria-label="Lihat detail"
-            >
-              {m.media_type === 'video' ? (
-                <video src={m.media_url} muted preload="metadata" playsInline className="w-full h-auto" />
-              ) : (
-                <img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-auto" />
+            <div key={m.id} className="relative mb-2 break-inside-avoid" style={{ animationDelay: i * 60 + 'ms' }}>
+              <button
+                onClick={() => setOpen(i)}
+                className="block w-full rounded-xl overflow-hidden border border-line bg-card-2"
+                aria-label="Lihat detail"
+              >
+                {m.media_type === 'video' ? (
+                  <video src={m.media_url} muted preload="metadata" playsInline className="w-full h-auto" />
+                ) : (
+                  <img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-auto" />
+                )}
+              </button>
+              {(isStaff || m.user_id === userId) && (
+                <button
+                  onClick={() => removeMedia(m.id)}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-red-500"
+                  aria-label="Hapus foto"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}

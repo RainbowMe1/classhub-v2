@@ -1,10 +1,42 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Lightbox from './Lightbox';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 function isVideo(u: string) {
   return u.includes('.mp4') || u.includes('.webm');
+}
+
+function AutoVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        for (const en of entries) {
+          if (en.isIntersecting) v.play().catch(function () {});
+          else v.pause();
+        }
+      },
+      { threshold: 0.6 }
+    );
+    ob.observe(v);
+    return function () { ob.disconnect(); };
+  }, [src]);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      className="w-full aspect-[4/5] object-cover"
+    />
+  );
 }
 
 export default function PostMedia({ urls }: { urls: string[] }) {
@@ -29,11 +61,11 @@ export default function PostMedia({ urls }: { urls: string[] }) {
       <>
         <button
           onClick={() => setOpen(0)}
-          className="mb-3 w-full rounded-xl overflow-hidden border border-line bg-card-2"
+          className="mb-3 mx-auto w-full max-w-md block rounded-xl overflow-hidden border border-line bg-card-2"
           aria-label="Lihat detail"
         >
           {isVideo(urls[0]) ? (
-            <video src={urls[0]} muted preload="metadata" playsInline className="w-full aspect-[4/5] object-cover" />
+            <AutoVideo src={urls[0]} />
           ) : (
             <img src={urls[0]} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
           )}
@@ -59,7 +91,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
               aria-label="Lihat detail"
             >
               {isVideo(url) ? (
-                <video src={url} muted preload="metadata" playsInline className="w-full aspect-[4/5] object-cover" />
+                <AutoVideo src={url} />
               ) : (
                 <img src={url} alt="" loading="lazy" className="w-full aspect-[4/5] object-cover" />
               )}

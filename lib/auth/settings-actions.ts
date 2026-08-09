@@ -16,8 +16,19 @@ export async function saveClassSettings(formData: FormData) {
   const teacher_name = String(formData.get('teacher_name') || '').trim();
   const school_year = String(formData.get('school_year') || '').trim();
   const remove_bg = formData.get('remove_bg') === 'on';
+  const remove_bg_mobile = formData.get('remove_bg_mobile') === 'on';
   if (!class_name) return { error: 'Nama kelas wajib diisi.' };
   const admin = createAdminClient();
+
+  async function uploadBg(file: File, path: string) {
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('gallery')
+      .upload(path + '.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload background gagal: ' + upErr.message };
+    return { url: admin.storage.from('gallery').getPublicUrl(path + '.' + ext).data.publicUrl };
+  }
 
   let logo_url: string | null = null;
   const file = formData.get('logo') as File | null;
@@ -38,13 +49,19 @@ export async function saveClassSettings(formData: FormData) {
   if (bgFile && bgFile.size > 0) {
     if (!bgFile.type.startsWith('image/')) return { error: 'Background harus gambar.' };
     if (bgFile.size > 10 * 1024 * 1024) return { error: 'Background maksimal 10MB.' };
-    const ext = bgFile.name.split('.').pop() || 'png';
-    const buf = Buffer.from(await bgFile.arrayBuffer());
-    const { error: upErr } = await admin.storage
-      .from('gallery')
-      .upload('class/bg.' + ext, buf, { contentType: bgFile.type || 'image/png', upsert: true });
-    if (upErr) return { error: 'Upload background gagal: ' + upErr.message };
-    bg_url = admin.storage.from('gallery').getPublicUrl('class/bg.' + ext).data.publicUrl;
+    const r = await uploadBg(bgFile, 'class/bg');
+    if ('error' in r && r.error) return { error: r.error };
+    bg_url = (r as any).url;
+  }
+
+  let bg_url_mobile: string | null = null;
+  const bgmFile = formData.get('bg_mobile') as File | null;
+  if (bgmFile && bgmFile.size > 0) {
+    if (!bgmFile.type.startsWith('image/')) return { error: 'Background HP harus gambar.' };
+    if (bgmFile.size > 10 * 1024 * 1024) return { error: 'Background HP maksimal 10MB.' };
+    const r = await uploadBg(bgmFile, 'class/bg-mobile');
+    if ('error' in r && r.error) return { error: r.error };
+    bg_url_mobile = (r as any).url;
   }
 
   const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
@@ -56,7 +73,9 @@ export async function saveClassSettings(formData: FormData) {
   };
   if (logo_url) payload.logo_url = logo_url;
   if (bg_url) payload.bg_url = bg_url;
+  if (bg_url_mobile) payload.bg_url_mobile = bg_url_mobile;
   if (remove_bg) payload.bg_url = null;
+  if (remove_bg_mobile) payload.bg_url_mobile = null;
   const { error } = existing
     ? await admin.from('class_settings').update(payload).eq('id', existing.id)
     : await admin.from('class_settings').insert(payload);

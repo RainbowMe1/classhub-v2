@@ -155,3 +155,26 @@ html[data-bg="violet"] body {
 body, aside, header, nav {
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
+
+.glass {
+  background-color: color-mix(in oklab, var(--t-card) 94%, transparent);
+}
+@media (min-width: 768px) {
+  .glass {
+    background-color: color-mix(in oklab, var(--t-card) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  }
+}
+
+/* bg-card-glass: semua kartu jadi liquid glass di desktop, opaque di mobile */
+.bg-card {
+  background-color: color-mix(in oklab, var(--t-card) 94%, transparent);
+}
+@media (min-width: 768px) {
+  .bg-card {
+    background-color: color-mix(in oklab, var(--t-card) 80%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  }
+}

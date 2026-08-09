@@ -9,6 +9,7 @@ export default function MyPostsPage() {
   const supabase = createClient();
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   async function load(userId: string) {
     const { data } = await supabase
@@ -17,6 +18,7 @@ export default function MyPostsPage() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     setPosts(data ?? []);
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -46,10 +48,26 @@ export default function MyPostsPage() {
           Postinganku
         </h1>
         <div className="p-3 rounded-xl bg-card border border-line text-sm text-mut">
-          Kamu punya <span className="font-bold text-ink">{posts.length}</span> dari maksimal <span className="font-bold text-acc">8</span> postingan.
-          {posts.length >= 8 && ' Limit tercapai — hapus yang lama buat upload lagi.'}
+          {loading ? (
+            'Menghitung postingan...'
+          ) : (
+            <>
+              Kamu punya <span className="font-bold text-ink">{posts.length}</span> dari maksimal <span className="font-bold text-acc">8</span> postingan.
+              {posts.length >= 8 && ' Limit tercapai — hapus yang lama buat upload lagi.'}
+            </>
+          )}
         </div>
-        {posts.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-card border border-line rounded-2xl p-4 animate-pulse">
+                <div className="h-3 w-24 rounded bg-line mb-3" />
+                <div className="h-4 w-3/4 rounded bg-line mb-2" />
+                <div className="h-20 w-full rounded-xl bg-line-2" />
+              </div>
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
           <div className="text-center py-16 text-mut">Belum ada postingan.</div>
         ) : (
           posts.map((p) => (

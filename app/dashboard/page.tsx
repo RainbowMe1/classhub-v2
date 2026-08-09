@@ -25,21 +25,27 @@ export default async function DashboardPage() {
     { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
   ];
 
-  const bgStyle = s?.bg_url
-    ? { backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center' }
-    : undefined;
+  const mobileBg = s?.bg_url_mobile || s?.bg_url;
 
   return (
     <AppLayout profile={user.profile} settings={s}>
-      {s?.bg_url && (
-        <>
-          <div className="md:hidden absolute inset-0 pointer-events-none -z-10" style={bgStyle} />
-          <div className="hidden md:block fixed inset-0 pointer-events-none" style={{ ...bgStyle, zIndex: 0, backgroundAttachment: 'fixed' }} />
-        </>
+      {mobileBg && (
+        <div
+          className="md:hidden absolute inset-0 -z-10 pointer-events-none"
+          style={{ backgroundImage: 'url(' + mobileBg + ')', backgroundSize: 'cover', backgroundPosition: 'center' }}
+        />
       )}
-      {s?.bg_url && <div className="fixed inset-0 pointer-events-none bg-bg/80 md:bg-bg/60" style={{ zIndex: 0 }} />}
+      {mobileBg && <div className="md:hidden absolute inset-0 -z-10 pointer-events-none bg-bg/70" />}
+      {s?.bg_url && (
+        <div
+          className="hidden md:block fixed inset-0 pointer-events-none"
+          style={{ backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', zIndex: 0 }}
+        />
+      )}
+      {s?.bg_url && <div className="hidden md:block fixed inset-0 pointer-events-none bg-bg/60" style={{ zIndex: 0 }} />}
+
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6">
-        <section className="rounded-2xl border border-line bg-card/80 backdrop-blur p-4 md:p-5 space-y-1">
+        <section className="glass rounded-2xl border border-line p-4 md:p-5 space-y-1">
           <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
           <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
           {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
@@ -59,7 +65,7 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
           {stats.map((st) => (
-            <div key={st.label} className="bg-card/80 backdrop-blur border border-line rounded-2xl p-3 md:p-4">
+            <div key={st.label} className="bg-card border border-line rounded-2xl p-3 md:p-4">
               <div className={'inline-flex p-2 md:p-2.5 rounded-xl mb-2 md:mb-3 ' + st.bg}>
                 <st.Icon className={'h-5 w-5 ' + st.color} />
               </div>
@@ -70,7 +76,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-3 md:gap-4">
-          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4 md:p-5">
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
             <h3 className="font-semibold flex items-center gap-2 mb-4">
               <Calendar className="h-5 w-5 text-acc" />
               Jadwal Hari Ini
@@ -92,7 +98,7 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4 md:p-5">
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
             <h3 className="font-semibold flex items-center gap-2 mb-4">
               <ClipboardList className="h-5 w-5 text-[#fb923c]" />
               Tugas Aktif
@@ -116,7 +122,7 @@ export default async function DashboardPage() {
         </div>
 
         {(announcements?.length ?? 0) > 0 && (
-          <div className="bg-card/80 backdrop-blur border border-line rounded-2xl p-4 md:p-5">
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
             <h3 className="font-semibold flex items-center gap-2 mb-4">
               <Megaphone className="h-5 w-5 text-blue-400" />
               Pengumuman

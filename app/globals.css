@@ -60,3 +60,38 @@ html, body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.anim-fade-up { animation: fadeUp 0.45s ease both; }
+.heart-pop { animation: heartPop 0.35s ease; }
+
+.space-y-4 > * { animation: fadeUp 0.45s ease both; }
+.space-y-4 > *:nth-child(2) { animation-delay: 60ms; }
+.space-y-4 > *:nth-child(3) { animation-delay: 120ms; }
+.space-y-4 > *:nth-child(4) { animation-delay: 180ms; }
+.space-y-4 > *:nth-child(5) { animation-delay: 240ms; }
+.space-y-4 > *:nth-child(n+6) { animation-delay: 300ms; }
+
+.fixed.inset-0 { animation: fadeIn 0.2s ease both; }
+.fixed.inset-0 > * { animation: popIn 0.25s ease both; }
+
+body, aside, header, nav {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}

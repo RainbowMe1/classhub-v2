@@ -9,12 +9,24 @@ export async function createAlbum(formData: FormData) {
   const description = String(formData.get('description') || '').trim();
   if (!name) return { error: 'Nama album wajib diisi.' };
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('gallery_albums')
-    .insert({ name, description: description || null })
-    .select('id');
+  const { error } = await admin.from('gallery_albums').insert({
+    name,
+    description: description || null,
+  });
   if (error) return { error: error.message };
-  if (!data || data.length === 0) return { error: 'Insert gagal tanpa pesan (0 baris).' };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+
+export async function updateAlbum(albumId: string, name: string, description: string) {
+  await requireRole('teacher');
+  if (!name) return { error: 'Nama album wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('gallery_albums')
+    .update({ name, description: description || null })
+    .eq('id', albumId);
+  if (error) return { error: error.message };
   revalidatePath('/gallery');
   return { success: true };
 }

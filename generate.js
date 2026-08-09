@@ -8495,3 +8495,308 @@ function rethemeDir(dir) {
 rethemeDir('app');
 rethemeDir('components');
 console.log('[OK] Part V done: theme system dark/light + retheme otomatis');
+
+// === PART W: EDIT ALBUM + ANIMATIONS ===
+
+wf('lib/auth/gallery-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function createAlbum(formData: FormData) {
+  await requireRole('teacher');
+  const name = String(formData.get('name') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  if (!name) return { error: 'Nama album wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('gallery_albums').insert({
+    name,
+    description: description || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+
+export async function updateAlbum(albumId: string, name: string, description: string) {
+  await requireRole('teacher');
+  if (!name) return { error: 'Nama album wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('gallery_albums')
+    .update({ name, description: description || null })
+    .eq('id', albumId);
+  if (error) return { error: error.message };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+
+export async function deleteAlbum(albumId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('gallery_albums').delete().eq('id', albumId);
+  if (error) return { error: error.message };
+  revalidatePath('/gallery');
+  return { success: true };
+}
+`);
+
+wf('components/gallery/GalleryAlbum.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Lightbox from '@/components/feed/Lightbox';
+import UploadModal from './UploadModal';
+import { updateAlbum, deleteAlbum } from '@/lib/auth/gallery-actions';
+import { Upload, Trash2, Pencil, X, Check } from 'lucide-react';
+
+export default function GalleryAlbum({ album, userId, isStaff }: { album: any; userId: string; isStaff: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState<number | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(album.name || '');
+  const [desc, setDesc] = useState(album.description || '');
+  const media = album.gallery_media ?? [];
+  const urls = media.map((m: any) => m.media_url);
+
+  async function remove() {
+    if (!window.confirm('Hapus album "' + album.name + '"? Semua foto di dalamnya ikut terhapus dari galeri.')) return;
+    const res = await deleteAlbum(album.id);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  async function saveEdit() {
+    if (!name.trim()) return;
+    const res = await updateAlbum(album.id, name.trim(), desc.trim());
+    if (res && res.error) window.alert(res.error);
+    setEditing(false);
+    router.refresh();
+  }
+
+  return (
+    <div className="anim-fade-up">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        {editing ? (
+          <div className="flex-1 space-y-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <input
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Deskripsi (opsional)"
+              className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <div className="flex gap-2">
+              <button onClick={saveEdit} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-acc text-acc-ink text-xs font-semibold">
+                <Check className="h-3 w-3" />
+                Simpan
+              </button>
+              <button onClick={() => { setEditing(false); setName(album.name || ''); setDesc(album.description || ''); }} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-line text-ink text-xs font-semibold">
+                <X className="h-3 w-3" />
+                Batal
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-ink truncate">{album.name}</h2>
+              {album.description && <p className="text-sm text-mut">{album.description}</p>}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowUpload(true)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-line text-ink text-xs font-semibold hover:bg-line-2"
+              >
+                <Upload className="h-3 w-3" />
+                Tambah Foto
+              </button>
+              {isStaff && (
+                <>
+                  <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg text-mut hover:text-ink" aria-label="Edit album">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button onClick={remove} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10" aria-label="Hapus album">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {media.length === 0 ? (
+        <p className="text-sm text-mut py-4">Album kosong. Tambah foto pertama!</p>
+      ) : (
+        <div className="columns-2 md:columns-3 gap-2">
+          {media.map((m: any, i: number) => (
+            <button
+              key={m.id}
+              onClick={() => setOpen(i)}
+              style={{ animationDelay: i * 60 + 'ms' }}
+              className="anim-fade-up mb-2 w-full rounded-xl overflow-hidden border border-line bg-card-2 break-inside-avoid"
+              aria-label="Lihat detail"
+            >
+              {m.media_type === 'video' ? (
+                <video src={m.media_url} muted preload="metadata" playsInline className="w-full h-auto" />
+              ) : (
+                <img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-auto" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      {showUpload && <UploadModal albumId={album.id} userId={userId} onClose={() => setShowUpload(false)} />}
+    </div>
+  );
+}
+`);
+
+wf('components/feed/LikeButton.tsx', `'use client';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Heart } from 'lucide-react';
+
+export default function LikeButton({ postId, userId, initialCount, initialLiked, ownerId, actorName }: { postId: string; userId: string; initialCount: number; initialLiked: boolean; ownerId: string; actorName: string }) {
+  const supabase = createClient();
+  const [liked, setLiked] = useState(initialLiked);
+  const [count, setCount] = useState(initialCount);
+
+  async function toggle() {
+    if (liked) {
+      setLiked(false);
+      setCount((c) => Math.max(0, c - 1));
+      await supabase.from('likes').delete().eq('user_id', userId).eq('target_type', 'post').eq('target_id', postId);
+    } else {
+      setLiked(true);
+      setCount((c) => c + 1);
+      await supabase.from('likes').insert({ user_id: userId, target_type: 'post', target_id: postId });
+      if (ownerId !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: ownerId,
+          type: 'like',
+          title: actorName + ' menyukai postinganmu',
+          actor_id: userId,
+          target_type: 'post',
+          target_id: postId,
+        });
+      }
+    }
+  }
+
+  return (
+    <button onClick={toggle} className={'flex items-center gap-2 text-sm transition ' + (liked ? 'text-red-400' : 'text-mut hover:text-red-400')}>
+      <Heart className={'h-5 w-5 ' + (liked ? 'fill-red-400 heart-pop' : '')} />
+      <span>{count}</span>
+    </button>
+  );
+}
+`);
+
+wf('app/globals.css', `@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-card: var(--t-card);
+  --color-card-2: var(--t-card2);
+  --color-line: var(--t-line);
+  --color-line-2: var(--t-line2);
+  --color-ink: var(--t-ink);
+  --color-ink-soft: var(--t-inksoft);
+  --color-mut: var(--t-mut);
+  --color-acc: var(--t-acc);
+  --color-acc-strong: var(--t-accstrong);
+  --color-acc-ink: var(--t-accink);
+  --color-warn: var(--t-warn);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root, [data-theme="dark"] {
+  --t-bg: #0a0a0a;
+  --t-card: #161616;
+  --t-card2: #0f0f0f;
+  --t-line: #2a2a2a;
+  --t-line2: #3a3a3a;
+  --t-ink: #ffffff;
+  --t-inksoft: #e5e7eb;
+  --t-mut: #9ca3af;
+  --t-acc: #a3e635;
+  --t-accstrong: #84cc16;
+  --t-accink: #0a0a0a;
+  --t-warn: #fef3c7;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --t-bg: #f4f6f7;
+  --t-card: #ffffff;
+  --t-card2: #eef1f2;
+  --t-line: #e2e6e9;
+  --t-line2: #cfd6db;
+  --t-ink: #0f172a;
+  --t-inksoft: #1f2937;
+  --t-mut: #64748b;
+  --t-acc: #4d7c0f;
+  --t-accstrong: #3f6212;
+  --t-accink: #ffffff;
+  --t-warn: #b45309;
+  color-scheme: light;
+}
+
+html, body {
+  background-color: var(--t-bg);
+  color: var(--t-ink);
+  font-family: var(--font-sans);
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--t-bg); }
+::-webkit-scrollbar-thumb { background: var(--t-line2); border-radius: 4px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.anim-fade-up { animation: fadeUp 0.45s ease both; }
+.heart-pop { animation: heartPop 0.35s ease; }
+
+.space-y-4 > * { animation: fadeUp 0.45s ease both; }
+.space-y-4 > *:nth-child(2) { animation-delay: 60ms; }
+.space-y-4 > *:nth-child(3) { animation-delay: 120ms; }
+.space-y-4 > *:nth-child(4) { animation-delay: 180ms; }
+.space-y-4 > *:nth-child(5) { animation-delay: 240ms; }
+.space-y-4 > *:nth-child(n+6) { animation-delay: 300ms; }
+
+.fixed.inset-0 { animation: fadeIn 0.2s ease both; }
+.fixed.inset-0 > * { animation: popIn 0.25s ease both; }
+
+body, aside, header, nav {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+`);
+
+console.log('[OK] Part W done: edit album + animasi');

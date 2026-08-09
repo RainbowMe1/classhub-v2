@@ -32,7 +32,7 @@ export default function LikeButton({ postId, userId, initialCount, initialLiked,
 
   return (
     <button onClick={toggle} className={'flex items-center gap-2 text-sm transition ' + (liked ? 'text-red-400' : 'text-mut hover:text-red-400')}>
-      <Heart className={'h-5 w-5 ' + (liked ? 'fill-red-400' : '')} />
+      <Heart className={'h-5 w-5 ' + (liked ? 'fill-red-400 heart-pop' : '')} />
       <span>{count}</span>
     </button>
   );

@@ -63,7 +63,7 @@ export default function NewPostPage() {
       if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
       urls.push(supabase.storage.from('posts').getPublicUrl(path).data.publicUrl);
     }
-    const type = urls.length === 0 ? 'text' : files[0].type.startsWith('video/') ? 'video' : 'image';
+    const type = urls.length === 0 ? null : files[0].type.startsWith('video/') ? 'video' : 'image';
     const { error } = await supabase.from('posts').insert({
       user_id: user.id,
       content: content.trim() || null,

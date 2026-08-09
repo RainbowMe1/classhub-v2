@@ -15471,3 +15471,19 @@ console.log('[OK] Part Z11 done: StoryEditor ada + feed/new ditambal');
     console.log('[!!] Part Z12: pola tidak ketemu — edit manual baris import di StoryBar');
   }
 })();
+
+// === PART Z13: POST TEKS PAKAI NULL ===
+
+(function () {
+  const sp = 'app/feed/new/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = "const type = urls.length === 0 ? 'text' : files[0].type.startsWith('video/') ? 'video' : 'image';";
+  const good = "const type = urls.length === 0 ? null : files[0].type.startsWith('video/') ? 'video' : 'image';";
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z13: post teks pakai null');
+  } else {
+    console.log('[SKIP] Part Z13: pola tidak ketemu / udah bener');
+  }
+})();

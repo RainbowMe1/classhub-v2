@@ -6612,3 +6612,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 `);
 
 console.log('[OK] Part Q done: PWA manifest + icons + service worker');
+
+// === PART Q2: MANIFEST src NOT url ===
+
+wf('app/manifest.ts', `import type { MetadataRoute } from 'next';
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'ClassHub',
+    short_name: 'ClassHub',
+    description: 'Aplikasi kelas kamu',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#0a0a0a',
+    theme_color: '#0a0a0a',
+    icons: [
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  };
+}
+`);
+
+console.log('[OK] Part Q2 done: manifest src');

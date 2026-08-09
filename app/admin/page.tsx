@@ -19,22 +19,22 @@ export default async function AdminPage() {
     <AppLayout profile={user.profile}>
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Shield className="h-6 w-6 text-[#a3e635]" />
+          <Shield className="h-6 w-6 text-acc" />
           Panel Admin
         </h1>
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
-            <Users className="h-5 w-5 text-[#a3e635] mb-2" />
-            <div className="text-xs text-gray-400">Total Anggota</div>
+          <div className="bg-card border border-line rounded-2xl p-4">
+            <Users className="h-5 w-5 text-acc mb-2" />
+            <div className="text-xs text-mut">Total Anggota</div>
             <div className="text-2xl font-bold">{memberCount ?? 0}</div>
           </div>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+          <div className="bg-card border border-line rounded-2xl p-4">
             <Newspaper className="h-5 w-5 text-[#fb923c] mb-2" />
-            <div className="text-xs text-gray-400">Total Post</div>
+            <div className="text-xs text-mut">Total Post</div>
             <div className="text-2xl font-bold">{postCount ?? 0}</div>
           </div>
         </div>
-        <Link href="/admin/users" className="block p-4 rounded-2xl bg-[#a3e635] text-[#0a0a0a] font-semibold hover:bg-[#84cc16] transition">
+        <Link href="/admin/users" className="block p-4 rounded-2xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong transition">
           Kelola Anggota → buat akun, ubah role, ban
         </Link>
         <ClassSettingsForm initial={settings} />

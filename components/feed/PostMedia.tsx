@@ -29,7 +29,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
       <>
         <button
           onClick={() => setOpen(0)}
-          className="mb-3 rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] mx-auto block w-fit max-w-full"
+          className="mb-3 rounded-xl overflow-hidden border border-line bg-card-2 mx-auto block w-fit max-w-full"
           aria-label="Lihat detail"
         >
           {isVideo(urls[0]) ? (
@@ -49,7 +49,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] no-scrollbar"
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
         >
           {urls.map((url, i) => (
             <button
@@ -70,7 +70,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
         {idx > 0 && (
           <button
             onClick={() => go(idx - 1)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-ink hover:bg-black/80"
             aria-label="Sebelumnya"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -79,14 +79,14 @@ export default function PostMedia({ urls }: { urls: string[] }) {
         {idx < urls.length - 1 && (
           <button
             onClick={() => go(idx + 1)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-ink hover:bg-black/80"
             aria-label="Berikutnya"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
         )}
 
-        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-ink text-xs">
           {idx + 1}/{urls.length}
         </div>
 
@@ -94,7 +94,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
           {urls.map((_, i) => (
             <div
               key={i}
-              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-[#a3e635]' : 'w-1.5 bg-white/40')}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
             />
           ))}
         </div>

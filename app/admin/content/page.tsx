@@ -18,7 +18,7 @@ export default async function AdminContentPage() {
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-10">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2 mb-4">
-            <Calendar className="h-6 w-6 text-[#a3e635]" />
+            <Calendar className="h-6 w-6 text-acc" />
             Jadwal Pelajaran
           </h1>
           <ScheduleManager schedules={schedules ?? []} />

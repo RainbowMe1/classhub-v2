@@ -26,14 +26,14 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
   }
 
   return (
-    <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold text-white">{task.title}</div>
-          <div className="text-xs text-gray-400 mt-0.5">{task.subject}</div>
+          <div className="font-semibold text-ink">{task.title}</div>
+          <div className="text-xs text-mut mt-0.5">{task.subject}</div>
         </div>
         {mySub ? (
-          <span className="flex items-center gap-1 text-xs text-[#a3e635] shrink-0">
+          <span className="flex items-center gap-1 text-xs text-acc shrink-0">
             <CheckCircle2 className="h-4 w-4" />
             {mySub.status === 'graded' ? 'Nilai: ' + mySub.grade : mySub.status === 'late' ? 'Terlambat' : 'Masuk'}
           </span>
@@ -50,22 +50,22 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
         )}
       </div>
 
-      {task.description && <p className="text-sm text-gray-300 whitespace-pre-wrap">{task.description}</p>}
+      {task.description && <p className="text-sm text-ink-soft whitespace-pre-wrap">{task.description}</p>}
 
       {task.attachment_url && (
-        <a href={task.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-[#a3e635] hover:underline">
+        <a href={task.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-acc hover:underline">
           <Paperclip className="h-3 w-3" />
           Lampiran tugas
         </a>
       )}
 
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-mut">
         Deadline: {new Date(task.deadline).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
       </div>
 
       {mySub && mySub.feedback && (
-        <div className="p-3 rounded-xl bg-[#0a0a0a] border border-[#2a2a2a] text-sm text-gray-300">
-          <span className="text-[#a3e635] font-semibold">Feedback: </span>
+        <div className="p-3 rounded-xl bg-bg border border-line text-sm text-ink-soft">
+          <span className="text-acc font-semibold">Feedback: </span>
           {mySub.feedback}
         </div>
       )}
@@ -73,20 +73,20 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
       {!isStaff && !mySub && (
         <form
           onSubmit={(e) => { e.preventDefault(); submit(new FormData(e.currentTarget)); }}
-          className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#2a2a2a]"
+          className="flex flex-wrap items-center gap-2 pt-2 border-t border-line"
         >
           <input type="hidden" name="task_id" value={task.id} />
           <input
             type="file"
             name="file"
             required
-            className="flex-1 min-w-[160px] text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+            className="flex-1 min-w-[160px] text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
           />
-          <button type="submit" disabled={busy} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-xs font-semibold disabled:opacity-50">
+          <button type="submit" disabled={busy} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-acc text-acc-ink text-xs font-semibold disabled:opacity-50">
             <Upload className="h-3 w-3" />
             {busy ? 'Mengunggah...' : 'Kumpulkan'}
           </button>
-          <div className="w-full text-[10px] text-gray-500">Maksimal 50MB per file</div>
+          <div className="w-full text-[10px] text-mut">Maksimal 50MB per file</div>
           {err && <div className="w-full text-xs text-red-400">{err}</div>}
         </form>
       )}
@@ -94,7 +94,7 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
       {isStaff && (
         <button
           onClick={() => setOpenSubs(true)}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold hover:bg-line-2"
         >
           <Users className="h-3 w-3" />
           Lihat Submission ({subCount})

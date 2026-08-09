@@ -77,21 +77,21 @@ export default function StoryBar({ userId }: { userId: string }) {
     <div>
       <div className="flex gap-3 overflow-x-auto pb-1">
         <button onClick={() => setShowCreate(true)} className="flex flex-col items-center gap-1 shrink-0">
-          <div className="h-16 w-16 rounded-full bg-[#161616] border border-[#2a2a2a] flex items-center justify-center">
-            <Plus className="h-6 w-6 text-[#a3e635]" />
+          <div className="h-16 w-16 rounded-full bg-card border border-line flex items-center justify-center">
+            <Plus className="h-6 w-6 text-acc" />
           </div>
-          <span className="text-[10px] text-gray-400">Ceritamu</span>
+          <span className="text-[10px] text-mut">Ceritamu</span>
         </button>
         {groups.map((g, i) => {
           const allViewed = g.stories.every((s: any) => viewedIds.indexOf(s.id) !== -1);
           return (
             <button key={i} onClick={() => setOpen(i)} className="flex flex-col items-center gap-1 shrink-0">
-              <div className={'h-16 w-16 rounded-full p-0.5 ' + (allViewed ? 'border border-[#3a3a3a]' : 'border-2 border-[#a3e635]')}>
-                <div className="h-full w-full rounded-full bg-[#3a3a3a] flex items-center justify-center text-lg font-bold text-white">
+              <div className={'h-16 w-16 rounded-full p-0.5 ' + (allViewed ? 'border border-line-2' : 'border-2 border-acc')}>
+                <div className="h-full w-full rounded-full bg-line-2 flex items-center justify-center text-lg font-bold text-ink">
                   {g.profile?.full_name?.charAt(0) || 'U'}
                 </div>
               </div>
-              <span className="text-[10px] text-gray-400 max-w-[64px] truncate">{g.profile?.full_name}</span>
+              <span className="text-[10px] text-mut max-w-[64px] truncate">{g.profile?.full_name}</span>
             </button>
           );
         })}
@@ -99,10 +99,10 @@ export default function StoryBar({ userId }: { userId: string }) {
 
       {showCreate && (
         <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#0f0f0f] rounded-2xl w-full max-w-sm p-5 space-y-4">
+          <div className="bg-card-2 rounded-2xl w-full max-w-sm p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-white">Buat Story</h3>
-              <button onClick={() => setShowCreate(false)} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+              <h3 className="font-semibold text-ink">Buat Story</h3>
+              <button onClick={() => setShowCreate(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -111,13 +111,13 @@ export default function StoryBar({ userId }: { userId: string }) {
               type="file"
               accept="image/*"
               ref={fileRef}
-              className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+              className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
             />
             <input
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               placeholder="Caption (opsional)"
-              className="w-full px-3 py-2 rounded-lg bg-[#161616] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+              className="w-full px-3 py-2 rounded-lg bg-card border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
             />
             <button
               disabled={busy}
@@ -126,7 +126,7 @@ export default function StoryBar({ userId }: { userId: string }) {
                 if (!f) { setErr('Pilih gambar dulu.'); return; }
                 publish(f);
               }}
-              className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {busy ? 'Mengunggah...' : 'Terbitkan (24 jam)'}

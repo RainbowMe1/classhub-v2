@@ -8306,3 +8306,192 @@ export default function AppLayout({ children, profile }: { children: React.React
 `);
 
 console.log('[OK] Part U done: profil - ganti nama + password');
+
+// === PART V: THEME SYSTEM + AUTO-RETHEME ===
+
+wf('app/globals.css', `@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--t-bg);
+  --color-card: var(--t-card);
+  --color-card-2: var(--t-card2);
+  --color-line: var(--t-line);
+  --color-line-2: var(--t-line2);
+  --color-ink: var(--t-ink);
+  --color-ink-soft: var(--t-inksoft);
+  --color-mut: var(--t-mut);
+  --color-acc: var(--t-acc);
+  --color-acc-strong: var(--t-accstrong);
+  --color-acc-ink: var(--t-accink);
+  --color-warn: var(--t-warn);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root, [data-theme="dark"] {
+  --t-bg: #0a0a0a;
+  --t-card: #161616;
+  --t-card2: #0f0f0f;
+  --t-line: #2a2a2a;
+  --t-line2: #3a3a3a;
+  --t-ink: #ffffff;
+  --t-inksoft: #e5e7eb;
+  --t-mut: #9ca3af;
+  --t-acc: #a3e635;
+  --t-accstrong: #84cc16;
+  --t-accink: #0a0a0a;
+  --t-warn: #fef3c7;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --t-bg: #f4f6f7;
+  --t-card: #ffffff;
+  --t-card2: #eef1f2;
+  --t-line: #e2e6e9;
+  --t-line2: #cfd6db;
+  --t-ink: #0f172a;
+  --t-inksoft: #1f2937;
+  --t-mut: #64748b;
+  --t-acc: #4d7c0f;
+  --t-accstrong: #3f6212;
+  --t-accink: #ffffff;
+  --t-warn: #b45309;
+  color-scheme: light;
+}
+
+html, body {
+  background-color: var(--t-bg);
+  color: var(--t-ink);
+  font-family: var(--font-sans);
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--t-bg); }
+::-webkit-scrollbar-thumb { background: var(--t-line2); border-radius: 4px; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+`);
+
+wf('components/ThemeToggle.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
+
+export default function ThemeToggle() {
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    setTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+  }, []);
+
+  function toggle() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ch-theme', next); } catch (e) {}
+    setTheme(next);
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="fixed bottom-20 right-3 md:bottom-4 md:right-4 z-30 p-3 rounded-full bg-card border border-line text-mut hover:text-ink shadow-lg"
+      aria-label="Ganti mode gelap/terang"
+    >
+      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
+  );
+}
+`);
+
+wf('app/layout.tsx', `import type { Metadata } from 'next';
+import './globals.css';
+import SWRegister from '@/components/SWRegister';
+import ThemeToggle from '@/components/ThemeToggle';
+
+export const metadata: Metadata = {
+  title: 'ClassHub',
+  description: 'Aplikasi kelas kamu',
+};
+
+const themeScript = "(function(){try{var t=localStorage.getItem('ch-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap"
+          rel="stylesheet"
+        />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <body className="antialiased">
+        <SWRegister />
+        <ThemeToggle />
+        {children}
+      </body>
+    </html>
+  );
+}
+`);
+
+const THEME_MAP = [
+  ['focus:border-[#a3e635]/50', 'focus:border-acc/50'],
+  ['focus:ring-[#a3e635]/30', 'focus:ring-acc/30'],
+  ['hover:border-[#a3e635]/50', 'hover:border-acc/50'],
+  ['bg-[#a3e635]/10', 'bg-acc/10'],
+  ['bg-[#a3e635]/5', 'bg-acc/5'],
+  ['border-[#a3e635]/30', 'border-acc/30'],
+  ['border-[#a3e635]/20', 'border-acc/20'],
+  ['border-[#a3e635]', 'border-acc'],
+  ['text-[#0a0a0a]/60', 'text-acc-ink/60'],
+  ['text-[#0a0a0a]', 'text-acc-ink'],
+  ['hover:bg-[#84cc16]', 'hover:bg-acc-strong'],
+  ['bg-[#a3e635]', 'bg-acc'],
+  ['text-[#a3e635]', 'text-acc'],
+  ['accent-[#a3e635]', 'accent-acc'],
+  ['bg-[#fef3c7]/10', 'bg-warn/10'],
+  ['text-[#fef3c7]', 'text-warn'],
+  ['bg-[#0a0a0a]/95', 'bg-bg/95'],
+  ['bg-[#0a0a0a]/90', 'bg-bg/90'],
+  ['bg-[#0a0a0a]', 'bg-bg'],
+  ['bg-[#0f0f0f]', 'bg-card-2'],
+  ['bg-[#161616]', 'bg-card'],
+  ['hover:bg-[#3a3a3a]', 'hover:bg-line-2'],
+  ['hover:bg-[#2a2a2a]', 'hover:bg-line'],
+  ['bg-[#3a3a3a]', 'bg-line-2'],
+  ['bg-[#2a2a2a]', 'bg-line'],
+  ['border-[#3a3a3a]', 'border-line-2'],
+  ['border-[#2a2a2a]', 'border-line'],
+  ['placeholder-gray-500', 'placeholder-mut'],
+  ['text-gray-200', 'text-ink-soft'],
+  ['text-gray-300', 'text-ink-soft'],
+  ['text-gray-400', 'text-mut'],
+  ['text-gray-500', 'text-mut'],
+  ['text-white', 'text-ink'],
+];
+
+function rethemeDir(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) { rethemeDir(p); continue; }
+    if (!entry.name.endsWith('.tsx') && !entry.name.endsWith('.ts')) continue;
+    let c = fs.readFileSync(p, 'utf8');
+    const before = c;
+    for (const pair of THEME_MAP) c = c.split(pair[0]).join(pair[1]);
+    if (c !== before) {
+      fs.writeFileSync(p, c, 'utf8');
+      console.log('[retheme] ' + p);
+    }
+  }
+}
+
+rethemeDir('app');
+rethemeDir('components');
+console.log('[OK] Part V done: theme system dark/light + retheme otomatis');

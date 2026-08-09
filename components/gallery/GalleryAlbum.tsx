@@ -24,13 +24,13 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
     <div>
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-white truncate">{album.name}</h2>
-          {album.description && <p className="text-sm text-gray-400">{album.description}</p>}
+          <h2 className="text-lg font-semibold text-ink truncate">{album.name}</h2>
+          {album.description && <p className="text-sm text-mut">{album.description}</p>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowUpload(true)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-white text-xs font-semibold hover:bg-[#3a3a3a]"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-line text-ink text-xs font-semibold hover:bg-line-2"
           >
             <Upload className="h-3 w-3" />
             Tambah Foto
@@ -44,14 +44,14 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
       </div>
 
       {media.length === 0 ? (
-        <p className="text-sm text-gray-500 py-4">Album kosong. Tambah foto pertama!</p>
+        <p className="text-sm text-mut py-4">Album kosong. Tambah foto pertama!</p>
       ) : (
         <div className="columns-2 md:columns-3 gap-2">
           {media.map((m: any, i: number) => (
             <button
               key={m.id}
               onClick={() => setOpen(i)}
-              className="mb-2 w-full rounded-xl overflow-hidden border border-[#2a2a2a] bg-[#0f0f0f] break-inside-avoid"
+              className="mb-2 w-full rounded-xl overflow-hidden border border-line bg-card-2 break-inside-avoid"
               aria-label="Lihat detail"
             >
               {m.media_type === 'video' ? (

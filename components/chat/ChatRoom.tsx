@@ -78,18 +78,18 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl flex flex-col h-[calc(100vh-140px)]">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2a2a2a]">
-          <MessageCircle className="h-5 w-5 text-[#a3e635]" />
+      <div className="bg-card border border-line rounded-2xl flex flex-col h-[calc(100vh-140px)]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-line">
+          <MessageCircle className="h-5 w-5 text-acc" />
           <div>
-            <div className="font-semibold text-white text-sm">Chat Kelas</div>
-            <div className="text-xs text-gray-500">Realtime • semua anggota</div>
+            <div className="font-semibold text-ink text-sm">Chat Kelas</div>
+            <div className="text-xs text-mut">Realtime • semua anggota</div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.length === 0 && (
-            <p className="text-center text-gray-500 text-sm py-8">Belum ada pesan. Sapa kelas lu!</p>
+            <p className="text-center text-mut text-sm py-8">Belum ada pesan. Sapa kelas lu!</p>
           )}
           {messages.map((m) => {
             const own = m.user_id === userId;
@@ -98,11 +98,11 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
                 <div
                   className={
                     'max-w-[75%] rounded-2xl px-3 py-2 ' +
-                    (own ? 'bg-[#a3e635] text-[#0a0a0a] rounded-br-sm' : 'bg-[#0f0f0f] border border-[#2a2a2a] rounded-bl-sm')
+                    (own ? 'bg-acc text-acc-ink rounded-br-sm' : 'bg-card-2 border border-line rounded-bl-sm')
                   }
                 >
                   {!own && (
-                    <div className="text-xs font-semibold mb-0.5 text-[#a3e635]">
+                    <div className="text-xs font-semibold mb-0.5 text-acc">
                       {names[m.user_id] || 'Warga Kelas'}
                     </div>
                   )}
@@ -112,7 +112,7 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
                     </button>
                   )}
                   {m.content && <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>}
-                  <div className={'text-[10px] mt-1 ' + (own ? 'text-[#0a0a0a]/60' : 'text-gray-500')}>
+                  <div className={'text-[10px] mt-1 ' + (own ? 'text-acc-ink/60' : 'text-mut')}>
                     {new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
@@ -122,13 +122,13 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
           <div ref={endRef} />
         </div>
 
-        <div className="p-3 border-t border-[#2a2a2a]">
+        <div className="p-3 border-t border-line">
           {err && <div className="text-xs text-red-400 mb-2">{err}</div>}
           {pendingFile && (
-            <div className="flex items-center gap-2 mb-2 text-xs text-gray-300">
-              <ImageIcon className="h-4 w-4 text-[#a3e635]" />
+            <div className="flex items-center gap-2 mb-2 text-xs text-ink-soft">
+              <ImageIcon className="h-4 w-4 text-acc" />
               <span className="truncate">{pendingFile.name}</span>
-              <button onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-gray-500 hover:text-white" aria-label="Hapus foto">
+              <button onClick={() => { setPendingFile(null); if (fileRef.current) fileRef.current.value = ''; }} className="text-mut hover:text-ink" aria-label="Hapus foto">
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -136,7 +136,7 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
           <div className="flex items-center gap-2">
             <button
               onClick={() => fileRef.current?.click()}
-              className="p-2.5 rounded-full bg-[#0f0f0f] border border-[#2a2a2a] text-gray-400 hover:text-white"
+              className="p-2.5 rounded-full bg-card-2 border border-line text-mut hover:text-ink"
               aria-label="Kirim foto"
             >
               <ImageIcon className="h-4 w-4" />
@@ -153,12 +153,12 @@ export default function ChatRoom({ userId, initial, names }: { userId: string; i
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder="Tulis pesan..."
-              className="flex-1 px-4 py-2.5 rounded-full bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+              className="flex-1 px-4 py-2.5 rounded-full bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
             />
             <button
               onClick={send}
               disabled={!text.trim() && !pendingFile ? true : sending}
-              className="p-2.5 rounded-full bg-[#a3e635] text-[#0a0a0a] disabled:opacity-30"
+              className="p-2.5 rounded-full bg-acc text-acc-ink disabled:opacity-30"
               aria-label="Kirim pesan"
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

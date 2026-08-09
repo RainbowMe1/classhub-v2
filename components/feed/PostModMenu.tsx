@@ -22,11 +22,11 @@ export default function PostModMenu({ postId, canDelete }: { postId: string; can
 
   return (
     <div className="flex items-center gap-1">
-      <button onClick={hide} className="p-1.5 text-gray-500 hover:text-white" aria-label="Sembunyikan postingan">
+      <button onClick={hide} className="p-1.5 text-mut hover:text-ink" aria-label="Sembunyikan postingan">
         <EyeOff className="h-4 w-4" />
       </button>
       {canDelete && (
-        <button onClick={remove} className="p-1.5 text-gray-500 hover:text-red-400" aria-label="Hapus postingan">
+        <button onClick={remove} className="p-1.5 text-mut hover:text-red-400" aria-label="Hapus postingan">
           <Trash2 className="h-4 w-4" />
         </button>
       )}

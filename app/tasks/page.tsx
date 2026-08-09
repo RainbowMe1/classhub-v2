@@ -29,7 +29,7 @@ export default async function TasksPage() {
         </div>
 
         {(tasks?.length ?? 0) === 0 ? (
-          <div className="text-center py-16 text-gray-500">
+          <div className="text-center py-16 text-mut">
             <ClipboardList className="h-12 w-12 mx-auto mb-4" />
             <p>Belum ada tugas.</p>
           </div>

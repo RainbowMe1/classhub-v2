@@ -69,17 +69,17 @@ export default function NewPostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <header className="sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+    <div className="min-h-screen bg-bg text-ink">
+      <header className="sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
         <div className="flex items-center justify-between px-4 h-14 max-w-2xl mx-auto">
-          <Link href="/feed" className="flex items-center gap-2 text-gray-400 hover:text-white">
+          <Link href="/feed" className="flex items-center gap-2 text-mut hover:text-ink">
             <ArrowLeft className="h-5 w-5" />
             <span className="text-sm">Kembali</span>
           </Link>
           <button
             onClick={publish}
             disabled={loading}
-            className="px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center gap-2"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Posting
@@ -94,16 +94,16 @@ export default function NewPostPage() {
           onChange={(e) => setContent(e.target.value)}
           placeholder="Apa yang terjadi di kelas hari ini?"
           rows={5}
-          className="w-full p-4 rounded-2xl bg-[#161616] border border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#a3e635]/50 resize-none"
+          className="w-full p-4 rounded-2xl bg-card border border-line text-ink placeholder-mut focus:outline-none focus:border-acc/50 resize-none"
         />
         {previews.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {previews.map((p, i) => (
               <div key={i} className="relative">
-                <img src={p} alt="" className="rounded-xl w-full h-28 object-cover border border-[#2a2a2a]" />
+                <img src={p} alt="" className="rounded-xl w-full h-28 object-cover border border-line" />
                 <button
                   onClick={() => removeFile(i)}
-                  className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white"
+                  className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-ink"
                   aria-label="Hapus foto"
                 >
                   <X className="h-4 w-4" />
@@ -114,9 +114,9 @@ export default function NewPostPage() {
         )}
         <button
           onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[#161616] border border-[#2a2a2a] text-sm text-gray-300 hover:border-[#a3e635]/50 w-full"
+          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-card border border-line text-sm text-ink-soft hover:border-acc/50 w-full"
         >
-          <ImageIcon className="h-5 w-5 text-[#a3e635]" />
+          <ImageIcon className="h-5 w-5 text-acc" />
           Tambah foto (maks 5, maks 5MB/foto)
         </button>
         <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => pickFiles(e.target.files)} />

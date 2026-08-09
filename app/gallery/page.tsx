@@ -36,7 +36,7 @@ export default async function GalleryPage() {
         </div>
 
         {(albums?.length ?? 0) === 0 ? (
-          <div className="text-center py-16 text-gray-500">
+          <div className="text-center py-16 text-mut">
             <ImageIcon className="h-12 w-12 mx-auto mb-4" />
             <p>{isStaff ? 'Belum ada album. Buat album pertama!' : 'Belum ada album. Tunggu admin membuat album.'}</p>
           </div>

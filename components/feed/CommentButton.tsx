@@ -7,7 +7,7 @@ export default function CommentButton({ postId, userId, count, postOwnerId, acto
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition">
+      <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-sm text-mut hover:text-ink transition">
         <MessageCircle className="h-5 w-5" />
         <span>{count}</span>
       </button>

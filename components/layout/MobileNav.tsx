@@ -13,10 +13,10 @@ export default function MobileNav({ items, userId }: { items: NavItem[]; userId:
 
   return (
     <>
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-t border-[#2a2a2a]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg/95 backdrop-blur border-t border-line">
         <div className="flex items-center justify-around h-16">
           {bar.map((item) => (
-            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-gray-400">
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-mut">
               <item.icon className="h-6 w-6" />
               <span className="text-[10px] flex items-center gap-1">
                 {item.label}
@@ -24,7 +24,7 @@ export default function MobileNav({ items, userId }: { items: NavItem[]; userId:
               </span>
             </Link>
           ))}
-          <button onClick={() => setOpen(true)} className="flex flex-col items-center gap-1 text-gray-400" aria-label="Menu">
+          <button onClick={() => setOpen(true)} className="flex flex-col items-center gap-1 text-mut" aria-label="Menu">
             <Menu className="h-6 w-6" />
             <span className="text-[10px]">Menu</span>
           </button>
@@ -34,14 +34,14 @@ export default function MobileNav({ items, userId }: { items: NavItem[]; userId:
       {open && (
         <div className="fixed inset-0 z-50 bg-black/70 md:hidden" onClick={() => setOpen(false)}>
           <div
-            className="absolute right-0 top-0 bottom-0 w-72 bg-[#0f0f0f] border-l border-[#2a2a2a] p-4 overflow-y-auto"
+            className="absolute right-0 top-0 bottom-0 w-72 bg-card-2 border-l border-line p-4 overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="font-bold text-white">
-                Class<span className="text-[#a3e635]">Hub</span>
+              <span className="font-bold text-ink">
+                Class<span className="text-acc">Hub</span>
               </span>
-              <button onClick={() => setOpen(false)} className="p-2 text-gray-400" aria-label="Tutup">
+              <button onClick={() => setOpen(false)} className="p-2 text-mut" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -51,7 +51,7 @@ export default function MobileNav({ items, userId }: { items: NavItem[]; userId:
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-300 hover:bg-[#2a2a2a]"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-ink-soft hover:bg-line"
                 >
                   <item.icon className="h-5 w-5" />
                   {item.label}

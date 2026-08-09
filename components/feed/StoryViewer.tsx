@@ -55,7 +55,7 @@ export default function StoryViewer({ groups, start, onClose }: { groups: Group[
             {group.stories.map((s, i) => (
               <div key={s.id} className="flex-1 h-0.5 rounded bg-white/25 overflow-hidden">
                 <div
-                  className="h-full bg-[#a3e635]"
+                  className="h-full bg-acc"
                   style={{ width: (i < si ? 100 : i === si ? prog : 0) + '%' }}
                 />
               </div>
@@ -63,12 +63,12 @@ export default function StoryViewer({ groups, start, onClose }: { groups: Group[
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-[#3a3a3a] flex items-center justify-center text-xs font-bold text-white">
+              <div className="h-8 w-8 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold text-ink">
                 {group.profile?.full_name?.charAt(0) || 'U'}
               </div>
-              <div className="text-sm font-semibold text-white">{group.profile?.full_name}</div>
+              <div className="text-sm font-semibold text-ink">{group.profile?.full_name}</div>
             </div>
-            <button onClick={onClose} className="p-2 text-white/70 hover:text-white" aria-label="Tutup">
+            <button onClick={onClose} className="p-2 text-ink/70 hover:text-ink" aria-label="Tutup">
               <X className="h-6 w-6" />
             </button>
           </div>
@@ -80,7 +80,7 @@ export default function StoryViewer({ groups, start, onClose }: { groups: Group[
         <img src={story.media_url} alt="" className="w-full h-full object-contain" />
 
         {story.caption && (
-          <div className="absolute bottom-4 left-4 right-4 z-20 text-center text-sm text-white bg-black/50 rounded-xl px-3 py-2">
+          <div className="absolute bottom-4 left-4 right-4 z-20 text-center text-sm text-ink bg-black/50 rounded-xl px-3 py-2">
             {story.caption}
           </div>
         )}

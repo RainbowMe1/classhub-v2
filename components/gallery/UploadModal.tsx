@@ -45,10 +45,10 @@ export default function UploadModal({ albumId, userId, onClose }: { albumId: str
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
-      <div className="bg-[#0f0f0f] rounded-2xl w-full max-w-sm p-5 space-y-4">
+      <div className="bg-card-2 rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white">Tambah Foto</h3>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+          <h3 className="font-semibold text-ink">Tambah Foto</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -58,12 +58,12 @@ export default function UploadModal({ albumId, userId, onClose }: { albumId: str
           accept="image/*,video/*"
           multiple
           ref={fileRef}
-          className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white"
+          className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
         />
         <button
           onClick={upload}
           disabled={busy}
-          className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           {busy ? 'Mengunggah...' : 'Unggah'}

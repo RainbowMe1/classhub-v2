@@ -39,14 +39,14 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 bg-[#0a0a0a]">
+    <main className="min-h-screen flex items-center justify-center px-4 bg-bg">
       <div className="w-full max-w-md animate-[fadeIn_0.3s_ease-out]">
         <div className="mb-8 text-center">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-[#a3e635]/10 mb-4">
-            <LogIn className="h-7 w-7 text-[#a3e635]" />
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-acc/10 mb-4">
+            <LogIn className="h-7 w-7 text-acc" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">ClassHub</h1>
-          <p className="text-sm text-gray-400 mt-2">Masuk ke kelas kamu</p>
+          <h1 className="text-3xl font-bold tracking-tight text-ink">ClassHub</h1>
+          <p className="text-sm text-mut mt-2">Masuk ke kelas kamu</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
@@ -55,19 +55,19 @@ export default function LoginPage() {
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+            <label className="block text-sm font-medium text-ink-soft mb-2">Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
-              className="w-full px-4 py-3 rounded-xl bg-[#2a2a2a] border border-[#3a3a3a] text-white placeholder-gray-500 focus:outline-none focus:border-[#a3e635]/50 focus:ring-1 focus:ring-[#a3e635]/30 transition"
+              className="w-full px-4 py-3 rounded-xl bg-line border border-line-2 text-ink placeholder-mut focus:outline-none focus:border-acc/50 focus:ring-1 focus:ring-acc/30 transition"
               placeholder="username"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+            <label className="block text-sm font-medium text-ink-soft mb-2">Password</label>
             <div className="relative">
               <input
                 type={showPw ? 'text' : 'password'}
@@ -75,13 +75,13 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 rounded-xl bg-[#2a2a2a] border border-[#3a3a3a] text-white placeholder-gray-500 focus:outline-none focus:border-[#a3e635]/50 focus:ring-1 focus:ring-[#a3e635]/30 transition pr-12"
+                className="w-full px-4 py-3 rounded-xl bg-line border border-line-2 text-ink placeholder-mut focus:outline-none focus:border-acc/50 focus:ring-1 focus:ring-acc/30 transition pr-12"
                 placeholder="••••••••"
               />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-mut hover:text-ink"
                 aria-label="Toggle password"
               >
                 {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -91,7 +91,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#a3e635] text-[#0a0a0a] font-semibold hover:bg-[#84cc16] transition disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -102,7 +102,7 @@ export default function LoginPage() {
               'Masuk'
             )}
           </button>
-          <p className="text-center text-xs text-gray-500 pt-2">
+          <p className="text-center text-xs text-mut pt-2">
             Lupa password? Hubungi admin kelas kamu.
           </p>
         </form>

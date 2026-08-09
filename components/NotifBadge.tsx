@@ -19,7 +19,7 @@ export default function NotifBadge({ userId }: { userId: string }) {
 
   if (count === 0) return null;
   return (
-    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-[#a3e635] text-[#0a0a0a] text-[10px] font-bold">
+    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-acc text-acc-ink text-[10px] font-bold">
       {count}
     </span>
   );

@@ -35,15 +35,15 @@ export default function AnnouncementManager({ announcements }: { announcements: 
     <div className="space-y-4">
       <form
         onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
-        className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 space-y-3"
+        className="bg-card border border-line rounded-2xl p-4 space-y-3"
       >
-        <input name="title" required placeholder="Judul pengumuman" className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
-        <textarea name="content" required rows={3} placeholder="Isi pengumuman..." className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50 resize-none" />
-        <label className="flex items-center gap-2 text-sm text-gray-300">
-          <input name="is_pinned" type="checkbox" className="accent-[#a3e635]" />
+        <input name="title" required placeholder="Judul pengumuman" className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />
+        <textarea name="content" required rows={3} placeholder="Isi pengumuman..." className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50 resize-none" />
+        <label className="flex items-center gap-2 text-sm text-ink-soft">
+          <input name="is_pinned" type="checkbox" className="accent-acc" />
           Pin di atas
         </label>
-        <button type="submit" disabled={busy} className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+        <button type="submit" disabled={busy} className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
           <Plus className="h-4 w-4" />
           {busy ? 'Menyimpan...' : 'Terbitkan Pengumuman'}
         </button>
@@ -52,11 +52,11 @@ export default function AnnouncementManager({ announcements }: { announcements: 
 
       <div className="space-y-2">
         {announcements.map((a) => (
-          <div key={a.id} className="p-3 rounded-xl bg-[#161616] border border-[#2a2a2a]">
+          <div key={a.id} className="p-3 rounded-xl bg-card border border-line">
             <div className="flex items-center justify-between gap-2">
-              <div className="font-semibold text-sm text-white">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+              <div className="font-semibold text-sm text-ink">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => pin(a.id, a.is_pinned)} className="p-1.5 text-gray-400 hover:text-white rounded-lg" aria-label="Pin">
+                <button onClick={() => pin(a.id, a.is_pinned)} className="p-1.5 text-mut hover:text-ink rounded-lg" aria-label="Pin">
                   {a.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
                 </button>
                 <button onClick={() => remove(a.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg" aria-label="Hapus">
@@ -64,7 +64,7 @@ export default function AnnouncementManager({ announcements }: { announcements: 
                 </button>
               </div>
             </div>
-            <p className="text-sm text-gray-300 mt-1 whitespace-pre-wrap">{a.content}</p>
+            <p className="text-sm text-ink-soft mt-1 whitespace-pre-wrap">{a.content}</p>
           </div>
         ))}
       </div>

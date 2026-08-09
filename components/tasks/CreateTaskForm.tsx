@@ -23,7 +23,7 @@ export default function CreateTaskForm() {
     return (
       <button
         onClick={() => setShow(true)}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16]"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong"
       >
         <Plus className="h-4 w-4" />
         Buat Tugas
@@ -34,40 +34,40 @@ export default function CreateTaskForm() {
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
-      className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 space-y-4"
+      className="bg-card border border-line rounded-2xl p-5 space-y-4"
     >
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-white">Tugas Baru</h2>
-        <button type="button" onClick={() => setShow(false)} className="text-gray-400 hover:text-white" aria-label="Tutup">
+        <h2 className="font-semibold text-ink">Tugas Baru</h2>
+        <button type="button" onClick={() => setShow(false)} className="text-mut hover:text-ink" aria-label="Tutup">
           <X className="h-5 w-5" />
         </button>
       </div>
       {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
       <div className="grid md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Judul</label>
-          <input name="title" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="Tugas Bab 6" />
+          <label className="block text-xs text-mut mb-1">Judul</label>
+          <input name="title" required className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" placeholder="Tugas Bab 6" />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Mapel</label>
-          <input name="subject" className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" placeholder="Matematika" />
+          <label className="block text-xs text-mut mb-1">Mapel</label>
+          <input name="subject" className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" placeholder="Matematika" />
         </div>
       </div>
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Deskripsi</label>
-        <textarea name="description" rows={3} className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50 resize-none" placeholder="Instruksi tugas..." />
+        <label className="block text-xs text-mut mb-1">Deskripsi</label>
+        <textarea name="description" rows={3} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50 resize-none" placeholder="Instruksi tugas..." />
       </div>
       <div className="grid md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Deadline</label>
-          <input name="deadline" type="datetime-local" required className="w-full px-3 py-2 rounded-lg bg-[#0f0f0f] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50" />
+          <label className="block text-xs text-mut mb-1">Deadline</label>
+          <input name="deadline" type="datetime-local" required className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Lampiran (opsional)</label>
-          <input name="attachment" type="file" className="w-full text-xs text-gray-400 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-[#2a2a2a] file:text-xs file:text-white" />
+          <label className="block text-xs text-mut mb-1">Lampiran (opsional)</label>
+          <input name="attachment" type="file" className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
         </div>
       </div>
-      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-semibold hover:bg-[#84cc16] disabled:opacity-50">
+      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
         {busy ? 'Membuat...' : 'Terbitkan Tugas'}
       </button>
     </form>

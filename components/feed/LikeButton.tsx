@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Heart } from 'lucide-react';
 
-export default function LikeButton({ postId, userId, initialCount, initialLiked }: { postId: string; userId: string; initialCount: number; initialLiked: boolean }) {
+export default function LikeButton({ postId, userId, initialCount, initialLiked, ownerId, actorName }: { postId: string; userId: string; initialCount: number; initialLiked: boolean; ownerId: string; actorName: string }) {
   const supabase = createClient();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
@@ -17,6 +17,16 @@ export default function LikeButton({ postId, userId, initialCount, initialLiked 
       setLiked(true);
       setCount((c) => c + 1);
       await supabase.from('likes').insert({ user_id: userId, target_type: 'post', target_id: postId });
+      if (ownerId !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: ownerId,
+          type: 'like',
+          title: actorName + ' menyukai postinganmu',
+          actor_id: userId,
+          target_type: 'post',
+          target_id: postId,
+        });
+      }
     }
   }
 

@@ -83,8 +83,16 @@ export default async function FeedPage() {
                     userId={user.id}
                     initialCount={likeCounts[post.id] ?? 0}
                     initialLiked={!!likedByMe[post.id]}
+                    ownerId={post.user_id}
+                    actorName={user.profile.full_name}
                   />
-                  <CommentButton postId={post.id} userId={user.id} count={commentCounts[post.id] ?? 0} />
+                  <CommentButton
+                    postId={post.id}
+                    userId={user.id}
+                    count={commentCounts[post.id] ?? 0}
+                    postOwnerId={post.user_id}
+                    actorName={user.profile.full_name}
+                  />
                 </div>
               </div>
             ))}

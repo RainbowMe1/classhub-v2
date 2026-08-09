@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { X, Send, Trash2 } from 'lucide-react';
 
-export default function CommentsSheet({ postId, userId, onClose }: { postId: string; userId: string; onClose: () => void }) {
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string }) {
   const supabase = createClient();
   const [comments, setComments] = useState<any[]>([]);
   const [text, setText] = useState('');
@@ -33,6 +33,17 @@ export default function CommentsSheet({ postId, userId, onClose }: { postId: str
       parent_id: replyTo ? replyTo.id : null,
     });
     if (error) { setErr('Gagal kirim: ' + error.message); return; }
+    const target = replyTo ? replyTo.user_id : postOwnerId;
+    if (target && target !== userId) {
+      await supabase.from('notifications').insert({
+        user_id: target,
+        type: 'comment',
+        title: actorName + (replyTo ? ' membalas komentarmu' : ' mengomentari postinganmu'),
+        actor_id: userId,
+        target_type: 'post',
+        target_id: postId,
+      });
+    }
     setText('');
     setReplyTo(null);
     load();

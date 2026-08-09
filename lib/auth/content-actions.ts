@@ -40,14 +40,23 @@ export async function createAnnouncement(formData: FormData) {
   const is_pinned = formData.get('is_pinned') === 'on';
   if (!title || !content) return { error: 'Judul dan isi wajib diisi.' };
   const admin = createAdminClient();
-  const { error } = await admin.from('announcements').insert({
-    author_id: user.id,
-    title,
-    content,
-    is_pinned,
-    is_published: true,
-  });
+  const { data, error } = await admin
+    .from('announcements')
+    .insert({ author_id: user.id, title, content, is_pinned, is_published: true })
+    .select('id');
   if (error) return { error: error.message };
+
+  const { data: members } = await admin.from('profiles').select('user_id').neq('user_id', user.id);
+  const notifs = (members ?? []).map((m: any) => ({
+    user_id: m.user_id,
+    type: 'announcement',
+    title: 'Pengumuman: ' + title,
+    actor_id: user.id,
+    target_type: 'announcement',
+    target_id: data && data.length > 0 ? data[0].id : null,
+  }));
+  if (notifs.length > 0) await admin.from('notifications').insert(notifs);
+
   revalidatePath('/', 'layout');
   return { success: true };
 }

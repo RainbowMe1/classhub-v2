@@ -5691,3 +5691,768 @@ export default function AppLayout({ children, profile }: { children: React.React
 `);
 
 console.log('[OK] Part O done: manajemen jadwal + pengumuman via UI');
+
+// === PART P: NOTIFIKASI OTOMATIS + BADGE ===
+
+wf('components/NotifBadge.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+
+export default function NotifBadge({ userId }: { userId: string }) {
+  const supabase = createClient();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+      setCount(count ?? 0);
+    })();
+  }, [userId]);
+
+  if (count === 0) return null;
+  return (
+    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-[#a3e635] text-[#0a0a0a] text-[10px] font-bold">
+      {count}
+    </span>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2 } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+  const navItems = [...baseItems, ...extra];
+  const mobileItems = [baseItems[0], baseItems[1], baseItems[2], baseItems[6]];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-[#2a2a2a] bg-[#0f0f0f]">
+        <div className="p-6 border-b border-[#2a2a2a]">
+          <h1 className="text-xl font-bold tracking-tight">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">Kelas kamu, satu aplikasi</p>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-[#2a2a2a] hover:text-white transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <div className="h-9 w-9 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-bold">
+              {profile.full_name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              <div className="text-xs text-[#a3e635] uppercase">{profile.role}</div>
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-[#2a2a2a] transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-[#0a0a0a]/90 backdrop-blur border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-4 h-14">
+          <h1 className="text-lg font-bold">
+            Class<span className="text-[#a3e635]">Hub</span>
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-gray-400" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-around h-16">
+          {mobileItems.map((item) => (
+            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-gray-400">
+              <item.icon className="h-6 w-6" />
+              <span className="text-[10px] flex items-center gap-1">
+                {item.label}
+                {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}
+`);
+
+wf('components/feed/LikeButton.tsx', `'use client';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Heart } from 'lucide-react';
+
+export default function LikeButton({ postId, userId, initialCount, initialLiked, ownerId, actorName }: { postId: string; userId: string; initialCount: number; initialLiked: boolean; ownerId: string; actorName: string }) {
+  const supabase = createClient();
+  const [liked, setLiked] = useState(initialLiked);
+  const [count, setCount] = useState(initialCount);
+
+  async function toggle() {
+    if (liked) {
+      setLiked(false);
+      setCount((c) => Math.max(0, c - 1));
+      await supabase.from('likes').delete().eq('user_id', userId).eq('target_type', 'post').eq('target_id', postId);
+    } else {
+      setLiked(true);
+      setCount((c) => c + 1);
+      await supabase.from('likes').insert({ user_id: userId, target_type: 'post', target_id: postId });
+      if (ownerId !== userId) {
+        await supabase.from('notifications').insert({
+          user_id: ownerId,
+          type: 'like',
+          title: actorName + ' menyukai postinganmu',
+          actor_id: userId,
+          target_type: 'post',
+          target_id: postId,
+        });
+      }
+    }
+  }
+
+  return (
+    <button onClick={toggle} className={'flex items-center gap-2 text-sm transition ' + (liked ? 'text-red-400' : 'text-gray-400 hover:text-red-400')}>
+      <Heart className={'h-5 w-5 ' + (liked ? 'fill-red-400' : '')} />
+      <span>{count}</span>
+    </button>
+  );
+}
+`);
+
+wf('components/feed/CommentsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { X, Send, Trash2 } from 'lucide-react';
+
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName }: { postId: string; userId: string; onClose: () => void; postOwnerId: string; actorName: string }) {
+  const supabase = createClient();
+  const [comments, setComments] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [err, setErr] = useState('');
+
+  async function load() {
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(username, full_name)')
+      .eq('post_id', postId)
+      .order('created_at');
+    setComments(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [postId]);
+
+  async function submit() {
+    if (!text.trim()) return;
+    setErr('');
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: userId,
+      content: text.trim(),
+      parent_id: replyTo ? replyTo.id : null,
+    });
+    if (error) { setErr('Gagal kirim: ' + error.message); return; }
+    const target = replyTo ? replyTo.user_id : postOwnerId;
+    if (target && target !== userId) {
+      await supabase.from('notifications').insert({
+        user_id: target,
+        type: 'comment',
+        title: actorName + (replyTo ? ' membalas komentarmu' : ' mengomentari postinganmu'),
+        actor_id: userId,
+        target_type: 'post',
+        target_id: postId,
+      });
+    }
+    setText('');
+    setReplyTo(null);
+    load();
+  }
+
+  async function del(id: string) {
+    const { error } = await supabase.from('comments').delete().eq('id', id);
+    if (!error) load();
+  }
+
+  const top = comments.filter((c) => !c.parent_id);
+  const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
+      <div className="bg-[#0f0f0f] w-full md:max-w-lg md:rounded-2xl rounded-t-2xl max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+          <h3 className="font-semibold text-white">Komentar</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+          {top.length === 0 ? (
+            <p className="text-center text-gray-500 py-8 text-sm">Belum ada komentar. Mulai diskusi!</p>
+          ) : (
+            top.map((c) => (
+              <div key={c.id}>
+                <div className="flex gap-3">
+                  <div className="h-8 w-8 rounded-full bg-[#3a3a3a] flex items-center justify-center text-xs font-bold shrink-0">
+                    {(c.profiles?.full_name || 'U').charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-[#161616] rounded-2xl rounded-tl-sm px-3 py-2">
+                      <div className="text-xs font-semibold mb-0.5 text-white">{c.profiles?.full_name}</div>
+                      <div className="text-sm whitespace-pre-wrap text-gray-200">{c.content}</div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 ml-2 text-xs text-gray-500">
+                      <button onClick={() => setReplyTo(c)} className="hover:text-white">Balas</button>
+                      {c.user_id === userId && (
+                        <button onClick={() => del(c.id)} className="text-red-400 hover:text-red-300 flex items-center gap-1">
+                          <Trash2 className="h-3 w-3" /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="ml-11 mt-2 space-y-2">
+                  {repliesOf(c.id).map((r) => (
+                    <div key={r.id} className="flex gap-3">
+                      <div className="h-7 w-7 rounded-full bg-[#3a3a3a] flex items-center justify-center text-xs font-bold shrink-0">
+                        {(r.profiles?.full_name || 'U').charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-[#161616] rounded-2xl rounded-tl-sm px-3 py-2">
+                          <div className="text-xs font-semibold mb-0.5 text-white">{r.profiles?.full_name}</div>
+                          <div className="text-sm whitespace-pre-wrap text-gray-200">{r.content}</div>
+                        </div>
+                        {r.user_id === userId && (
+                          <div className="ml-2 mt-1">
+                            <button onClick={() => del(r.id)} className="text-xs text-red-400">Hapus</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="p-3 border-t border-[#2a2a2a]">
+          {replyTo && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-400">
+              <span>Membalas {replyTo.profiles?.full_name}</span>
+              <button onClick={() => setReplyTo(null)} className="text-gray-500 hover:text-white"><X className="h-3 w-3" /></button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Tulis komentar..."
+              className="flex-1 px-4 py-2 rounded-full bg-[#161616] border border-[#2a2a2a] text-sm text-white focus:outline-none focus:border-[#a3e635]/50"
+            />
+            <button onClick={submit} disabled={!text.trim()} className="p-2 rounded-full bg-[#a3e635] text-[#0a0a0a] disabled:opacity-30" aria-label="Kirim">
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/feed/CommentButton.tsx', `'use client';
+import { useState } from 'react';
+import { MessageCircle } from 'lucide-react';
+import CommentsSheet from './CommentsSheet';
+
+export default function CommentButton({ postId, userId, count, postOwnerId, actorName }: { postId: string; userId: string; count: number; postOwnerId: string; actorName: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition">
+        <MessageCircle className="h-5 w-5" />
+        <span>{count}</span>
+      </button>
+      {open && (
+        <CommentsSheet
+          postId={postId}
+          userId={userId}
+          onClose={() => setOpen(false)}
+          postOwnerId={postOwnerId}
+          actorName={actorName}
+        />
+      )}
+    </>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import LikeButton from '@/components/feed/LikeButton';
+import CommentButton from '@/components/feed/CommentButton';
+import PostMedia from '@/components/feed/PostMedia';
+import StoryBar from '@/components/feed/StoryBar';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const postIds = (posts ?? []).map((p: any) => p.id);
+  let likes: any[] = [];
+  let commentRows: any[] = [];
+  if (postIds.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+    likes = l.data ?? [];
+    commentRows = c.data ?? [];
+  }
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  for (const l of likes) {
+    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
+    if (l.user_id === user.id) likedByMe[l.target_id] = true;
+  }
+  const commentCounts: Record<string, number> = {};
+  for (const c of commentRows) {
+    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
+  }
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a3e635] text-[#0a0a0a] text-sm font-medium hover:bg-[#84cc16] transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        {(posts?.length ?? 0) === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-lg mb-2">Belum ada postingan</p>
+            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {(posts ?? []).map((post: any) => (
+              <div key={post.id} className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-full bg-[#3a3a3a] flex items-center justify-center text-sm font-semibold">
+                    {post.profiles?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold">{post.profiles?.full_name}</div>
+                    <div className="text-xs text-gray-400">@{post.profiles?.username}</div>
+                  </div>
+                </div>
+                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+                <div className="flex items-center gap-4 pt-3 border-t border-[#2a2a2a]">
+                  <LikeButton
+                    postId={post.id}
+                    userId={user.id}
+                    initialCount={likeCounts[post.id] ?? 0}
+                    initialLiked={!!likedByMe[post.id]}
+                    ownerId={post.user_id}
+                    actorName={user.profile.full_name}
+                  />
+                  <CommentButton
+                    postId={post.id}
+                    userId={user.id}
+                    count={commentCounts[post.id] ?? 0}
+                    postOwnerId={post.user_id}
+                    actorName={user.profile.full_name}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('lib/auth/task-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const MAX_FILE = 50 * 1024 * 1024;
+
+export async function createTask(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const taskId = randomUUID();
+  let attachment_url: string | null = null;
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 50MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = user.id + '/' + taskId + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await admin.from('tasks').insert({
+    id: taskId,
+    created_by: user.id,
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+    attachment_url,
+    status: 'active',
+  });
+  if (error) return { error: error.message };
+
+  const { data: members } = await admin.from('profiles').select('user_id').neq('user_id', user.id);
+  const notifs = (members ?? []).map((m: any) => ({
+    user_id: m.user_id,
+    type: 'task',
+    title: 'Tugas baru: ' + title,
+    message: subject || null,
+    actor_id: user.id,
+    target_type: 'task',
+    target_id: taskId,
+  }));
+  if (notifs.length > 0) await admin.from('notifications').insert(notifs);
+
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function submitTask(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get('task_id') || '');
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { error: 'Pilih file jawaban dulu.' };
+  if (file.size > MAX_FILE) return { error: 'File maksimal 50MB.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('task_submissions')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (existing) return { error: 'Kamu sudah mengumpulkan tugas ini.' };
+
+  const { data: task } = await admin.from('tasks').select('deadline, created_by, title').eq('id', taskId).maybeSingle();
+  if (!task) return { error: 'Tugas tidak ditemukan.' };
+  const late = new Date(task.deadline) < new Date();
+
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = user.id + '/' + taskId + '/submission.' + ext;
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('tasks')
+    .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+
+  const { error: dbErr } = await admin.from('task_submissions').insert({
+    task_id: taskId,
+    user_id: user.id,
+    file_url: url,
+    file_name: file.name,
+    status: late ? 'late' : 'submitted',
+  });
+  if (dbErr) return { error: dbErr.message };
+
+  if (task.created_by && task.created_by !== user.id) {
+    await admin.from('notifications').insert({
+      user_id: task.created_by,
+      type: 'submission',
+      title: user.profile.full_name + ' mengumpulkan tugas: ' + task.title,
+      actor_id: user.id,
+      target_type: 'task',
+      target_id: taskId,
+    });
+  }
+
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function gradeSubmission(formData: FormData) {
+  const user = await requireRole('teacher');
+  const id = String(formData.get('submission_id') || '');
+  const grade = Number(formData.get('grade'));
+  const feedback = String(formData.get('feedback') || '').trim();
+  if (!id) return { error: 'ID submission kosong.' };
+  if (isNaN(grade) || grade < 0 || grade > 100) return { error: 'Nilai harus 0-100.' };
+
+  const admin = createAdminClient();
+  const { data: sub } = await admin.from('task_submissions').select('user_id').eq('id', id).maybeSingle();
+
+  const { data, error } = await admin
+    .from('task_submissions')
+    .update({ grade, feedback, status: 'graded' })
+    .eq('id', id)
+    .select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: '0 baris terupdate — submission tidak ketemu.' };
+
+  if (sub && sub.user_id !== user.id) {
+    await admin.from('notifications').insert({
+      user_id: sub.user_id,
+      type: 'grade',
+      title: 'Nilai baru: ' + grade,
+      message: feedback || null,
+      actor_id: user.id,
+      target_type: 'task_submission',
+      target_id: id,
+    });
+  }
+
+  revalidatePath('/tasks');
+  return { success: true };
+}
+`);
+
+wf('lib/auth/content-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function createSchedule(formData: FormData) {
+  await requireRole('teacher');
+  const day_of_week = Number(formData.get('day_of_week'));
+  const start_time = String(formData.get('start_time') || '');
+  const end_time = String(formData.get('end_time') || '');
+  const subject = String(formData.get('subject') || '').trim();
+  const room = String(formData.get('room') || '').trim();
+  if (!day_of_week || !start_time || !end_time || !subject) return { error: 'Hari, jam, dan mapel wajib diisi.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('schedules').insert({
+    day_of_week,
+    start_time,
+    end_time,
+    subject,
+    room: room || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteSchedule(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('schedules').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function createAnnouncement(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const content = String(formData.get('content') || '').trim();
+  const is_pinned = formData.get('is_pinned') === 'on';
+  if (!title || !content) return { error: 'Judul dan isi wajib diisi.' };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('announcements')
+    .insert({ author_id: user.id, title, content, is_pinned, is_published: true })
+    .select('id');
+  if (error) return { error: error.message };
+
+  const { data: members } = await admin.from('profiles').select('user_id').neq('user_id', user.id);
+  const notifs = (members ?? []).map((m: any) => ({
+    user_id: m.user_id,
+    type: 'announcement',
+    title: 'Pengumuman: ' + title,
+    actor_id: user.id,
+    target_type: 'announcement',
+    target_id: data && data.length > 0 ? data[0].id : null,
+  }));
+  if (notifs.length > 0) await admin.from('notifications').insert(notifs);
+
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function deleteAnnouncement(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('announcements').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function togglePin(id: string, pinned: boolean) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('announcements').update({ is_pinned: pinned }).eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+console.log('[OK] Part P done: notifikasi otomatis + badge unread');
+
+// === PART P2: NOTIFICATIONS PAGE + LAYOUT ===
+
+wf('components/notifications/NotificationsClient.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Bell, CheckCheck } from 'lucide-react';
+
+export default function NotificationsClient({ userId }: { userId: string }) {
+  const supabase = createClient();
+  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setItems(data ?? []);
+    })();
+  }, [userId]);
+
+  async function markAll() {
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', userId);
+    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Notifikasi</h1>
+        <button onClick={markAll} className="flex items-center gap-1 text-xs text-[#a3e635] hover:underline">
+          <CheckCheck className="h-4 w-4" />
+          Tandai semua dibaca
+        </button>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="text-center py-16 text-gray-500">
+          <Bell className="h-12 w-12 mx-auto mb-4" />
+          <p>Belum ada notifikasi</p>
+        </div>
+      ) : (
+        items.map((n) => (
+          <div
+            key={n.id}
+            className={'p-3 rounded-xl border ' + (n.is_read ? 'bg-[#161616] border-[#2a2a2a]' : 'bg-[#a3e635]/5 border-[#a3e635]/30')}
+          >
+            <div className="text-sm font-semibold text-white">{n.title}</div>
+            {n.message && <p className="text-sm text-gray-300 mt-0.5">{n.message}</p>}
+            <div className="text-xs text-gray-500 mt-1">{new Date(n.created_at).toLocaleString('id-ID')}</div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/notifications/page.tsx', `import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import NotificationsClient from '@/components/notifications/NotificationsClient';
+
+export default async function NotificationsPage() {
+  const user = await requireUser();
+  return (
+    <AppLayout profile={user.profile}>
+      <NotificationsClient userId={user.id} />
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] Part P2 done: notifications page pakai layout');

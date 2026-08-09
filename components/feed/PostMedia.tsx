@@ -44,7 +44,7 @@ function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           className="w-full h-auto max-h-[75vh] bg-black"
         />
       </button>
@@ -84,7 +84,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
             <AutoVideo src={urls[0]} onOpen={() => setOpen(0)} />
           ) : (
             <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
-              <img src={urls[0]} alt="" loading="lazy" className="w-full h-auto" />
+              <img src={urls[0]} alt="" loading="lazy" decoding="async" className="w-full h-auto" />
             </button>
           )}
         </div>
@@ -107,7 +107,7 @@ export default function PostMedia({ urls }: { urls: string[] }) {
                 <AutoVideo src={url} onOpen={() => setOpen(i)} />
               ) : (
                 <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
-                  <img src={url} alt="" loading="lazy" className="w-full h-auto" />
+                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-auto" />
                 </button>
               )}
             </div>

@@ -18183,3 +18183,46 @@ export default function MyPostsPage() {
 `);
 
 console.log('[OK] Part Z21 done: thumbnail video + perf mobile');
+
+// === PART Z22: FEED MULUS MOBILE ===
+
+(function () {
+  const sp = 'components/feed/PostMedia.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  if (c.indexOf('preload="metadata"') !== -1) {
+    c = c.split('preload="metadata"').join('preload="none"');
+    changed = true;
+  }
+  if (c.indexOf('decoding="async"') === -1) {
+    c = c.split('loading="lazy" className="w-full h-auto"').join('loading="lazy" decoding="async" className="w-full h-auto"');
+    changed = true;
+  }
+  if (changed) {
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Z22a: video preload none + img decoding async');
+  } else {
+    console.log('[SKIP] Z22a');
+  }
+})();
+
+(function () {
+  const sp = 'app/globals.css';
+  let c = fs.readFileSync(sp, 'utf8');
+  if (c.indexOf('content-visibility') === -1) {
+    c += `
+@media (max-width: 767px) {
+  .space-y-4 > * {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 640px;
+  }
+}
+`;
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Z22b: content-visibility kartu feed di mobile');
+  } else {
+    console.log('[SKIP] Z22b');
+  }
+})();
+
+console.log('[OK] Part Z22 done: feed mulus mobile');

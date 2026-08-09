@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Play, Pause, SkipBack, SkipForward, Music as MusicIcon } from 'lucide-react';
 
 type Track = { id: string; title: string; artist: string | null; url: string };
@@ -17,10 +18,20 @@ export function useMusic() {
 }
 
 export default function MusicProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [current, setCurrent] = useState<Track | null>(null);
   const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (pathname === '/login' || pathname === '/') {
+      const a = audioRef.current;
+      if (a) a.pause();
+      setCurrent(null);
+      setPlaying(false);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (current && audioRef.current) {

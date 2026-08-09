@@ -6456,3 +6456,159 @@ export default async function NotificationsPage() {
 `);
 
 console.log('[OK] Part P2 done: notifications page pakai layout');
+
+// === PART Q: PWA (MANIFEST + ICON + SERVICE WORKER) ===
+
+const zlib = require('zlib');
+
+const CRC_TABLE = (() => {
+  const t = new Int32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c;
+  }
+  return t;
+})();
+
+function crc32(buf) {
+  let c = -1;
+  for (let i = 0; i < buf.length; i++) c = (c >>> 8) ^ CRC_TABLE[(c ^ buf[i]) & 0xff];
+  return (c ^ -1) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const td = Buffer.concat([Buffer.from(type), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(td));
+  return Buffer.concat([len, td, crc]);
+}
+
+function makeIcon(size) {
+  const rowBytes = size * 4 + 1;
+  const raw = Buffer.alloc(size * rowBytes);
+  for (let y = 0; y < size; y++) {
+    raw[y * rowBytes] = 0;
+    for (let x = 0; x < size; x++) {
+      const o = y * rowBytes + 1 + x * 4;
+      let r = 10, g = 10, b = 10;
+      const cx = size / 2, cy = size / 2;
+      const dist = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+      const ringOuter = size * 0.34, ringInner = size * 0.24;
+      if (dist <= ringOuter && dist >= ringInner) { r = 163; g = 230; b = 53; }
+      if (dist < size * 0.10) { r = 163; g = 230; b = 53; }
+      raw[o] = r; raw[o + 1] = g; raw[o + 2] = b; raw[o + 3] = 255;
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+if (!fs.existsSync('public/icons')) fs.mkdirSync('public/icons', { recursive: true });
+fs.writeFileSync('public/icons/icon-192.png', makeIcon(192));
+fs.writeFileSync('public/icons/icon-512.png', makeIcon(512));
+console.log('[OK] public/icons/icon-192.png + icon-512.png (generated)');
+
+wf('app/manifest.ts', `import type { MetadataRoute } from 'next';
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'ClassHub',
+    short_name: 'ClassHub',
+    description: 'Aplikasi kelas kamu',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#0a0a0a',
+    theme_color: '#0a0a0a',
+    icons: [
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  };
+}
+`);
+
+wf('public/sw.js', `self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function (e) {
+  e.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', function (e) {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    fetch(e.request)
+      .then(function (res) {
+        var copy = res.clone();
+        caches.open('classhub-v1').then(function (c) {
+          c.put(e.request, copy);
+        }).catch(function () {});
+        return res;
+      })
+      .catch(function () {
+        return caches.match(e.request);
+      })
+  );
+});
+`);
+
+wf('components/SWRegister.tsx', `'use client';
+import { useEffect } from 'react';
+
+export default function SWRegister() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    }
+  }, []);
+  return null;
+}
+`);
+
+wf('app/layout.tsx', `import type { Metadata } from 'next';
+import './globals.css';
+import SWRegister from '@/components/SWRegister';
+
+export const metadata: Metadata = {
+  title: 'ClassHub',
+  description: 'Aplikasi kelas kamu',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="id">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap"
+          rel="stylesheet"
+        />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <body className="antialiased">
+        <SWRegister />
+        {children}
+      </body>
+    </html>
+  );
+}
+`);
+
+console.log('[OK] Part Q done: PWA manifest + icons + service worker');

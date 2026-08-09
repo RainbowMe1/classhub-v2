@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import SWRegister from '@/components/SWRegister';
 
 export const metadata: Metadata = {
   title: 'ClassHub',
@@ -16,8 +17,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap"
           rel="stylesheet"
         />
+        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <SWRegister />
+        {children}
+      </body>
     </html>
   );
 }

@@ -1004,7 +1004,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 INSERT INTO class_settings (class_name, subtitle, school_name)
-VALUES ('ClassHub', 'Kelas Kamu', 'SMA Example')
+VALUES ('ClassHub', 'Kelas Kamu', 'Man 4 Bogor')
 ON CONFLICT DO NOTHING;
 `);
 
@@ -15485,5 +15485,35 @@ console.log('[OK] Part Z11 done: StoryEditor ada + feed/new ditambal');
     console.log('[OK] Part Z13: post teks pakai null');
   } else {
     console.log('[SKIP] Part Z13: pola tidak ketemu / udah bener');
+  }
+})();
+
+// === PART Z14: ANIMASI BACKWARDS, FIXED BEBAS ===
+
+(function () {
+  const sp = 'app/globals.css';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = 'fadeUp 0.45s ease both';
+  const good = 'fadeUp 0.45s ease backwards';
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z14: fill-mode backwards (' + c.split(good).length - 1 + ' tempat)');
+  } else {
+    console.log('[SKIP] Part Z14: udah backwards / pola beda');
+  }
+})();// === PART Z14: ANIMASI BACKWARDS, FIXED BEBAS ===
+
+(function () {
+  const sp = 'app/globals.css';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = 'fadeUp 0.45s ease both';
+  const good = 'fadeUp 0.45s ease backwards';
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z14: fill-mode backwards (' + c.split(good).length - 1 + ' tempat)');
+  } else {
+    console.log('[SKIP] Part Z14: udah backwards / pola beda');
   }
 })();

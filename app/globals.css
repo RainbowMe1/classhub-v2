@@ -139,10 +139,10 @@ html[data-bg="violet"] body {
   100% { transform: scale(1); }
 }
 
-.anim-fade-up { animation: fadeUp 0.45s ease both; }
+.anim-fade-up { animation: fadeUp 0.45s ease backwards; }
 .heart-pop { animation: heartPop 0.35s ease; }
 
-.space-y-4 > * { animation: fadeUp 0.45s ease both; }
+.space-y-4 > * { animation: fadeUp 0.45s ease backwards; }
 .space-y-4 > *:nth-child(2) { animation-delay: 60ms; }
 .space-y-4 > *:nth-child(3) { animation-delay: 120ms; }
 .space-y-4 > *:nth-child(4) { animation-delay: 180ms; }

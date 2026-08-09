@@ -260,5 +260,5 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 INSERT INTO class_settings (class_name, subtitle, school_name)
-VALUES ('ClassHub', 'Kelas Kamu', 'SMA Example')
+VALUES ('ClassHub', 'Kelas Kamu', 'Man 4 Bogor')
 ON CONFLICT DO NOTHING;

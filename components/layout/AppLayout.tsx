@@ -1,7 +1,9 @@
+'use client';
 import Link from 'next/link';
 import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2 } from 'lucide-react';
 import { logout } from '@/lib/auth/actions';
 import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
 import type { Profile } from '@/types/database';
 
 export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
@@ -19,7 +21,6 @@ export default function AppLayout({ children, profile }: { children: React.React
   if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
   if (profile.role !== 'student') extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
   const navItems = [...baseItems, ...extra];
-  const mobileItems = [baseItems[0], baseItems[1], baseItems[2], baseItems[6]];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -85,19 +86,7 @@ export default function AppLayout({ children, profile }: { children: React.React
         <main className="pb-24 md:pb-8">{children}</main>
       </div>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-t border-[#2a2a2a]">
-        <div className="flex items-center justify-around h-16">
-          {mobileItems.map((item) => (
-            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 text-gray-400">
-              <item.icon className="h-6 w-6" />
-              <span className="text-[10px] flex items-center gap-1">
-                {item.label}
-                {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <MobileNav items={navItems} userId={profile.user_id} />
     </div>
   );
 }

@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import { deleteOwnPost } from '@/lib/auth/moderation-actions';
-import { Files, Trash2 } from 'lucide-react';
+import { Files, Trash2, Film } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
 
 export default function MyPostsPage() {
   const supabase = createClient();
@@ -84,9 +88,16 @@ export default function MyPostsPage() {
               {p.content && <p className="text-sm whitespace-pre-wrap">{p.content}</p>}
               {p.media_urls && p.media_urls.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                  {p.media_urls.map((u: string, i: number) => (
-                    <img key={i} src={u} alt="" className="h-20 w-20 rounded-lg object-cover border border-line shrink-0" />
-                  ))}
+                  {p.media_urls.map((u: string, i: number) =>
+                    isVideo(u) ? (
+                      <div key={i} className="relative shrink-0">
+                        <video src={u} muted preload="metadata" playsInline className="h-20 w-20 rounded-lg object-cover border border-line bg-black" />
+                        <Film className="h-4 w-4 text-white absolute top-1 right-1" />
+                      </div>
+                    ) : (
+                      <img key={i} src={u} alt="" loading="lazy" className="h-20 w-20 rounded-lg object-cover border border-line shrink-0" />
+                    )
+                  )}
                 </div>
               )}
             </div>

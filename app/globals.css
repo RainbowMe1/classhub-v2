@@ -61,7 +61,7 @@ body {
   background-image:
     radial-gradient(60rem 30rem at 85% -10%, color-mix(in oklab, var(--t-acc) 13%, transparent), transparent 60%),
     radial-gradient(50rem 25rem at -10% 35%, color-mix(in oklab, var(--t-acc2) 11%, transparent), transparent 60%);
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 html[data-bg="ocean"] body {

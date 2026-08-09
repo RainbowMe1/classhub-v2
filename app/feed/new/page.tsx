@@ -1,125 +1,148 @@
 'use client';
-import { useState, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Image as ImageIcon, X, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { compressImage } from '@/lib/compress';
+import { ArrowLeft, Loader2, X } from 'lucide-react';
 
 export default function NewPostPage() {
-  const router = useRouter();
   const supabase = createClient();
+  const router = useRouter();
   const [content, setContent] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [myCount, setMyCount] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  function pickFiles(list: FileList | null) {
-    if (!list) return;
-    setError('');
-    const next = [...files];
-    const nextPrev = [...previews];
-    for (const f of Array.from(list)) {
-      if (!f.type.startsWith('image/')) { setError('Hanya file gambar yang diizinkan.'); continue; }
-      if (f.size > 5 * 1024 * 1024) { setError('Maksimal 5MB per gambar.'); continue; }
-      if (next.length >= 5) { setError('Maksimal 5 foto per postingan.'); break; }
-      next.push(f);
-      nextPrev.push(URL.createObjectURL(f));
-    }
-    setFiles(next);
-    setPreviews(nextPrev);
-  }
-
-  function removeFile(idx: number) {
-    setFiles((p) => p.filter((_, i) => i !== idx));
-    setPreviews((p) => p.filter((_, i) => i !== idx));
-  }
-
-  async function publish() {
-    if (!content.trim() && files.length === 0) { setError('Tulis sesuatu atau tambah foto.'); return; }
-    setLoading(true);
-    setError('');
-    try {
+  useEffect(() => {
+    (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
-      const postId = crypto.randomUUID();
-      const urls: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const ext = files[i].name.split('.').pop() || 'jpg';
-        const path = user.id + '/' + postId + '/image-' + i + '.' + ext;
-        const { error: upErr } = await supabase.storage.from('posts').upload(path, files[i]);
-        if (upErr) { setError('Upload gagal: ' + upErr.message); setLoading(false); return; }
-        const { data: pub } = supabase.storage.from('posts').getPublicUrl(path);
-        urls.push(pub.publicUrl);
+      if (!user) return;
+      const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      setMyCount(count ?? 0);
+    })();
+  }, []);
+
+  async function onPick(list: FileList) {
+    setErr('');
+    const next: File[] = [];
+    for (const f of Array.from(list)) {
+      if (f.type.startsWith('image/')) {
+        next.push(await compressImage(f));
+      } else if (f.type.startsWith('video/')) {
+        if (f.size > 20 * 1024 * 1024) { setErr('Video maksimal 20MB.'); continue; }
+        next.push(f);
       }
-      const { error: dbErr } = await supabase.from('posts').insert({
-        user_id: user.id,
-        content: content.trim() || null,
-        media_urls: urls,
-        media_type: urls.length > 0 ? 'image' : 'none',
-      });
-      if (dbErr) { setError('Gagal simpan post: ' + dbErr.message); setLoading(false); return; }
-      router.push('/feed');
-      router.refresh();
-    } catch {
-      setError('Terjadi kesalahan tak terduga.');
-      setLoading(false);
     }
+    setFiles((p) => [...p, ...next].slice(0, 4));
+    setPreviews((p) => [...p, ...next.map((f) => URL.createObjectURL(f))].slice(0, 4));
+  }
+
+  async function submit() {
+    if (!content.trim() && files.length === 0) { setErr('Isi sesuatu atau pilih media.'); return; }
+    setBusy(true);
+    setErr('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setErr('Login dulu.'); setBusy(false); return; }
+    const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    if ((count ?? 0) >= 8) {
+      setErr('Limit 8 postingan tercapai. Hapus yang lama di menu Postinganku dulu.');
+      setBusy(false);
+      return;
+    }
+    const postId = crypto.randomUUID();
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const ext = f.name.split('.').pop() || 'jpg';
+      const path = user.id + '/' + postId + '/' + i + '.' + ext;
+      const { error: upErr } = await supabase.storage.from('posts').upload(path, f, { upsert: true });
+      if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+      urls.push(supabase.storage.from('posts').getPublicUrl(path).data.publicUrl);
+    }
+    const type = urls.length === 0 ? 'text' : files[0].type.startsWith('video/') ? 'video' : 'image';
+    const { error } = await supabase.from('posts').insert({
+      user_id: user.id,
+      content: content.trim() || null,
+      media_urls: urls,
+      media_type: type,
+    });
+    if (error) { setErr(error.message); setBusy(false); return; }
+    router.push('/feed');
   }
 
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header className="sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
-        <div className="flex items-center justify-between px-4 h-14 max-w-2xl mx-auto">
-          <Link href="/feed" className="flex items-center gap-2 text-mut hover:text-ink">
+        <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 h-14">
+          <Link href="/feed" className="p-2 text-mut hover:text-ink" aria-label="Kembali">
             <ArrowLeft className="h-5 w-5" />
-            <span className="text-sm">Kembali</span>
           </Link>
-          <button
-            onClick={publish}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center gap-2"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Posting
-          </button>
+          <h1 className="font-semibold">Posting Baru</h1>
+          {myCount !== null && (
+            <span className="ml-auto text-xs text-mut">
+              Postingan: <span className="font-bold text-acc">{myCount}/8</span>
+            </span>
+          )}
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-        {error && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{error}</div>}
+        {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Apa yang terjadi di kelas hari ini?"
-          rows={5}
-          className="w-full p-4 rounded-2xl bg-card border border-line text-ink placeholder-mut focus:outline-none focus:border-acc/50 resize-none"
+          rows={4}
+          placeholder="Apa yang mau kamu bagikan?"
+          className="w-full px-4 py-3 rounded-xl bg-card border border-line text-sm focus:outline-none focus:border-acc/50 resize-none"
         />
         {previews.length > 0 && (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {previews.map((p, i) => (
-              <div key={i} className="relative">
-                <img src={p} alt="" className="rounded-xl w-full h-28 object-cover border border-line" />
+              <div key={i} className="relative shrink-0">
+                <img src={p} alt="" className="h-24 w-24 rounded-xl object-cover border border-line" />
                 <button
-                  onClick={() => removeFile(i)}
-                  className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-ink"
-                  aria-label="Hapus foto"
+                  onClick={() => {
+                    setFiles((f) => f.filter((_, j) => j !== i));
+                    setPreviews((f) => f.filter((_, j) => j !== i));
+                  }}
+                  className="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white"
+                  aria-label="Hapus media"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </button>
               </div>
             ))}
           </div>
         )}
         <button
-          onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-3 rounded-xl bg-card border border-line text-sm text-ink-soft hover:border-acc/50 w-full"
+          onClick={() => fileRef.current?.click()}
+          className="w-full py-3 rounded-xl bg-card border border-line text-sm text-mut hover:text-ink"
         >
-          <ImageIcon className="h-5 w-5 text-acc" />
-          Tambah foto (maks 5, maks 5MB/foto)
+          + Tambah Foto/Video (foto otomatis dikompres biar hemat kuota)
         </button>
-        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => pickFiles(e.target.files)} />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) onPick(e.target.files);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={submit}
+          disabled={busy}
+          className="w-full py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? 'Mengunggah...' : 'Terbitkan'}
+        </button>
       </main>
     </div>
   );

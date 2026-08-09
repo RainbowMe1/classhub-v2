@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
 import { logout } from '@/lib/auth/actions';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
@@ -13,6 +13,7 @@ export default function AppLayout({ children, profile }: { children: React.React
   const baseItems = [
     { href: '/dashboard', icon: Home, label: 'Home' },
     { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
     { href: '/chat', icon: MessageCircle, label: 'Chat' },
     { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
     { href: '/schedule', icon: Calendar, label: 'Jadwal' },

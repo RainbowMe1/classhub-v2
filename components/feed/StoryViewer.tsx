@@ -1,12 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 
 type Story = { id: string; media_url: string; caption: string | null; user_id: string };
-type Group = { profile: any; stories: Story[] };
+type Group = { profile: any; stories: Story[]; user_id: string };
 
-export default function StoryViewer({ groups, start, onClose }: { groups: Group[]; start: number; onClose: () => void }) {
+export default function StoryViewer({ groups, start, userId, onClose }: { groups: Group[]; start: number; userId: string; onClose: () => void }) {
   const supabase = createClient();
   const [gi, setGi] = useState(start);
   const [si, setSi] = useState(0);
@@ -39,11 +39,16 @@ export default function StoryViewer({ groups, start, onClose }: { groups: Group[
   useEffect(() => {
     if (!story) return;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await supabase.from('story_views').insert({ story_id: story.id, user_id: user.id });
+      await supabase.from('story_views').insert({ story_id: story.id, user_id: userId });
     })();
   }, [story ? story.id : '']);
+
+  async function delOwn() {
+    if (!story) return;
+    if (!window.confirm('Hapus story ini?')) return;
+    await supabase.from('stories').delete().eq('id', story.id);
+    onClose();
+  }
 
   if (!group || !story) return null;
 
@@ -66,11 +71,18 @@ export default function StoryViewer({ groups, start, onClose }: { groups: Group[
               <div className="h-8 w-8 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold text-ink">
                 {group.profile?.full_name?.charAt(0) || 'U'}
               </div>
-              <div className="text-sm font-semibold text-ink">{group.profile?.full_name}</div>
+              <div className="text-sm font-semibold text-white">{group.profile?.full_name}</div>
             </div>
-            <button onClick={onClose} className="p-2 text-ink/70 hover:text-ink" aria-label="Tutup">
-              <X className="h-6 w-6" />
-            </button>
+            <div className="flex items-center">
+              {group.user_id === userId && (
+                <button onClick={delOwn} className="p-2 text-white/70 hover:text-red-400" aria-label="Hapus story">
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              )}
+              <button onClick={onClose} className="p-2 text-white/70 hover:text-white" aria-label="Tutup">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -80,7 +92,7 @@ export default function StoryViewer({ groups, start, onClose }: { groups: Group[
         <img src={story.media_url} alt="" className="w-full h-full object-contain" />
 
         {story.caption && (
-          <div className="absolute bottom-4 left-4 right-4 z-20 text-center text-sm text-ink bg-black/50 rounded-xl px-3 py-2">
+          <div className="absolute bottom-4 left-4 right-4 z-20 text-center text-sm text-white bg-black/50 rounded-xl px-3 py-2">
             {story.caption}
           </div>
         )}

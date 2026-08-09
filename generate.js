@@ -14512,3 +14512,962 @@ console.log('[OK] Part Z6 done: bg fullscreen + toggle pindah + avatar HD + tab 
     console.log('[SKIP] Part Z9: pola tidak ketemu');
   }
 })();
+
+// === PART Z10: LIMIT + KOMPRESI + POSTINGANKU + STORY EDITOR ===
+
+wf('lib/compress.ts', `export async function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise(function (res, rej) {
+      img.onload = function () { res(null); };
+      img.onerror = rej;
+      img.src = url;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    if (scale === 1 && file.size < 400 * 1024) return file;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise<Blob | null>(function (res) {
+      canvas.toBlob(res, 'image/jpeg', quality);
+    });
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+`);
+
+wf('lib/auth/moderation-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function hidePost(postId: string, hidden: boolean) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').update({ is_hidden: hidden }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/admin/moderation');
+  return { success: true };
+}
+
+export async function deletePost(postId: string) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').delete().eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  return { success: true };
+}
+
+export async function deleteCommentAdmin(commentId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('comments').delete().eq('id', commentId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function deleteOwnPost(postId: string) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('posts').select('user_id').eq('id', postId).maybeSingle();
+  if (!row) return { error: 'Postingan tidak ditemukan.' };
+  if (row.user_id !== user.id) return { error: 'Ini bukan postinganmu.' };
+  const { error } = await admin.from('posts').delete().eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  return { success: true };
+}
+`);
+
+wf('app/my-posts/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { deleteOwnPost } from '@/lib/auth/moderation-actions';
+import { Files, Trash2 } from 'lucide-react';
+
+export default function MyPostsPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+
+  async function load(userId: string) {
+    const { data } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    setPosts(data ?? []);
+  }
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) setProfile(p);
+      load(user.id);
+    })();
+  }, []);
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus postingan ini? Slot upload kamu bakal kosong lagi.')) return;
+    const res = await deleteOwnPost(id);
+    if (res && res.error) window.alert(res.error);
+    else if (profile) load(profile.user_id);
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Files className="h-6 w-6 text-acc" />
+          Postinganku
+        </h1>
+        <div className="p-3 rounded-xl bg-card border border-line text-sm text-mut">
+          Kamu punya <span className="font-bold text-ink">{posts.length}</span> dari maksimal <span className="font-bold text-acc">8</span> postingan.
+          {posts.length >= 8 && ' Limit tercapai — hapus yang lama buat upload lagi.'}
+        </div>
+        {posts.length === 0 ? (
+          <div className="text-center py-16 text-mut">Belum ada postingan.</div>
+        ) : (
+          posts.map((p) => (
+            <div key={p.id} className="bg-card border border-line rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-mut">
+                  {new Date(p.created_at).toLocaleString('id-ID')}
+                  {p.is_hidden ? ' • 🚫 disembunyikan admin' : ''}
+                </div>
+                <button onClick={() => remove(p.id)} className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg" aria-label="Hapus">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+              {p.content && <p className="text-sm whitespace-pre-wrap">{p.content}</p>}
+              {p.media_urls && p.media_urls.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {p.media_urls.map((u: string, i: number) => (
+                    <img key={i} src={u} alt="" className="h-20 w-20 rounded-lg object-cover border border-line shrink-0" />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/StoryEditor.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+
+const W = 720;
+const H = 1280;
+
+export default function StoryEditor({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = W / 2 - pos.x * dw;
+    const dy = H / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const fx = dw / rect.width;
+    const fy = dh / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - ((e.clientX - d.sx) * fx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - ((e.clientY - d.sy) * fy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'story.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Edit Story (9:16)</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-full aspect-[9/16] rounded-xl border border-line touch-none cursor-move"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser buat atur posisi, zoom buat ukuran.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Lanjut Terbitkan
+        </button>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/feed/StoryBar.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Plus, X, Loader2 } from 'lucide-react';
+import StoryViewer from './StoryViewer';
+import StoryEditor from './StoryEditor';
+
+export default function StoryBar({ userId }: { userId: string }) {
+  const supabase = createClient();
+  const [groups, setGroups] = useState<any[]>([]);
+  const [viewedIds, setViewedIds] = useState<string[]>([]);
+  const [open, setOpen] = useState<number | null>(null);
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [caption, setCaption] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function load() {
+    const { data: stories } = await supabase
+      .from('stories')
+      .select('*, profiles(full_name, username)')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at');
+    const map = new Map<string, any>();
+    for (const s of stories ?? []) {
+      if (!map.has(s.user_id)) map.set(s.user_id, { profile: s.profiles, stories: [], user_id: s.user_id });
+      map.get(s.user_id).stories.push(s);
+    }
+    const gs = Array.from(map.values());
+    setGroups(gs);
+    const ids: string[] = [];
+    for (const g of gs) for (const s of g.stories) ids.push(s.id);
+    if (ids.length > 0) {
+      const { data: views } = await supabase
+        .from('story_views')
+        .select('story_id')
+        .eq('user_id', userId)
+        .in('story_id', ids);
+      setViewedIds((views ?? []).map((v: any) => v.story_id));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function publish(file: File) {
+    setBusy(true);
+    setErr('');
+    try {
+      const { count } = await supabase
+        .from('stories')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gt('expires_at', new Date().toISOString());
+      if ((count ?? 0) >= 8) {
+        setErr('Story aktif maksimal 8. Hapus story lama dulu (buka story kamu, tekan ikon tempat sampah).');
+        setBusy(false);
+        return;
+      }
+      const storyId = crypto.randomUUID();
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = userId + '/' + storyId + '.' + ext;
+      const { error: upErr } = await supabase.storage.from('stories').upload(path, file);
+      if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+      const url = supabase.storage.from('stories').getPublicUrl(path).data.publicUrl;
+      const { error: dbErr } = await supabase.from('stories').insert({
+        user_id: userId,
+        media_url: url,
+        media_type: 'image',
+        caption: caption.trim() || null,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+      if (dbErr) { setErr(dbErr.message); setBusy(false); return; }
+      setShowCreate(false);
+      setCaption('');
+      load();
+    } catch {
+      setErr('Gagal membuat story.');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div>
+      <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+        <button onClick={() => setShowCreate(true)} className="flex flex-col items-center gap-1 shrink-0">
+          <div className="h-16 w-16 rounded-full bg-card border border-line flex items-center justify-center">
+            <Plus className="h-6 w-6 text-acc" />
+          </div>
+          <span className="text-[10px] text-mut">Ceritamu</span>
+        </button>
+        {groups.map((g, i) => {
+          const allViewed = g.stories.every((s: any) => viewedIds.indexOf(s.id) !== -1);
+          return (
+            <button key={i} onClick={() => setOpen(i)} className="flex flex-col items-center gap-1 shrink-0">
+              <div className={'h-16 w-16 rounded-full p-0.5 ' + (allViewed ? 'border border-line-2' : 'border-2 border-acc')}>
+                <div className="h-full w-full rounded-full bg-line-2 flex items-center justify-center text-lg font-bold text-ink">
+                  {g.profile?.full_name?.charAt(0) || 'U'}
+                </div>
+              </div>
+              <span className="text-[10px] text-mut max-w-[64px] truncate">{g.profile?.full_name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-card border border-line rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-ink">Buat Story</h3>
+              <button onClick={() => setShowCreate(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileRef}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setEditFile(f);
+              }}
+              className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
+            />
+            <input
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Caption (opsional)"
+              className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <button
+              disabled={busy}
+              onClick={() => {
+                const f = fileRef.current?.files?.[0];
+                if (!f) { setErr('Pilih gambar dulu.'); return; }
+                setEditFile(f);
+              }}
+              className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {busy ? 'Mengunggah...' : 'Edit & Terbitkan (24 jam)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editFile && (
+        <StoryEditor
+          file={editFile}
+          onClose={() => setEditFile(null)}
+          onDone={(f) => {
+            setEditFile(null);
+            publish(f);
+          }}
+        />
+      )}
+
+      {open !== null && groups.length > 0 && (
+        <StoryViewer groups={groups} start={open} userId={userId} onClose={() => { setOpen(null); load(); }} />
+      )}
+    </div>
+  );
+}
+`);
+
+wf('components/feed/StoryViewer.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { X, Trash2 } from 'lucide-react';
+
+type Story = { id: string; media_url: string; caption: string | null; user_id: string };
+type Group = { profile: any; stories: Story[]; user_id: string };
+
+export default function StoryViewer({ groups, start, userId, onClose }: { groups: Group[]; start: number; userId: string; onClose: () => void }) {
+  const supabase = createClient();
+  const [gi, setGi] = useState(start);
+  const [si, setSi] = useState(0);
+  const [prog, setProg] = useState(0);
+  const group = groups[gi];
+  const story = group ? group.stories[si] : null;
+
+  function next() {
+    if (!group) return onClose();
+    if (si < group.stories.length - 1) setSi(si + 1);
+    else if (gi < groups.length - 1) { setGi(gi + 1); setSi(0); }
+    else onClose();
+  }
+
+  function prev() {
+    if (si > 0) setSi(si - 1);
+    else if (gi > 0) { setGi(gi - 1); setSi(0); }
+  }
+
+  useEffect(() => {
+    setProg(0);
+    const t = setInterval(() => setProg((p) => Math.min(100, p + 2)), 100);
+    return () => clearInterval(t);
+  }, [gi, si]);
+
+  useEffect(() => {
+    if (prog >= 100) next();
+  }, [prog]);
+
+  useEffect(() => {
+    if (!story) return;
+    (async () => {
+      await supabase.from('story_views').insert({ story_id: story.id, user_id: userId });
+    })();
+  }, [story ? story.id : '']);
+
+  async function delOwn() {
+    if (!story) return;
+    if (!window.confirm('Hapus story ini?')) return;
+    await supabase.from('stories').delete().eq('id', story.id);
+    onClose();
+  }
+
+  if (!group || !story) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
+      <div className="relative w-full h-full max-w-md mx-auto">
+        <div className="absolute top-0 left-0 right-0 z-20 p-3 space-y-2 bg-gradient-to-b from-black/70 to-transparent">
+          <div className="flex gap-1">
+            {group.stories.map((s, i) => (
+              <div key={s.id} className="flex-1 h-0.5 rounded bg-white/25 overflow-hidden">
+                <div
+                  className="h-full bg-acc"
+                  style={{ width: (i < si ? 100 : i === si ? prog : 0) + '%' }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold text-ink">
+                {group.profile?.full_name?.charAt(0) || 'U'}
+              </div>
+              <div className="text-sm font-semibold text-white">{group.profile?.full_name}</div>
+            </div>
+            <div className="flex items-center">
+              {group.user_id === userId && (
+                <button onClick={delOwn} className="p-2 text-white/70 hover:text-red-400" aria-label="Hapus story">
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              )}
+              <button onClick={onClose} className="p-2 text-white/70 hover:text-white" aria-label="Tutup">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button className="absolute left-0 top-0 bottom-0 w-1/3 z-10" onClick={prev} aria-label="Sebelumnya" />
+        <button className="absolute right-0 top-0 bottom-0 w-1/3 z-10" onClick={next} aria-label="Berikutnya" />
+
+        <img src={story.media_url} alt="" className="w-full h-full object-contain" />
+
+        {story.caption && (
+          <div className="absolute bottom-4 left-4 right-4 z-20 text-center text-sm text-white bg-black/50 rounded-xl px-3 py-2">
+            {story.caption}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/feed/new/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { compressImage } from '@/lib/compress';
+import { ArrowLeft, Loader2, X } from 'lucide-react';
+
+export default function NewPostPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [content, setContent] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [myCount, setMyCount] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      setMyCount(count ?? 0);
+    })();
+  }, []);
+
+  async function onPick(list: FileList) {
+    setErr('');
+    const next: File[] = [];
+    for (const f of Array.from(list)) {
+      if (f.type.startsWith('image/')) {
+        next.push(await compressImage(f));
+      } else if (f.type.startsWith('video/')) {
+        if (f.size > 20 * 1024 * 1024) { setErr('Video maksimal 20MB.'); continue; }
+        next.push(f);
+      }
+    }
+    setFiles((p) => [...p, ...next].slice(0, 4));
+    setPreviews((p) => [...p, ...next.map((f) => URL.createObjectURL(f))].slice(0, 4));
+  }
+
+  async function submit() {
+    if (!content.trim() && files.length === 0) { setErr('Isi sesuatu atau pilih media.'); return; }
+    setBusy(true);
+    setErr('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setErr('Login dulu.'); setBusy(false); return; }
+    const { count } = await supabase.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+    if ((count ?? 0) >= 8) {
+      setErr('Limit 8 postingan tercapai. Hapus yang lama di menu Postinganku dulu.');
+      setBusy(false);
+      return;
+    }
+    const postId = crypto.randomUUID();
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const ext = f.name.split('.').pop() || 'jpg';
+      const path = user.id + '/' + postId + '/' + i + '.' + ext;
+      const { error: upErr } = await supabase.storage.from('posts').upload(path, f, { upsert: true });
+      if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+      urls.push(supabase.storage.from('posts').getPublicUrl(path).data.publicUrl;
+    }
+    const type = urls.length === 0 ? 'text' : files[0].type.startsWith('video/') ? 'video' : 'image';
+    const { error } = await supabase.from('posts').insert({
+      user_id: user.id,
+      content: content.trim() || null,
+      media_urls: urls,
+      media_type: type,
+    });
+    if (error) { setErr(error.message); setBusy(false); return; }
+    router.push('/feed');
+  }
+
+  return (
+    <div className="min-h-screen bg-bg text-ink">
+      <header className="sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 h-14">
+          <Link href="/feed" className="p-2 text-mut hover:text-ink" aria-label="Kembali">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="font-semibold">Posting Baru</h1>
+          {myCount !== null && (
+            <span className="ml-auto text-xs text-mut">
+              Postingan: <span className="font-bold text-acc">{myCount}/8</span>
+            </span>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={4}
+          placeholder="Apa yang mau kamu bagikan?"
+          className="w-full px-4 py-3 rounded-xl bg-card border border-line text-sm focus:outline-none focus:border-acc/50 resize-none"
+        />
+        {previews.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {previews.map((p, i) => (
+              <div key={i} className="relative shrink-0">
+                <img src={p} alt="" className="h-24 w-24 rounded-xl object-cover border border-line" />
+                <button
+                  onClick={() => {
+                    setFiles((f) => f.filter((_, j) => j !== i));
+                    setPreviews((f) => f.filter((_, j) => j !== i));
+                  }}
+                  className="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white"
+                  aria-label="Hapus media"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="w-full py-3 rounded-xl bg-card border border-line text-sm text-mut hover:text-ink"
+        >
+          + Tambah Foto/Video (foto otomatis dikompres biar hemat kuota)
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) onPick(e.target.files);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={submit}
+          disabled={busy}
+          className="w-full py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? 'Mengunggah...' : 'Terbitkan'}
+        </button>
+      </main>
+    </div>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line bg-card">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <form action={logout}>
+              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Part Z10 done: limit 8+8, kompresi, postinganku, story editor');
+
+// === PART Z11: STORY EDITOR (FILE HILANG) + TAMBAL FEED/NEW ===
+
+wf('components/StoryEditor.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+
+const W = 720;
+const H = 1280;
+
+export default function StoryEditor({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = W / 2 - pos.x * dw;
+    const dy = H / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const fx = dw / rect.width;
+    const fy = dh / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - ((e.clientX - d.sx) * fx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - ((e.clientY - d.sy) * fy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'story.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Edit Story (9:16)</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-full aspect-[9/16] rounded-xl border border-line touch-none cursor-move"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser buat atur posisi, zoom buat ukuran.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Lanjut Terbitkan
+        </button>
+      </div>
+    </div>
+  );
+}
+`);
+
+(function () {
+  const sp = 'app/feed/new/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = "urls.push(supabase.storage.from('posts').getPublicUrl(path).data.publicUrl;";
+  const good = "urls.push(supabase.storage.from('posts').getPublicUrl(path).data.publicUrl);";
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z11b: urls.push ditambal');
+  } else {
+    console.log('[SKIP] Part Z11b: pola urls.push udah bener');
+  }
+})();
+
+console.log('[OK] Part Z11 done: StoryEditor ada + feed/new ditambal');
+
+// === PART Z12: IMPORT STORYEDITOR NAIK SATU LANTAI ===
+
+(function () {
+  const sp = 'components/feed/StoryBar.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = "import StoryEditor from './StoryEditor';";
+  const good = "import StoryEditor from '../StoryEditor';";
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] Part Z12: import StoryEditor diperbaiki');
+  } else if (c.indexOf(good) !== -1) {
+    console.log('[SKIP] Part Z12: udah bener');
+  } else {
+    console.log('[!!] Part Z12: pola tidak ketemu — edit manual baris import di StoryBar');
+  }
+})();

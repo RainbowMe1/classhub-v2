@@ -10,8 +10,11 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const supabase = await createClient();
   const s = await getClassSettings();
-  const today = new Date();
-  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+  const nowUtc = new Date();
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jakarta', weekday: 'short' }).format(nowUtc);
+  const dayMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+  const dayOfWeek = dayMap[wd] || 1;
+  const dateLabel = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(nowUtc);
 
   const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }, { data: piket }] = await Promise.all([
     supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
@@ -71,7 +74,7 @@ export default async function DashboardPage() {
         </section>
 
         <div>
-          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="text-xs text-mut">{dateLabel}</div>
           <h2 className="text-lg md:text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
         </div>
 

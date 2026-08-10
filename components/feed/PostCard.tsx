@@ -2,12 +2,11 @@
 import { memo } from 'react';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
-import PostModMenu from './PostModMenu';
 import PostMedia from './PostMedia';
 import LikeButton from './LikeButton';
 import CommentButton from './CommentButton';
 
-function PostCard({ post, userId, isStaff, isAdmin, actorName, likeCount, liked, commentCount }: any) {
+function PostCard({ post, userId, actorName, likeCount, liked, commentCount }: any) {
   return (
     <div className="bg-card border border-line rounded-2xl p-4">
       <div className="flex items-center gap-3 mb-3">
@@ -19,7 +18,6 @@ function PostCard({ post, userId, isStaff, isAdmin, actorName, likeCount, liked,
           </div>
           <div className="text-xs text-mut">@{post.profiles?.username}</div>
         </div>
-        {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
       </div>
       {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
       {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
@@ -38,7 +36,7 @@ function PostCard({ post, userId, isStaff, isAdmin, actorName, likeCount, liked,
           count={commentCount}
           postOwnerId={post.user_id}
           actorName={actorName}
-          isStaff={isStaff}
+          isStaff={false}
         />
       </div>
     </div>

@@ -8,8 +8,6 @@ import Link from 'next/link';
 
 export default async function FeedPage() {
   const user = await requireUser();
-  const isStaff = user.profile.role !== 'student';
-  const isAdmin = user.profile.role === 'admin';
   const first = await getFeedPage(null);
 
   return (
@@ -34,8 +32,6 @@ export default async function FeedPage() {
           likedByMe={first.likedByMe}
           commentCounts={first.commentCounts}
           userId={user.id}
-          isStaff={isStaff}
-          isAdmin={isAdmin}
           actorName={user.profile.full_name}
         />
       </div>

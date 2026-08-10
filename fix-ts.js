@@ -1,4 +1,7 @@
-'use server';
+const fs = require('fs');
+
+// Fix 1: feed-actions.ts
+fs.writeFileSync('lib/auth/feed-actions.ts', `'use server';
 import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/actions';
 
@@ -47,3 +50,13 @@ export async function getFeedPage(cursor: string | null) {
     nextCursor: list.length === 5 && lastPost ? (lastPost.created_at as string) : null,
   };
 }
+`, 'utf8');
+console.log('[OK] feed-actions.ts fixed');
+
+// Fix 2: feed/new/page.tsx
+let c = fs.readFileSync('app/feed/new/page.tsx', 'utf8');
+c = c.split('onDone={(f) => {').join('onDone={(f: File) => {');
+fs.writeFileSync('app/feed/new/page.tsx', c, 'utf8');
+console.log('[OK] feed/new/page.tsx fixed');
+
+console.log('Done! Sekarang jalankan: npm run build');

@@ -67,8 +67,6 @@ export default function PostList(props: any) {
           key={post.id}
           post={post}
           userId={props.userId}
-          isStaff={props.isStaff}
-          isAdmin={props.isAdmin}
           actorName={props.actorName}
           likeCount={lc[post.id] ?? 0}
           liked={!!lm[post.id]}

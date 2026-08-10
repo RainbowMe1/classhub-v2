@@ -21465,3 +21465,717 @@ console.log('[OK] MEDIA CLEAN done: img polos, no black bar, no fade-trick');
 })();
 
 console.log('[OK] REFRESH FIX done');
+
+// === POST MANAGEMENT: FEED CLEAN + POSTINGANKU FULL + ADMIN KELOLA ===
+
+wf('lib/auth/post-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function updateOwnPost(formData: FormData) {
+  const user = await requireUser();
+  const postId = String(formData.get('id') || '');
+  const content = String(formData.get('content') || '').trim();
+  if (!postId) return { error: 'ID post kosong.' };
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('posts').select('user_id').eq('id', postId).maybeSingle();
+  if (!row || row.user_id !== user.id) return { error: 'Ini bukan postinganmu.' };
+  const { error } = await admin.from('posts').update({ content: content || null }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  return { success: true };
+}
+
+export async function hideOwnPost(postId: string) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('posts').select('user_id').eq('id', postId).maybeSingle();
+  if (!row || row.user_id !== user.id) return { error: 'Ini bukan postinganmu.' };
+  const { error } = await admin.from('posts').update({ is_hidden: true }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  return { success: true };
+}
+
+export async function unhideOwnPost(postId: string) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('posts').select('user_id').eq('id', postId).maybeSingle();
+  if (!row || row.user_id !== user.id) return { error: 'Ini bukan postinganmu.' };
+  const { error } = await admin.from('posts').update({ is_hidden: false }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  return { success: true };
+}
+
+export async function hideAnyPost(postId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').update({ is_hidden: true }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  revalidatePath('/admin/posts');
+  return { success: true };
+}
+
+export async function unhideAnyPost(postId: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').update({ is_hidden: false }).eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  revalidatePath('/admin/posts');
+  return { success: true };
+}
+
+export async function deleteAnyPost(postId: string) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('posts').delete().eq('id', postId);
+  if (error) return { error: error.message };
+  revalidatePath('/feed');
+  revalidatePath('/my-posts');
+  revalidatePath('/admin/posts');
+  return { success: true };
+}
+`);
+
+wf('components/feed/PostCard.tsx', `'use client';
+import { memo } from 'react';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import PostMedia from './PostMedia';
+import LikeButton from './LikeButton';
+import CommentButton from './CommentButton';
+
+function PostCard({ post, userId, actorName, likeCount, liked, commentCount }: any) {
+  return (
+    <div className="bg-card border border-line rounded-2xl p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar data={post.profiles} className="h-10 w-10" />
+        <div className="flex-1">
+          <div className="font-semibold flex items-center gap-2">
+            {post.profiles?.full_name}
+            <AdminTag role={post.profiles?.role} />
+          </div>
+          <div className="text-xs text-mut">@{post.profiles?.username}</div>
+        </div>
+      </div>
+      {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+      {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+      <div className="flex items-center gap-4 pt-3 border-t border-line">
+        <LikeButton
+          postId={post.id}
+          userId={userId}
+          initialCount={likeCount}
+          initialLiked={liked}
+          ownerId={post.user_id}
+          actorName={actorName}
+        />
+        <CommentButton
+          postId={post.id}
+          userId={userId}
+          count={commentCount}
+          postOwnerId={post.user_id}
+          actorName={actorName}
+          isStaff={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default memo(PostCard);
+`);
+
+wf('components/feed/PostList.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { getFeedPage } from '@/lib/auth/feed-actions';
+import PostCard from './PostCard';
+import { Loader2 } from 'lucide-react';
+
+export default function PostList(props: any) {
+  const [posts, setPosts] = useState<any[]>(props.initial);
+  const [lc, setLc] = useState<Record<string, number>>(props.likeCounts);
+  const [lm, setLm] = useState<Record<string, boolean>>(props.likedByMe);
+  const [cc, setCc] = useState<Record<string, number>>(props.commentCounts);
+  const [cursor, setCursor] = useState<string | null>(
+    props.initial.length ? props.initial[props.initial.length - 1].created_at : null
+  );
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(props.initial.length < 5);
+  const sentRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(false);
+
+  async function loadMore() {
+    if (busyRef.current || done) return;
+    busyRef.current = true;
+    setLoading(true);
+    try {
+      const res = await getFeedPage(cursor);
+      setPosts((prev) => {
+        const have = new Set(prev.map((p) => p.id));
+        return [...prev, ...res.posts.filter((p: any) => !have.has(p.id))];
+      });
+      setLc((prev) => Object.assign({}, prev, res.likeCounts));
+      setLm((prev) => Object.assign({}, prev, res.likedByMe));
+      setCc((prev) => Object.assign({}, prev, res.commentCounts));
+      setCursor(res.nextCursor);
+      if (!res.nextCursor || res.posts.length === 0) setDone(true);
+    } finally {
+      busyRef.current = false;
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const el = sentRef.current;
+    if (!el || done) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: '600px 0px' }
+    );
+    ob.observe(el);
+    return function () { ob.disconnect(); };
+  }, [cursor, done]);
+
+  if (posts.length === 0) {
+    return (
+      <div className="text-center py-16 text-mut">
+        <p className="text-lg mb-2">Belum ada postingan</p>
+        <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {posts.map((post) => (
+        <PostCard
+          key={post.id}
+          post={post}
+          userId={props.userId}
+          actorName={props.actorName}
+          likeCount={lc[post.id] ?? 0}
+          liked={!!lm[post.id]}
+          commentCount={cc[post.id] ?? 0}
+        />
+      ))}
+      <div ref={sentRef} className="h-1" />
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-4 text-mut text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Memuat...
+        </div>
+      )}
+      {done && (
+        <div className="text-center py-4 text-mut text-sm">Tidak ada postingan lainnya.</div>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { requireUser } from '@/lib/auth/actions';
+import { getFeedPage } from '@/lib/auth/feed-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import StoryBar from '@/components/feed/StoryBar';
+import PostList from '@/components/feed/PostList';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const first = await getFeedPage(null);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-medium hover:bg-acc-strong transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        <PostList
+          initial={first.posts}
+          likeCounts={first.likeCounts}
+          likedByMe={first.likedByMe}
+          commentCounts={first.commentCounts}
+          userId={user.id}
+          actorName={user.profile.full_name}
+        />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/my-posts/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { deleteOwnPost } from '@/lib/auth/moderation-actions';
+import { updateOwnPost, hideOwnPost, unhideOwnPost } from '@/lib/auth/post-actions';
+import { Files, Trash2, Film, Pencil, EyeOff, Eye, X, Check } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function MyPostsPage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [edit, setEdit] = useState<any | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function load(userId: string) {
+    const { data } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    setPosts(data ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) setProfile(p);
+      load(user.id);
+    })();
+  }, []);
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus postingan ini? Slot upload kamu bakal kosong lagi.')) return;
+    setBusy(true);
+    setErr('');
+    const res = await deleteOwnPost(id);
+    setBusy(false);
+    if (res && res.error) {
+      setErr(res.error);
+    } else {
+      router.refresh();
+      if (profile) load(profile.user_id);
+    }
+  }
+
+  async function toggleHide(p: any) {
+    setBusy(true);
+    setErr('');
+    const res = p.is_hidden ? await unhideOwnPost(p.id) : await hideOwnPost(p.id);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else {
+      router.refresh();
+      if (profile) load(profile.user_id);
+    }
+  }
+
+  async function saveEdit() {
+    if (!edit) return;
+    setBusy(true);
+    setErr('');
+    const fd = new FormData();
+    fd.append('id', edit.id);
+    fd.append('content', editContent);
+    const res = await updateOwnPost(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else {
+      setEdit(null);
+      router.refresh();
+      if (profile) load(profile.user_id);
+    }
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Files className="h-6 w-6 text-acc" />
+          Postinganku
+        </h1>
+        <div className="p-3 rounded-xl bg-card border border-line text-sm text-mut">
+          {loading ? (
+            'Menghitung postingan...'
+          ) : (
+            <>
+              Kamu punya <span className="font-bold text-ink">{posts.length}</span> dari maksimal <span className="font-bold text-acc">8</span> postingan.
+              {posts.length >= 8 && ' Limit tercapai — hapus yang lama buat upload lagi.'}
+            </>
+          )}
+        </div>
+        {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="bg-card border border-line rounded-2xl p-4 animate-pulse">
+                <div className="h-3 w-24 rounded bg-line mb-3" />
+                <div className="h-4 w-3/4 rounded bg-line mb-2" />
+                <div className="h-20 w-full rounded-xl bg-line-2" />
+              </div>
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-16 text-mut">Belum ada postingan.</div>
+        ) : (
+          posts.map((p) => (
+            <div key={p.id} className="bg-card border border-line rounded-2xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-mut">
+                  {new Date(p.created_at).toLocaleString('id-ID')}
+                  {p.is_hidden ? ' • 🚫 disembunyikan' : ''}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { setEdit(p); setEditContent(p.content || ''); }}
+                    disabled={busy}
+                    className="p-1.5 text-mut hover:text-ink rounded"
+                    aria-label="Edit"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => toggleHide(p)}
+                    disabled={busy}
+                    className="p-1.5 text-mut hover:text-ink rounded"
+                    aria-label={p.is_hidden ? 'Tampilkan' : 'Sembunyikan'}
+                  >
+                    {p.is_hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => remove(p.id)}
+                    disabled={busy}
+                    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg"
+                    aria-label="Hapus"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              {p.content && <p className="text-sm whitespace-pre-wrap">{p.content}</p>}
+              {p.media_urls && p.media_urls.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {p.media_urls.map((u: string, i: number) =>
+                    isVideo(u) ? (
+                      <div key={i} className="relative shrink-0">
+                        <video src={u} muted preload="metadata" playsInline className="h-20 w-20 rounded-lg object-cover border border-line bg-black" />
+                        <Film className="h-4 w-4 text-white absolute top-1 right-1" />
+                      </div>
+                    ) : (
+                      <img key={i} src={u} alt="" loading="lazy" className="h-20 w-20 rounded-lg object-cover border border-line shrink-0" />
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
+        {edit && (
+          <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => !busy && setEdit(null)}>
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="bg-card border border-line rounded-2xl p-5 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-ink flex items-center gap-2">
+                  <Pencil className="h-5 w-5 text-acc" />
+                  Edit Postingan
+                </h3>
+                <button onClick={() => setEdit(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                rows={5}
+                placeholder="Tulis sesuatu..."
+                className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50 resize-none"
+              />
+              {edit.media_urls && edit.media_urls.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                  {edit.media_urls.map((u: string, i: number) =>
+                    isVideo(u) ? (
+                      <video key={i} src={u} muted preload="metadata" playsInline className="h-16 w-16 rounded-lg object-cover border border-line bg-black" />
+                    ) : (
+                      <img key={i} src={u} alt="" className="h-16 w-16 rounded-lg object-cover border border-line" />
+                    )
+                  )}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => setEdit(null)} disabled={busy} className="flex-1 py-2.5 rounded-xl bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+                  Batal
+                </button>
+                <button onClick={saveEdit} disabled={busy} className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2">
+                  {busy ? 'Menyimpan...' : <><Check className="h-4 w-4" /> Simpan</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/admin/posts/page.tsx', `import { requireRole } from '@/lib/auth/actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import AppLayout from '@/components/layout/AppLayout';
+import AdminPostManager from '@/components/admin/AdminPostManager';
+import { Shield } from 'lucide-react';
+
+export default async function AdminPostsPage() {
+  const user = await requireRole('teacher');
+  const admin = createAdminClient();
+  const { data: posts } = await admin
+    .from('posts')
+    .select('*, profiles(full_name, username, avatar_url, avatar_zoom, avatar_x, avatar_y)')
+    .order('created_at', { ascending: false });
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-6 w-6 text-acc" />
+          Kelola Semua Postingan
+        </h1>
+        <p className="text-sm text-mut">Sembunyikan atau hapus postingan anggota yang melanggar aturan.</p>
+        <AdminPostManager posts={posts ?? []} isAdmin={user.profile.role === 'admin'} />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/admin/AdminPostManager.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { hideAnyPost, unhideAnyPost, deleteAnyPost } from '@/lib/auth/post-actions';
+import Avatar from '@/components/Avatar';
+import { EyeOff, Eye, Trash2, Film } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+export default function AdminPostManager({ posts, isAdmin }: { posts: any[]; isAdmin: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function toggleHide(p: any) {
+    setBusy(true);
+    setErr('');
+    const res = p.is_hidden ? await unhideAnyPost(p.id) : await hideAnyPost(p.id);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  async function remove(id: string, name: string) {
+    if (!window.confirm('Hapus postingan dari ' + name + '? Ini permanen.')) return;
+    setBusy(true);
+    setErr('');
+    const res = await deleteAnyPost(id);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  return (
+    <div className="space-y-3">
+      {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+      {posts.length === 0 ? (
+        <div className="text-center py-16 text-mut">Belum ada postingan.</div>
+      ) : (
+        posts.map((p) => (
+          <div key={p.id} className="bg-card border border-line rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <Avatar data={p.profiles} className="h-10 w-10" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="font-semibold text-sm truncate">{p.profiles?.full_name}</div>
+                  <div className="text-xs text-mut">@{p.profiles?.username}</div>
+                  {p.is_hidden && <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">disembunyikan</span>}
+                </div>
+                <div className="text-xs text-mut mb-2">{new Date(p.created_at).toLocaleString('id-ID')}</div>
+                {p.content && <p className="text-sm whitespace-pre-wrap mb-2">{p.content}</p>}
+                {p.media_urls && p.media_urls.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2">
+                    {p.media_urls.map((u: string, i: number) =>
+                      isVideo(u) ? (
+                        <div key={i} className="relative shrink-0">
+                          <video src={u} muted preload="metadata" playsInline className="h-16 w-16 rounded-lg object-cover border border-line bg-black" />
+                          <Film className="h-3 w-3 text-white absolute top-1 right-1" />
+                        </div>
+                      ) : (
+                        <img key={i} src={u} alt="" loading="lazy" className="h-16 w-16 rounded-lg object-cover border border-line shrink-0" />
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => toggleHide(p)}
+                  disabled={busy}
+                  className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line"
+                  aria-label={p.is_hidden ? 'Tampilkan' : 'Sembunyikan'}
+                >
+                  {p.is_hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => remove(p.id, p.profiles?.full_name || 'user')}
+                    disabled={busy}
+                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+                    aria-label="Hapus"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/piket', icon: Brush, label: 'Piket' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
+    extra.push({ href: '/admin/posts', icon: Shield, label: 'Kelola Postingan' });
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <LogoutButton withLabel />
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] POST MANAGEMENT done: feed clean + postinganku full + admin kelola');

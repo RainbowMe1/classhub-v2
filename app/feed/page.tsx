@@ -1,50 +1,16 @@
-import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/actions';
+import { getFeedPage } from '@/lib/auth/feed-actions';
 import AppLayout from '@/components/layout/AppLayout';
-import LikeButton from '@/components/feed/LikeButton';
-import CommentButton from '@/components/feed/CommentButton';
-import PostMedia from '@/components/feed/PostMedia';
 import StoryBar from '@/components/feed/StoryBar';
-import PostModMenu from '@/components/feed/PostModMenu';
-import Avatar from '@/components/Avatar';
-import AdminTag from '@/components/AdminTag';
+import PostList from '@/components/feed/PostList';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function FeedPage() {
   const user = await requireUser();
-  const supabase = await createClient();
   const isStaff = user.profile.role !== 'student';
   const isAdmin = user.profile.role === 'admin';
-  const { data: posts } = await supabase
-    .from('posts')
-    .select('*, profiles(*)')
-    .eq('is_hidden', false)
-    .order('created_at', { ascending: false })
-    .limit(30);
-
-  const postIds = (posts ?? []).map((p: any) => p.id);
-  let likes: any[] = [];
-  let commentRows: any[] = [];
-  if (postIds.length > 0) {
-    const [l, c] = await Promise.all([
-      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', postIds),
-      supabase.from('comments').select('post_id').in('post_id', postIds),
-    ]);
-    likes = l.data ?? [];
-    commentRows = c.data ?? [];
-  }
-
-  const likeCounts: Record<string, number> = {};
-  const likedByMe: Record<string, boolean> = {};
-  for (const l of likes) {
-    likeCounts[l.target_id] = (likeCounts[l.target_id] ?? 0) + 1;
-    if (l.user_id === user.id) likedByMe[l.target_id] = true;
-  }
-  const commentCounts: Record<string, number> = {};
-  for (const c of commentRows) {
-    commentCounts[c.post_id] = (commentCounts[c.post_id] ?? 0) + 1;
-  }
+  const first = await getFeedPage(null);
 
   return (
     <AppLayout profile={user.profile}>
@@ -62,50 +28,16 @@ export default async function FeedPage() {
           </Link>
         </div>
 
-        {(posts?.length ?? 0) === 0 ? (
-          <div className="text-center py-16 text-mut">
-            <p className="text-lg mb-2">Belum ada postingan</p>
-            <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {(posts ?? []).map((post: any) => (
-              <div key={post.id} className="bg-card border border-line rounded-2xl p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar data={post.profiles} className="h-10 w-10" />
-                  <div className="flex-1">
-                    <div className="font-semibold flex items-center gap-2">
-                      {post.profiles?.full_name}
-                      <AdminTag role={post.profiles?.role} />
-                    </div>
-                    <div className="text-xs text-mut">@{post.profiles?.username}</div>
-                  </div>
-                  {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
-                </div>
-                {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
-                {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
-                <div className="flex items-center gap-4 pt-3 border-t border-line">
-                  <LikeButton
-                    postId={post.id}
-                    userId={user.id}
-                    initialCount={likeCounts[post.id] ?? 0}
-                    initialLiked={!!likedByMe[post.id]}
-                    ownerId={post.user_id}
-                    actorName={user.profile.full_name}
-                  />
-                  <CommentButton
-                    postId={post.id}
-                    userId={user.id}
-                    count={commentCounts[post.id] ?? 0}
-                    postOwnerId={post.user_id}
-                    actorName={user.profile.full_name}
-                    isStaff={isStaff}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <PostList
+          initial={first.posts}
+          likeCounts={first.likeCounts}
+          likedByMe={first.likedByMe}
+          commentCounts={first.commentCounts}
+          userId={user.id}
+          isStaff={isStaff}
+          isAdmin={isAdmin}
+          actorName={user.profile.full_name}
+        />
       </div>
     </AppLayout>
   );

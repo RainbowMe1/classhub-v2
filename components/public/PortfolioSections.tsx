@@ -1,7 +1,9 @@
 import { ArrowRight, Image as ImageIcon, Music, MessageCircle, ClipboardList, Newspaper, Award, GraduationCap, MapPin } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PortfolioSections({ s, media, teachers, achievements, journey, memberCount, postCount, albumCount, cta }: any) {
+export default function PortfolioSections({ s, media, mediaCount, teachers, achievements, journey, memberCount, postCount, albumCount, cta, moreHref }: any) {
+  const extra = Math.max(0, (mediaCount ?? media?.length ?? 0) - (media?.length ?? 0));
+
   const features = [
     { Icon: Newspaper, t: 'Feed Kelas', d: 'Postingan, foto, like & komentar' },
     { Icon: MessageCircle, t: 'Chat Realtime', d: 'Ngobrol sekelas langsung' },
@@ -112,14 +114,30 @@ export default function PortfolioSections({ s, media, teachers, achievements, jo
           </h2>
           <div className="columns-2 md:columns-4 gap-2">
             {(media ?? []).map((m: any, i: number) => (
-              <img
-                key={i}
-                src={m.media_url}
-                alt=""
-                loading="lazy"
-                style={{ animationDelay: i * 60 + 'ms' }}
-                className="anim-fade-up mb-2 w-full rounded-xl border border-line"
-              />
+              <div key={i} className="relative mb-2 break-inside-avoid">
+                <img
+                  src={m.media_url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  style={{ animationDelay: i * 60 + 'ms' }}
+                  className="anim-fade-up w-full rounded-xl border border-line"
+                />
+                {i === (media?.length ?? 0) - 1 && extra > 0 && (
+                  moreHref ? (
+                    <Link
+                      href={moreHref}
+                      className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center text-white text-sm font-semibold hover:bg-black/70"
+                    >
+                      +{extra} foto lagi
+                    </Link>
+                  ) : (
+                    <div className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center text-white text-sm font-semibold">
+                      +{extra} foto lagi
+                    </div>
+                  )
+                )}
+              </div>
             ))}
           </div>
         </section>

@@ -1,15 +1,34 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import Lightbox from './Lightbox';
-import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
 function isVideo(u: string) {
   return u.includes('.mp4') || u.includes('.webm');
 }
 
-function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
+function SmartImg({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="w-full min-h-[280px] bg-card-2">
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        className={'w-full h-auto transition-opacity duration-300 ' + (loaded ? 'opacity-100' : 'opacity-0')}
+      />
+    </div>
+  );
+}
+
+function AutoVideo({ src }: { src: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [prog, setProg] = useState(0);
+  const [dur, setDur] = useState(0);
 
   useEffect(() => {
     const v = ref.current;
@@ -17,8 +36,11 @@ function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
     const ob = new IntersectionObserver(
       function (entries) {
         for (const en of entries) {
-          if (en.isIntersecting) v.play().catch(function () {});
-          else v.pause();
+          if (en.isIntersecting) {
+            if (!v.dataset.userpaused) v.play().catch(function () {});
+          } else {
+            v.pause();
+          }
         }
       },
       { threshold: 0.6 }
@@ -27,17 +49,27 @@ function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
     return function () { ob.disconnect(); };
   }, [src]);
 
+  function togglePlay() {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) { delete v.dataset.userpaused; v.play().catch(function () {}); }
+    else { v.dataset.userpaused = '1'; v.pause(); }
+  }
   function toggleMute() {
     const v = ref.current;
     if (!v) return;
     v.muted = !v.muted;
     setMuted(v.muted);
-    if (!v.muted) v.play().catch(function () {});
+  }
+  function seek(val: number) {
+    const v = ref.current;
+    if (!v || !dur) return;
+    v.currentTime = (val / 100) * dur;
   }
 
   return (
-    <div className="relative">
-      <button onClick={onOpen} className="block w-full" aria-label="Lihat detail">
+    <div>
+      <div className="relative">
         <video
           ref={ref}
           src={src}
@@ -45,21 +77,49 @@ function AutoVideo({ src, onOpen }: { src: string; onOpen: () => void }) {
           loop
           playsInline
           preload="none"
-          className="w-full h-auto max-h-[75vh] bg-black"
+          onClick={togglePlay}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget;
+            if (v.duration) setProg((v.currentTime / v.duration) * 100);
+          }}
+          className="w-full h-auto max-h-[75vh] bg-black cursor-pointer"
         />
-      </button>
-      <button
-        onClick={toggleMute}
-        className="absolute bottom-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80"
-        aria-label={muted ? 'Nyalakan suara' : 'Matikan suara'}
-      >
-        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-      </button>
+        {!playing && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="p-3 rounded-full bg-black/60 text-white">
+              <Play className="h-6 w-6" />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-card-2 border-t border-line">
+        <button onClick={togglePlay} className="p-1.5 text-ink" aria-label="Putar atau jeda">
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={prog}
+          onChange={(e) => seek(Number(e.target.value))}
+          className="flex-1 accent-acc"
+          aria-label="Progres video"
+        />
+        <button onClick={toggleMute} className="p-1.5 text-ink" aria-label="Suara">
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+        <a href={src} download className="text-xs font-semibold text-acc hover:underline px-1">
+          Download
+        </a>
+      </div>
     </div>
   );
 }
 
-export default function PostMedia({ urls }: { urls: string[] }) {
+function PostMediaInner({ urls }: { urls: string[] }) {
   const [open, setOpen] = useState<number | null>(null);
   const [idx, setIdx] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -81,10 +141,10 @@ export default function PostMedia({ urls }: { urls: string[] }) {
       <>
         <div className="mb-3 mx-auto w-full max-w-md rounded-xl overflow-hidden border border-line bg-card-2">
           {isVideo(urls[0]) ? (
-            <AutoVideo src={urls[0]} onOpen={() => setOpen(0)} />
+            <AutoVideo src={urls[0]} />
           ) : (
             <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
-              <img src={urls[0]} alt="" loading="lazy" decoding="async" className="w-full h-auto" />
+              <SmartImg src={urls[0]} />
             </button>
           )}
         </div>
@@ -104,10 +164,10 @@ export default function PostMedia({ urls }: { urls: string[] }) {
           {urls.map((url, i) => (
             <div key={i} className="snap-center shrink-0 w-full">
               {isVideo(url) ? (
-                <AutoVideo src={url} onOpen={() => setOpen(i)} />
+                <AutoVideo src={url} />
               ) : (
                 <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
-                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-auto" />
+                  <SmartImg src={url} />
                 </button>
               )}
             </div>
@@ -151,3 +211,5 @@ export default function PostMedia({ urls }: { urls: string[] }) {
     </>
   );
 }
+
+export default memo(PostMediaInner);

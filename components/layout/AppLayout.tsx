@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, LogOut, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
-import { logout } from '@/lib/auth/actions';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
@@ -9,6 +8,7 @@ import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import ThemeToggle from '@/components/ThemeToggle';
 import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
 import type { Profile } from '@/types/database';
 
 export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
@@ -29,6 +29,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
   const extra: typeof baseItems = [];
   if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
   if (profile.role !== 'student') {
+    extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
     extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
     extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
     extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
@@ -71,15 +72,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
               )}
             </div>
           </div>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition"
-            >
-              <LogOut className="h-4 w-4" />
-              Keluar
-            </button>
-          </form>
+          <LogoutButton withLabel />
         </div>
       </aside>
 
@@ -89,11 +82,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
           <div className="flex items-center gap-2">
             <Avatar data={profile} className="h-7 w-7" />
             <span className="text-xs text-mut">@{profile.username}</span>
-            <form action={logout}>
-              <button type="submit" className="p-2 text-mut" aria-label="Keluar">
-                <LogOut className="h-5 w-5" />
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
       </header>

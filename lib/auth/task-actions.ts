@@ -58,6 +58,60 @@ export async function createTask(formData: FormData) {
   if (notifs.length > 0) await admin.from('notifications').insert(notifs);
 
   revalidatePath('/tasks');
+  revalidatePath('/admin/tasks');
+  return { success: true };
+}
+
+export async function updateTask(formData: FormData) {
+  await requireRole('teacher');
+  const id = String(formData.get('id') || '');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!id) return { error: 'ID tugas kosong.' };
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const payload: any = {
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+  };
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 50MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = 'updates/' + id + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    payload.attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { data, error } = await admin.from('tasks').update(payload).eq('id', id).select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: 'Tugas tidak ditemukan.' };
+
+  revalidatePath('/tasks');
+  revalidatePath('/admin/tasks');
+  return { success: true };
+}
+
+export async function deleteTask(id: string) {
+  await requireRole('teacher');
+  if (!id) return { error: 'ID tugas kosong.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('tasks').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/tasks');
+  revalidatePath('/admin/tasks');
   return { success: true };
 }
 

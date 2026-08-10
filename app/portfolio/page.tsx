@@ -8,7 +8,7 @@ export default async function PortfolioPage() {
   const supabase = await createClient();
   const [
     { data: settings },
-    { data: media },
+    { data: media, count: mediaCount },
     { count: memberCount },
     { count: postCount },
     { count: albumCount },
@@ -17,7 +17,7 @@ export default async function PortfolioPage() {
     { data: journey },
   ] = await Promise.all([
     supabase.from('class_settings').select('*').limit(1),
-    supabase.from('gallery_media').select('media_url').order('created_at', { ascending: false }).limit(8),
+    supabase.from('gallery_media').select('media_url', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
     supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
     supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
@@ -33,6 +33,7 @@ export default async function PortfolioPage() {
         <PortfolioSections
           s={s}
           media={media}
+          mediaCount={mediaCount ?? 0}
           teachers={teachers}
           achievements={achievements}
           journey={journey}
@@ -40,6 +41,7 @@ export default async function PortfolioPage() {
           postCount={postCount}
           albumCount={albumCount}
           cta={false}
+          moreHref="/gallery"
         />
       </div>
     </AppLayout>

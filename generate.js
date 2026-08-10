@@ -18319,3 +18319,1749 @@ export default function MusicProvider({ children }: { children: React.ReactNode 
 `);
 
 console.log('[OK] Part Z23 done: musik stop saat logout');
+
+// === TAHAP 1: LOGOUT UX (konfirmasi + ikon baru) ===
+
+wf('components/LogoutButton.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { logout } from '@/lib/auth/actions';
+import { DoorOpen, Loader2 } from 'lucide-react';
+
+export default function LogoutButton({ withLabel }: { withLabel?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    cancelRef.current?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  async function doLogout() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await logout();
+    } catch {
+      setBusy(false);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className={
+          withLabel
+            ? 'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-mut hover:text-red-400 hover:bg-line transition'
+            : 'p-2 text-mut hover:text-red-400'
+        }
+        aria-label="Keluar"
+      >
+        <DoorOpen className={withLabel ? 'h-4 w-4' : 'h-5 w-5'} />
+        {withLabel && 'Keluar'}
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => { if (!busy) setOpen(false); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-title"
+            className="bg-card border border-line rounded-2xl p-5 w-full max-w-sm space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 shrink-0">
+                <DoorOpen className="h-5 w-5 text-red-400" />
+              </div>
+              <div>
+                <h3 id="logout-title" className="font-semibold text-ink">Yakin ingin keluar?</h3>
+                <p className="text-xs text-mut mt-1">Kamu akan keluar dari akun ini dan perlu login lagi buat masuk ke kelas.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                ref={cancelRef}
+                onClick={() => setOpen(false)}
+                disabled={busy}
+                className="flex-1 py-2.5 rounded-xl bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={doLogout}
+                disabled={busy}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                {busy ? 'Keluar...' : 'Keluar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <LogoutButton withLabel />
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] TAHAP 1 done: logout konfirmasi + ikon DoorOpen');
+
+// === TAHAP 2: EDIT & DELETE TUGAS ===
+
+wf('lib/auth/task-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser, requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const MAX_FILE = 50 * 1024 * 1024;
+
+export async function createTask(formData: FormData) {
+  const user = await requireRole('teacher');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const taskId = randomUUID();
+  let attachment_url: string | null = null;
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 50MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = user.id + '/' + taskId + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { error } = await admin.from('tasks').insert({
+    id: taskId,
+    created_by: user.id,
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+    attachment_url,
+    status: 'active',
+  });
+  if (error) return { error: error.message };
+
+  const { data: members } = await admin.from('profiles').select('user_id').neq('user_id', user.id);
+  const notifs = (members ?? []).map((m: any) => ({
+    user_id: m.user_id,
+    type: 'task',
+    title: 'Tugas baru: ' + title,
+    message: subject || null,
+    actor_id: user.id,
+    target_type: 'task',
+    target_id: taskId,
+  }));
+  if (notifs.length > 0) await admin.from('notifications').insert(notifs);
+
+  revalidatePath('/tasks');
+  revalidatePath('/admin/tasks');
+  return { success: true };
+}
+
+export async function updateTask(formData: FormData) {
+  await requireRole('teacher');
+  const id = String(formData.get('id') || '');
+  const title = String(formData.get('title') || '').trim();
+  const subject = String(formData.get('subject') || '').trim();
+  const description = String(formData.get('description') || '').trim();
+  const deadlineRaw = String(formData.get('deadline') || '');
+  if (!id) return { error: 'ID tugas kosong.' };
+  if (!title || !deadlineRaw) return { error: 'Judul dan deadline wajib diisi.' };
+  const deadline = new Date(deadlineRaw);
+  if (isNaN(deadline.getTime())) return { error: 'Format deadline tidak valid.' };
+
+  const admin = createAdminClient();
+  const payload: any = {
+    title,
+    subject: subject || 'Umum',
+    description,
+    deadline: deadline.toISOString(),
+  };
+
+  const file = formData.get('attachment') as File | null;
+  if (file && file.size > 0) {
+    if (file.size > MAX_FILE) return { error: 'Lampiran maksimal 50MB.' };
+    const ext = file.name.split('.').pop() || 'pdf';
+    const path = 'updates/' + id + '/attachment.' + ext;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('tasks')
+      .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+    if (upErr) return { error: 'Upload lampiran gagal: ' + upErr.message };
+    payload.attachment_url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+  }
+
+  const { data, error } = await admin.from('tasks').update(payload).eq('id', id).select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: 'Tugas tidak ditemukan.' };
+
+  revalidatePath('/tasks');
+  revalidatePath('/admin/tasks');
+  return { success: true };
+}
+
+export async function deleteTask(id: string) {
+  await requireRole('teacher');
+  if (!id) return { error: 'ID tugas kosong.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('tasks').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/tasks');
+  revalidatePath('/admin/tasks');
+  return { success: true };
+}
+
+export async function submitTask(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get('task_id') || '');
+  const file = formData.get('file') as File | null;
+  if (!file || file.size === 0) return { error: 'Pilih file jawaban dulu.' };
+  if (file.size > MAX_FILE) return { error: 'File maksimal 50MB.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('task_submissions')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (existing) return { error: 'Kamu sudah mengumpulkan tugas ini.' };
+
+  const { data: task } = await admin.from('tasks').select('deadline, created_by, title').eq('id', taskId).maybeSingle();
+  if (!task) return { error: 'Tugas tidak ditemukan.' };
+  const late = new Date(task.deadline) < new Date();
+
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = user.id + '/' + taskId + '/submission.' + ext;
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('tasks')
+    .upload(path, buf, { contentType: file.type || 'application/octet-stream', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('tasks').getPublicUrl(path).data.publicUrl;
+
+  const { error: dbErr } = await admin.from('task_submissions').insert({
+    task_id: taskId,
+    user_id: user.id,
+    file_url: url,
+    file_name: file.name,
+    status: late ? 'late' : 'submitted',
+  });
+  if (dbErr) return { error: dbErr.message };
+
+  if (task.created_by && task.created_by !== user.id) {
+    await admin.from('notifications').insert({
+      user_id: task.created_by,
+      type: 'submission',
+      title: user.profile.full_name + ' mengumpulkan tugas: ' + task.title,
+      actor_id: user.id,
+      target_type: 'task',
+      target_id: taskId,
+    });
+  }
+
+  revalidatePath('/tasks');
+  return { success: true };
+}
+
+export async function gradeSubmission(formData: FormData) {
+  const user = await requireRole('teacher');
+  const id = String(formData.get('submission_id') || '');
+  const grade = Number(formData.get('grade'));
+  const feedback = String(formData.get('feedback') || '').trim();
+  if (!id) return { error: 'ID submission kosong.' };
+  if (isNaN(grade) || grade < 0 || grade > 100) return { error: 'Nilai harus 0-100.' };
+
+  const admin = createAdminClient();
+  const { data: sub } = await admin.from('task_submissions').select('user_id').eq('id', id).maybeSingle();
+
+  const { data, error } = await admin
+    .from('task_submissions')
+    .update({ grade, feedback, status: 'graded' })
+    .eq('id', id)
+    .select('id');
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: '0 baris terupdate — submission tidak ketemu.' };
+
+  if (sub && sub.user_id !== user.id) {
+    await admin.from('notifications').insert({
+      user_id: sub.user_id,
+      type: 'grade',
+      title: 'Nilai baru: ' + grade,
+      message: feedback || null,
+      actor_id: user.id,
+      target_type: 'task_submission',
+      target_id: id,
+    });
+  }
+
+  revalidatePath('/tasks');
+  return { success: true };
+}
+`);
+
+wf('components/admin/TaskManager.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { updateTask, deleteTask } from '@/lib/auth/task-actions';
+import { Pencil, Trash2, X, ClipboardList } from 'lucide-react';
+
+function toLocal(iso: string) {
+  const d = new Date(iso);
+  const pad = function (n: number) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+export default function TaskManager({ tasks }: { tasks: any[] }) {
+  const router = useRouter();
+  const [edit, setEdit] = useState<any | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function remove(id: string, title: string) {
+    if (!window.confirm('Hapus tugas "' + title + '"? Submission murid ikut terhapus dari tampilan.')) return;
+    setBusy(true);
+    const res = await deleteTask(id);
+    setBusy(false);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await updateTask(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else {
+      setEdit(null);
+      router.refresh();
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <div className="space-y-3">
+      {tasks.length === 0 && (
+        <div className="text-center py-16 text-mut">Belum ada tugas.</div>
+      )}
+      {tasks.map((t) => (
+        <div key={t.id} className="bg-card border border-line rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm truncate">{t.title}</div>
+              <div className="text-xs text-mut mt-0.5">{t.subject}</div>
+              <div className="text-xs text-[#fb923c] mt-1">
+                Deadline: {new Date(t.deadline).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {new Date(t.deadline) < new Date() ? ' • lewat' : ''}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={() => { setErr(''); setEdit(t); }} className="p-2 rounded-lg text-mut hover:text-ink hover:bg-line" aria-label="Edit tugas">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button onClick={() => remove(t.id, t.title)} className="p-2 rounded-lg text-red-400 hover:bg-red-500/10" aria-label="Hapus tugas">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {edit && (
+        <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => !busy && setEdit(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-card border border-line rounded-2xl p-5 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-ink flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-acc" />
+                Edit Tugas
+              </h3>
+              <button onClick={() => setEdit(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+            <form
+              onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); fd.append('id', edit.id); save(fd); }}
+              className="space-y-3"
+            >
+              <input name="title" defaultValue={edit.title} required placeholder="Judul tugas" className={inputCls} />
+              <input name="subject" defaultValue={edit.subject} placeholder="Mapel" className={inputCls} />
+              <textarea name="description" defaultValue={edit.description || ''} rows={3} placeholder="Deskripsi" className={inputCls + ' resize-none'} />
+              <div>
+                <div className="text-xs text-mut mb-1">Deadline (boleh diubah kapan pun)</div>
+                <input name="deadline" type="datetime-local" defaultValue={toLocal(edit.deadline)} required className={inputCls} />
+              </div>
+              <div>
+                <div className="text-xs text-mut mb-1">Ganti lampiran (opsional — kosongkan biar tetap)</div>
+                <input name="attachment" type="file" className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink" />
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setEdit(null)} disabled={busy} className="flex-1 py-2.5 rounded-xl bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50">
+                  Batal
+                </button>
+                <button type="submit" disabled={busy} className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+                  {busy ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/admin/tasks/page.tsx', `import { requireRole } from '@/lib/auth/actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import AppLayout from '@/components/layout/AppLayout';
+import TaskManager from '@/components/admin/TaskManager';
+import { ClipboardList } from 'lucide-react';
+
+export default async function AdminTasksPage() {
+  const user = await requireRole('teacher');
+  const admin = createAdminClient();
+  const { data: tasks } = await admin.from('tasks').select('*').order('created_at', { ascending: false });
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <ClipboardList className="h-6 w-6 text-acc" />
+          Kelola Tugas
+        </h1>
+        <p className="text-sm text-mut">Edit judul, deskripsi, deadline, atau lampiran, dan hapus tugas kapan pun — deadline tidak mengunci akses admin.</p>
+        <TaskManager tasks={tasks ?? []} />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <LogoutButton withLabel />
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] TAHAP 2 done: edit & delete tugas + kunci RLS tulis tasks');
+
+// === TAHAP 3+4: BAN ENFORCEMENT + VIDEO CONTROLS ===
+
+wf('lib/auth/actions.ts', `'use server';
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect('/login');
+}
+
+export async function getUser() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+  if (!profile) return null;
+  return { ...user, profile };
+}
+
+export async function requireUser() {
+  const supabase = await createClient();
+  const user = await getUser();
+  if (!user) redirect('/login');
+  if (user.profile.is_banned) {
+    await supabase.auth.signOut();
+    redirect('/login');
+  }
+  return user;
+}
+
+export async function requireRole(role: string) {
+  const user = await requireUser();
+  if (role === 'teacher') {
+    if (user.profile.role !== 'teacher' && user.profile.role !== 'admin') redirect('/dashboard');
+  } else if (user.profile.role !== role) {
+    redirect('/dashboard');
+  }
+  return user;
+}
+`);
+
+(function () {
+  const sp = 'app/feed/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = ".eq('is_hidden', false)";
+  const good = ".eq('is_hidden', false)\n    .eq('profiles.is_banned', false)";
+  if (c.indexOf(good) === -1 && c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] T3: feed filter user banned');
+  } else {
+    console.log('[SKIP] T3 feed filter');
+  }
+})();
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, Play, Pause } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+function AutoVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [prog, setProg] = useState(0);
+  const [dur, setDur] = useState(0);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        for (const en of entries) {
+          if (en.isIntersecting) v.play().catch(function () {});
+          else v.pause();
+        }
+      },
+      { threshold: 0.6 }
+    );
+    ob.observe(v);
+    return function () { ob.disconnect(); };
+  }, [src]);
+
+  function togglePlay() {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) v.play().catch(function () {});
+    else v.pause();
+  }
+  function toggleMute() {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  }
+  function seek(val: number) {
+    const v = ref.current;
+    if (!v || !dur) return;
+    v.currentTime = (val / 100) * dur;
+  }
+
+  return (
+    <div>
+      <div className="relative">
+        <video
+          ref={ref}
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="none"
+          onClick={togglePlay}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget;
+            if (v.duration) setProg((v.currentTime / v.duration) * 100);
+          }}
+          className="w-full h-auto max-h-[75vh] bg-black cursor-pointer"
+        />
+        {!playing && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="p-3 rounded-full bg-black/60 text-white">
+              <Play className="h-6 w-6" />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-card-2 border-t border-line">
+        <button onClick={togglePlay} className="p-1.5 text-ink" aria-label="Putar atau jeda">
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={prog}
+          onChange={(e) => seek(Number(e.target.value))}
+          className="flex-1 accent-acc"
+          aria-label="Progres video"
+        />
+        <button onClick={toggleMute} className="p-1.5 text-ink" aria-label="Suara">
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+        <a href={src} download className="text-xs font-semibold text-acc hover:underline px-1">
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
+export default function PostMedia({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <div className="mb-3 mx-auto w-full max-w-md rounded-xl overflow-hidden border border-line bg-card-2">
+          {isVideo(urls[0]) ? (
+            <AutoVideo src={urls[0]} />
+          ) : (
+            <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
+              <img src={urls[0]} alt="" loading="lazy" decoding="async" className="w-full h-auto" />
+            </button>
+          )}
+        </div>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <div key={i} className="snap-center shrink-0 w-full">
+              {isVideo(url) ? (
+                <AutoVideo src={url} />
+              ) : (
+                <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
+                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-auto" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+`);
+
+console.log('[OK] TAHAP 3+4 done: ban enforcement + video controls + download');
+
+// === TAHAP 5+6: PORTFOLIO 5 FOTO + FEED INFINITE SCROLL ===
+
+(function () {
+  const sp = 'components/feed/PostMedia.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  const t1 = 'if (en.isIntersecting) v.play().catch(function () {});';
+  const r1 = "if (en.isIntersecting) { if (!v.dataset.userpaused) v.play().catch(function () {}); }";
+  if (c.indexOf(t1) !== -1) { c = c.split(t1).join(r1); changed = true; }
+  const t2 = "    if (v.paused) v.play().catch(function () {});\n    else v.pause();";
+  const r2 = "    if (v.paused) { delete v.dataset.userpaused; v.play().catch(function () {}); }\n    else { v.dataset.userpaused = '1'; v.pause(); }";
+  if (c.indexOf(t2) !== -1) { c = c.split(t2).join(r2); changed = true; }
+  if (changed) { fs.writeFileSync(sp, c, 'utf8'); console.log('[OK] T4-polish: pause manual dihormati observer'); }
+  else console.log('[SKIP] T4-polish');
+})();
+
+wf('lib/auth/feed-actions.ts', `'use server';
+import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+
+export async function getFeedPage(cursor: string | null) {
+  const user = await requireUser();
+  const supabase = await createClient();
+  let query = supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .eq('is_hidden', false)
+    .eq('profiles.is_banned', false)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (cursor) query = query.lt('created_at', cursor);
+  const { data: posts } = await query;
+  const list = posts ?? [];
+  const ids = list.map((p: any) => p.id);
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  const commentCounts: Record<string, number> = {};
+  if (ids.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', ids),
+      supabase.from('comments').select('post_id').in('post_id', ids),
+    ]);
+    for (const x of l.data ?? []) {
+      likeCounts[x.target_id] = (likeCounts[x.target_id] ?? 0) + 1;
+      if (x.user_id === user.id) likedByMe[x.target_id] = true;
+    }
+    for (const x of c.data ?? []) {
+      commentCounts[x.post_id] = (commentCounts[x.post_id] ?? 0) + 1;
+    }
+  }
+  return {
+    posts: list,
+    likeCounts,
+    likedByMe,
+    commentCounts,
+    nextCursor: list.length === 5 ? list[list.length - 1].created_at : null,
+  };
+}
+`);
+
+wf('components/feed/PostCard.tsx', `'use client';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import PostModMenu from './PostModMenu';
+import PostMedia from './PostMedia';
+import LikeButton from './LikeButton';
+import CommentButton from './CommentButton';
+
+export default function PostCard({ post, userId, isStaff, isAdmin, actorName, likeCount, liked, commentCount }: any) {
+  return (
+    <div className="bg-card border border-line rounded-2xl p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar data={post.profiles} className="h-10 w-10" />
+        <div className="flex-1">
+          <div className="font-semibold flex items-center gap-2">
+            {post.profiles?.full_name}
+            <AdminTag role={post.profiles?.role} />
+          </div>
+          <div className="text-xs text-mut">@{post.profiles?.username}</div>
+        </div>
+        {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
+      </div>
+      {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+      {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+      <div className="flex items-center gap-4 pt-3 border-t border-line">
+        <LikeButton
+          postId={post.id}
+          userId={userId}
+          initialCount={likeCount}
+          initialLiked={liked}
+          ownerId={post.user_id}
+          actorName={actorName}
+        />
+        <CommentButton
+          postId={post.id}
+          userId={userId}
+          count={commentCount}
+          postOwnerId={post.user_id}
+          actorName={actorName}
+          isStaff={isStaff}
+        />
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/feed/PostList.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { getFeedPage } from '@/lib/auth/feed-actions';
+import PostCard from './PostCard';
+import { Loader2 } from 'lucide-react';
+
+export default function PostList(props: any) {
+  const [posts, setPosts] = useState<any[]>(props.initial);
+  const [lc, setLc] = useState<Record<string, number>>(props.likeCounts);
+  const [lm, setLm] = useState<Record<string, boolean>>(props.likedByMe);
+  const [cc, setCc] = useState<Record<string, number>>(props.commentCounts);
+  const [cursor, setCursor] = useState<string | null>(
+    props.initial.length ? props.initial[props.initial.length - 1].created_at : null
+  );
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(props.initial.length < 5);
+  const sentRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(false);
+
+  async function loadMore() {
+    if (busyRef.current || done) return;
+    busyRef.current = true;
+    setLoading(true);
+    try {
+      const res = await getFeedPage(cursor);
+      setPosts((prev) => {
+        const have = new Set(prev.map((p) => p.id));
+        return [...prev, ...res.posts.filter((p: any) => !have.has(p.id))];
+      });
+      setLc((prev) => Object.assign({}, prev, res.likeCounts));
+      setLm((prev) => Object.assign({}, prev, res.likedByMe));
+      setCc((prev) => Object.assign({}, prev, res.commentCounts));
+      setCursor(res.nextCursor);
+      if (!res.nextCursor || res.posts.length === 0) setDone(true);
+    } finally {
+      busyRef.current = false;
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const el = sentRef.current;
+    if (!el || done) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: '600px 0px' }
+    );
+    ob.observe(el);
+    return function () { ob.disconnect(); };
+  }, [cursor, done]);
+
+  if (posts.length === 0) {
+    return (
+      <div className="text-center py-16 text-mut">
+        <p className="text-lg mb-2">Belum ada postingan</p>
+        <p className="text-sm">Jadilah yang pertama berbagi cerita!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {posts.map((post) => (
+        <PostCard
+          key={post.id}
+          post={post}
+          userId={props.userId}
+          isStaff={props.isStaff}
+          isAdmin={props.isAdmin}
+          actorName={props.actorName}
+          likeCount={lc[post.id] ?? 0}
+          liked={!!lm[post.id]}
+          commentCount={cc[post.id] ?? 0}
+        />
+      ))}
+      <div ref={sentRef} className="h-1" />
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-4 text-mut text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Memuat...
+        </div>
+      )}
+      {done && (
+        <div className="text-center py-4 text-mut text-sm">Tidak ada postingan lainnya.</div>
+      )}
+    </div>
+  );
+}
+`);
+
+wf('app/feed/page.tsx', `import { requireUser } from '@/lib/auth/actions';
+import { getFeedPage } from '@/lib/auth/feed-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import StoryBar from '@/components/feed/StoryBar';
+import PostList from '@/components/feed/PostList';
+import { PlusCircle } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function FeedPage() {
+  const user = await requireUser();
+  const isStaff = user.profile.role !== 'student';
+  const isAdmin = user.profile.role === 'admin';
+  const first = await getFeedPage(null);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        <StoryBar userId={user.id} />
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Feed</h1>
+          <Link
+            href="/feed/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-medium hover:bg-acc-strong transition"
+          >
+            <PlusCircle className="h-4 w-4" />
+            Posting
+          </Link>
+        </div>
+
+        <PostList
+          initial={first.posts}
+          likeCounts={first.likeCounts}
+          likedByMe={first.likedByMe}
+          commentCounts={first.commentCounts}
+          userId={user.id}
+          isStaff={isStaff}
+          isAdmin={isAdmin}
+          actorName={user.profile.full_name}
+        />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/public/PortfolioSections.tsx', `import { ArrowRight, Image as ImageIcon, Music, MessageCircle, ClipboardList, Newspaper, Award, GraduationCap, MapPin } from 'lucide-react';
+import Link from 'next/link';
+
+export default function PortfolioSections({ s, media, mediaCount, teachers, achievements, journey, memberCount, postCount, albumCount, cta, moreHref }: any) {
+  const extra = Math.max(0, (mediaCount ?? media?.length ?? 0) - (media?.length ?? 0));
+
+  const features = [
+    { Icon: Newspaper, t: 'Feed Kelas', d: 'Postingan, foto, like & komentar' },
+    { Icon: MessageCircle, t: 'Chat Realtime', d: 'Ngobrol sekelas langsung' },
+    { Icon: ClipboardList, t: 'Tugas & Nilai', d: 'Kumpul tugas, terima feedback' },
+    { Icon: Music, t: 'Musik Kelas', d: 'Playlist bersama buat belajar' },
+  ];
+
+  return (
+    <>
+      <section className="py-14 text-center space-y-5">
+        <div className="text-xs uppercase tracking-[0.3em] text-mut">{s?.subtitle || 'Website resmi kelas'}</div>
+        <h1 className="text-4xl md:text-6xl font-bold text-grad leading-tight">{s?.class_name || 'ClassHub'}</h1>
+        <p className="max-w-xl mx-auto text-mut">
+          Satu tempat untuk feed, chat, tugas, galeri, dan musik kelas. Khusus warga kelas — pengunjung cukup menikmati portofolio ini.
+        </p>
+        {cta && (
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/login" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-acc text-acc-ink font-semibold hover:bg-acc-strong">
+              Masuk ke Kelas
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-8 pt-4 text-center">
+          <div>
+            <div className="text-2xl font-bold">{memberCount ?? 0}</div>
+            <div className="text-xs text-mut">Anggota</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{postCount ?? 0}</div>
+            <div className="text-xs text-mut">Postingan</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{albumCount ?? 0}</div>
+            <div className="text-xs text-mut">Album</div>
+          </div>
+        </div>
+      </section>
+
+      {s?.about && (
+        <section className="pb-14 max-w-3xl mx-auto text-center">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3">Tentang Kelas</h2>
+          <p className="text-mut whitespace-pre-wrap leading-relaxed">{s.about}</p>
+        </section>
+      )}
+
+      {(teachers?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-acc" />
+            Guru & Wali Kelas
+          </h2>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {(teachers ?? []).map((t: any, i: number) => (
+              <div key={t.id} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 60 + 'ms' }}>
+                <div className="font-semibold text-sm">{t.name}</div>
+                {t.role && <div className="text-xs text-acc mt-1">{t.role}</div>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(achievements?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+            <Award className="h-4 w-4 text-acc" />
+            Prestasi
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {(achievements ?? []).map((a: any, i: number) => (
+              <div key={a.id} className="anim-fade-up flex items-center gap-3 bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 60 + 'ms' }}>
+                <Award className="h-5 w-5 text-acc shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{a.title}</div>
+                  <div className="text-xs text-mut">{[a.year, a.level].filter(Boolean).join(' • ')}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(journey?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-4 flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-acc" />
+            Perjalanan Kelas
+          </h2>
+          <div className="border-l-2 border-line ml-2 pl-6 space-y-6">
+            {(journey ?? []).map((j: any, i: number) => (
+              <div key={j.id} className="anim-fade-up relative" style={{ animationDelay: i * 60 + 'ms' }}>
+                <div className="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-acc" />
+                <div className="text-xs text-acc font-semibold">{j.period}</div>
+                <div className="font-semibold text-sm mt-0.5">{j.title}</div>
+                {j.story && <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{j.story}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(media?.length ?? 0) > 0 && (
+        <section className="pb-14">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-mut mb-3 flex items-center gap-2">
+            <ImageIcon className="h-4 w-4 text-acc" />
+            Galeri Kelas
+          </h2>
+          <div className="columns-2 md:columns-4 gap-2">
+            {(media ?? []).map((m: any, i: number) => (
+              <div key={i} className="relative mb-2 break-inside-avoid">
+                <img
+                  src={m.media_url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  style={{ animationDelay: i * 60 + 'ms' }}
+                  className="anim-fade-up w-full rounded-xl border border-line"
+                />
+                {i === (media?.length ?? 0) - 1 && extra > 0 && (
+                  moreHref ? (
+                    <Link
+                      href={moreHref}
+                      className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center text-white text-sm font-semibold hover:bg-black/70"
+                    >
+                      +{extra} foto lagi
+                    </Link>
+                  ) : (
+                    <div className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center text-white text-sm font-semibold">
+                      +{extra} foto lagi
+                    </div>
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="pb-16 grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+        {features.map((f, i) => (
+          <div key={f.t} className="anim-fade-up bg-card border border-line rounded-2xl p-4" style={{ animationDelay: i * 70 + 'ms' }}>
+            <f.Icon className="h-5 w-5 text-acc mb-2" />
+            <div className="font-semibold text-sm">{f.t}</div>
+            <div className="text-xs text-mut mt-1">{f.d}</div>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+`);
+
+wf('app/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth/actions';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import PortfolioSections from '@/components/public/PortfolioSections';
+
+export default async function LandingPage() {
+  const user = await getUser();
+  if (user) redirect('/dashboard');
+  const supabase = await createClient();
+  const [
+    { data: settings },
+    { data: media, count: mediaCount },
+    { count: memberCount },
+    { count: postCount },
+    { count: albumCount },
+    { data: teachers },
+    { data: achievements },
+    { data: journey },
+  ] = await Promise.all([
+    supabase.from('class_settings').select('*').limit(1),
+    supabase.from('gallery_media').select('media_url', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
+    supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
+    supabase.from('class_teachers').select('*').order('created_at'),
+    supabase.from('class_achievements').select('*').order('created_at'),
+    supabase.from('class_journey').select('*').order('created_at'),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  return (
+    <div className="min-h-screen text-ink">
+      <header className="max-w-5xl mx-auto flex items-center justify-between px-4 py-5">
+        <div className="flex items-center gap-3">
+          {s?.logo_url && <img src={s.logo_url} alt="" className="h-9 w-9 rounded-xl object-cover border border-line" />}
+          <span className="text-lg font-bold text-grad">{s?.class_name || 'ClassHub'}</span>
+        </div>
+        <Link href="/login" className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong">
+          Masuk
+        </Link>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4">
+        <PortfolioSections
+          s={s}
+          media={media}
+          mediaCount={mediaCount ?? 0}
+          teachers={teachers}
+          achievements={achievements}
+          journey={journey}
+          memberCount={memberCount}
+          postCount={postCount}
+          albumCount={albumCount}
+          cta={true}
+        />
+      </main>
+
+      <footer className="border-t border-line py-6 text-center text-xs text-mut">
+        © {new Date().getFullYear()} {s?.class_name || 'ClassHub'}{s?.school_name ? ' • ' + s.school_name : ''}
+      </footer>
+    </div>
+  );
+}
+`);
+
+wf('app/portfolio/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import PortfolioSections from '@/components/public/PortfolioSections';
+
+export default async function PortfolioPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const [
+    { data: settings },
+    { data: media, count: mediaCount },
+    { count: memberCount },
+    { count: postCount },
+    { count: albumCount },
+    { data: teachers },
+    { data: achievements },
+    { data: journey },
+  ] = await Promise.all([
+    supabase.from('class_settings').select('*').limit(1),
+    supabase.from('gallery_media').select('media_url', { count: 'exact' }).order('created_at', { ascending: false }).limit(5),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('posts').select('*', { count: 'exact', head: true }).eq('is_hidden', false),
+    supabase.from('gallery_albums').select('*', { count: 'exact', head: true }),
+    supabase.from('class_teachers').select('*').order('created_at'),
+    supabase.from('class_achievements').select('*').order('created_at'),
+    supabase.from('class_journey').select('*').order('created_at'),
+  ]);
+  const s = settings && settings.length > 0 ? settings[0] : null;
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <PortfolioSections
+          s={s}
+          media={media}
+          mediaCount={mediaCount ?? 0}
+          teachers={teachers}
+          achievements={achievements}
+          journey={journey}
+          memberCount={memberCount}
+          postCount={postCount}
+          albumCount={albumCount}
+          cta={false}
+          moreHref="/gallery"
+        />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] TAHAP 5+6 done: portfolio 5 foto + feed infinite scroll');
+
+// === TAHAP 7: AUDIT PERFORMA FEED ===
+
+wf('lib/auth/feed-actions.ts', `'use server';
+import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+
+const PROFILE_FIELDS = 'full_name,username,role,avatar_url,avatar_zoom,avatar_x,avatar_y';
+
+export async function getFeedPage(cursor: string | null) {
+  const user = await requireUser();
+  const supabase = await createClient();
+  let query = supabase
+    .from('posts')
+    .select('*, profiles(' + PROFILE_FIELDS + ')')
+    .eq('is_hidden', false)
+    .eq('profiles.is_banned', false)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  if (cursor) query = query.lt('created_at', cursor);
+  const { data: posts } = await query;
+  const list = posts ?? [];
+  const ids = list.map((p: any) => p.id);
+
+  const likeCounts: Record<string, number> = {};
+  const likedByMe: Record<string, boolean> = {};
+  const commentCounts: Record<string, number> = {};
+  if (ids.length > 0) {
+    const [l, c] = await Promise.all([
+      supabase.from('likes').select('target_id, user_id').eq('target_type', 'post').in('target_id', ids),
+      supabase.from('comments').select('post_id').in('post_id', ids),
+    ]);
+    for (const x of l.data ?? []) {
+      likeCounts[x.target_id] = (likeCounts[x.target_id] ?? 0) + 1;
+      if (x.user_id === user.id) likedByMe[x.target_id] = true;
+    }
+    for (const x of c.data ?? []) {
+      commentCounts[x.post_id] = (commentCounts[x.post_id] ?? 0) + 1;
+    }
+  }
+  return {
+    posts: list,
+    likeCounts,
+    likedByMe,
+    commentCounts,
+    nextCursor: list.length === 5 ? list[list.length - 1].created_at : null,
+  };
+}
+`);
+
+wf('components/feed/PostCard.tsx', `'use client';
+import { memo } from 'react';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import PostModMenu from './PostModMenu';
+import PostMedia from './PostMedia';
+import LikeButton from './LikeButton';
+import CommentButton from './CommentButton';
+
+function PostCard({ post, userId, isStaff, isAdmin, actorName, likeCount, liked, commentCount }: any) {
+  return (
+    <div className="bg-card border border-line rounded-2xl p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar data={post.profiles} className="h-10 w-10" />
+        <div className="flex-1">
+          <div className="font-semibold flex items-center gap-2">
+            {post.profiles?.full_name}
+            <AdminTag role={post.profiles?.role} />
+          </div>
+          <div className="text-xs text-mut">@{post.profiles?.username}</div>
+        </div>
+        {isStaff && <PostModMenu postId={post.id} canDelete={isAdmin} />}
+      </div>
+      {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+      {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+      <div className="flex items-center gap-4 pt-3 border-t border-line">
+        <LikeButton
+          postId={post.id}
+          userId={userId}
+          initialCount={likeCount}
+          initialLiked={liked}
+          ownerId={post.user_id}
+          actorName={actorName}
+        />
+        <CommentButton
+          postId={post.id}
+          userId={userId}
+          count={commentCount}
+          postOwnerId={post.user_id}
+          actorName={actorName}
+          isStaff={isStaff}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default memo(PostCard);
+`);
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { memo, useEffect, useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, Play, Pause } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+function SmartImg({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="w-full min-h-[280px] bg-card-2">
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        className={'w-full h-auto transition-opacity duration-300 ' + (loaded ? 'opacity-100' : 'opacity-0')}
+      />
+    </div>
+  );
+}
+
+function AutoVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [prog, setProg] = useState(0);
+  const [dur, setDur] = useState(0);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        for (const en of entries) {
+          if (en.isIntersecting) {
+            if (!v.dataset.userpaused) v.play().catch(function () {});
+          } else {
+            v.pause();
+          }
+        }
+      },
+      { threshold: 0.6 }
+    );
+    ob.observe(v);
+    return function () { ob.disconnect(); };
+  }, [src]);
+
+  function togglePlay() {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) { delete v.dataset.userpaused; v.play().catch(function () {}); }
+    else { v.dataset.userpaused = '1'; v.pause(); }
+  }
+  function toggleMute() {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  }
+  function seek(val: number) {
+    const v = ref.current;
+    if (!v || !dur) return;
+    v.currentTime = (val / 100) * dur;
+  }
+
+  return (
+    <div>
+      <div className="relative">
+        <video
+          ref={ref}
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="none"
+          onClick={togglePlay}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget;
+            if (v.duration) setProg((v.currentTime / v.duration) * 100);
+          }}
+          className="w-full h-auto max-h-[75vh] bg-black cursor-pointer"
+        />
+        {!playing && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="p-3 rounded-full bg-black/60 text-white">
+              <Play className="h-6 w-6" />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-card-2 border-t border-line">
+        <button onClick={togglePlay} className="p-1.5 text-ink" aria-label="Putar atau jeda">
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={prog}
+          onChange={(e) => seek(Number(e.target.value))}
+          className="flex-1 accent-acc"
+          aria-label="Progres video"
+        />
+        <button onClick={toggleMute} className="p-1.5 text-ink" aria-label="Suara">
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+        <a href={src} download className="text-xs font-semibold text-acc hover:underline px-1">
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function PostMediaInner({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <div className="mb-3 mx-auto w-full max-w-md rounded-xl overflow-hidden border border-line bg-card-2">
+          {isVideo(urls[0]) ? (
+            <AutoVideo src={urls[0]} />
+          ) : (
+            <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
+              <SmartImg src={urls[0]} />
+            </button>
+          )}
+        </div>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <div key={i} className="snap-center shrink-0 w-full">
+              {isVideo(url) ? (
+                <AutoVideo src={url} />
+              ) : (
+                <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
+                  <SmartImg src={url} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+
+export default memo(PostMediaInner);
+`);
+
+console.log('[OK] TAHAP 7 done: index DB + payload ramping + memo + image fade');

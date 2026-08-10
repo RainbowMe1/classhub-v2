@@ -20065,3 +20065,523 @@ export default memo(PostMediaInner);
 `);
 
 console.log('[OK] TAHAP 7 done: index DB + payload ramping + memo + image fade');
+
+// === PIKET + PERF FOTO ===
+
+wf('lib/img.ts', `export function thumb(url: string, width: number): string {
+  if (!url) return url;
+  if (url.indexOf('/storage/v1/object/public/') === -1) return url;
+  if (url.indexOf('.mp4') !== -1 || url.indexOf('.webm') !== -1) return url;
+  const base = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  return base + (url.indexOf('?') === -1 ? '?' : '&') + 'width=' + width + '&quality=70';
+}
+`);
+
+wf('lib/auth/piket-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function addPiket(formData: FormData) {
+  await requireRole('teacher');
+  const day = Number(formData.get('day'));
+  const userId = String(formData.get('user_id') || '');
+  if (!day || !userId) return { error: 'Pilih hari dan anggota.' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('piket_entries').insert({ day_of_week: day, user_id: userId });
+  if (error) return { error: error.message };
+  revalidatePath('/piket');
+  return { success: true };
+}
+
+export async function removePiket(id: string) {
+  await requireRole('teacher');
+  const admin = createAdminClient();
+  const { error } = await admin.from('piket_entries').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/piket');
+  return { success: true };
+}
+`);
+
+wf('components/piket/PiketBoard.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { addPiket, removePiket } from '@/lib/auth/piket-actions';
+import Avatar from '@/components/Avatar';
+import { X, Brush } from 'lucide-react';
+
+const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+export default function PiketBoard({ entries, members, isStaff }: any) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const todayIdx = (new Date().getDay() + 6) % 7;
+
+  async function add(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await addPiket(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus dari piket?')) return;
+    const res = await removePiket(id);
+    if (res && res.error) window.alert(res.error);
+    router.refresh();
+  }
+
+  const selCls = 'px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <div className="space-y-4">
+      {isStaff && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); add(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-4 grid sm:grid-cols-3 gap-2"
+        >
+          <select name="day" className={selCls}>
+            {DAYS.map((d, i) => (
+              <option key={d} value={i + 1}>{d}</option>
+            ))}
+          </select>
+          <select name="user_id" required className={selCls}>
+            {members.map((m: any) => (
+              <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
+            ))}
+          </select>
+          <button disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            {busy ? '...' : 'Tambah Piket'}
+          </button>
+          {err && <div className="sm:col-span-3 text-xs text-red-400">{err}</div>}
+        </form>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-3">
+        {DAYS.map((d, i) => {
+          const list = entries.filter((e: any) => e.day_of_week === i + 1);
+          const isToday = i === todayIdx;
+          return (
+            <div key={d} className={'rounded-2xl border p-4 ' + (isToday ? 'border-acc bg-acc/5' : 'border-line bg-card')}>
+              <div className="flex items-center gap-2 mb-3">
+                <Brush className={'h-4 w-4 ' + (isToday ? 'text-acc' : 'text-mut')} />
+                <div className="font-semibold text-sm">{d}</div>
+                {isToday && <span className="text-[10px] px-2 py-0.5 rounded-full bg-acc text-acc-ink font-bold">HARI INI</span>}
+              </div>
+              {list.length === 0 ? (
+                <div className="text-xs text-mut">Belum ada petugas.</div>
+              ) : (
+                <div className="space-y-2">
+                  {list.map((e: any) => (
+                    <div key={e.id} className="flex items-center gap-2">
+                      <Avatar data={e.profiles} className="h-7 w-7" />
+                      <div className="flex-1 text-sm truncate">{e.profiles?.full_name}</div>
+                      {isStaff && (
+                        <button onClick={() => remove(e.id)} className="p-1 text-red-400 hover:bg-red-500/10 rounded" aria-label="Hapus">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/piket/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import PiketBoard from '@/components/piket/PiketBoard';
+import { Brush } from 'lucide-react';
+
+export default async function PiketPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const [{ data: entries }, { data: members }] = await Promise.all([
+    supabase
+      .from('piket_entries')
+      .select('*, profiles(full_name, username, avatar_url, avatar_zoom, avatar_x, avatar_y)')
+      .order('day_of_week')
+      .order('created_at'),
+    supabase.from('profiles').select('user_id, full_name').eq('is_banned', false).order('full_name'),
+  ]);
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Brush className="h-6 w-6 text-acc" />
+          Jadwal Piket
+        </h1>
+        <PiketBoard entries={entries ?? []} members={members ?? []} isStaff={user.profile.role !== 'student'} />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/piket', icon: Brush, label: 'Piket' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <div className="flex items-center gap-3 px-2 pb-3">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </div>
+          <LogoutButton withLabel />
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Avatar data={profile} className="h-7 w-7" />
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+(function () {
+  const sp = 'components/feed/PostMedia.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  if (c.indexOf("import { thumb }") === -1) {
+    c = c.split("import Lightbox from './Lightbox';").join("import Lightbox from './Lightbox';\nimport { thumb } from '@/lib/img';");
+    changed = true;
+  }
+  const t1 = `function SmartImg({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="w-full min-h-[280px] bg-card-2">
+      <img
+        src={src}`;
+  const r1 = `function SmartImg({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [real, setReal] = useState(false);
+  return (
+    <div className="w-full min-h-[280px] bg-card-2">
+      <img
+        src={real ? src : thumb(src, 720)}`;
+  if (c.indexOf(t1) !== -1) { c = c.split(t1).join(r1); changed = true; }
+  const t2 = "        onLoad={() => setLoaded(true)}";
+  const r2 = "        onLoad={() => setLoaded(true)}\n        onError={() => { if (!real) setReal(true); }}";
+  if (c.indexOf(t2) !== -1 && c.indexOf('onError') === -1) { c = c.split(t2).join(r2); changed = true; }
+  if (changed) { fs.writeFileSync(sp, c, 'utf8'); console.log('[OK] feed: thumbnail transform + fallback'); }
+  else console.log('[SKIP] feed thumb');
+})();
+
+(function () {
+  const sp = 'components/gallery/GalleryAlbum.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  if (c.indexOf("import { thumb }") === -1) {
+    c = c.split("import UploadModal from './UploadModal';").join("import UploadModal from './UploadModal';\nimport { thumb } from '@/lib/img';");
+    changed = true;
+  }
+  const t1 = `<img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-auto" />`;
+  const r1 = `<img
+                    src={thumb(m.media_url, 600)}
+                    data-full={m.media_url}
+                    alt={m.caption || ''}
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => { const t = e.currentTarget as any; if (t.src !== t.dataset.full) t.src = t.dataset.full; }}
+                    className="w-full h-auto"
+                  />`;
+  if (c.indexOf(t1) !== -1) { c = c.split(t1).join(r1); changed = true; }
+  if (changed) { fs.writeFileSync(sp, c, 'utf8'); console.log('[OK] galeri: thumbnail transform + fallback'); }
+  else console.log('[SKIP] galeri thumb');
+})();
+
+console.log('[OK] done: piket + perf foto');
+
+// === PIKET v2: ERROR TRANSPARAN + EDIT ===
+
+wf('lib/auth/piket-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function addPiket(formData: FormData) {
+  try {
+    await requireRole('teacher');
+    const day = Number(formData.get('day'));
+    const userId = String(formData.get('user_id') || '');
+    if (!day || !userId) return { error: 'Pilih hari dan anggota.' };
+    const admin = createAdminClient();
+    const { error } = await admin.from('piket_entries').insert({ day_of_week: day, user_id: userId });
+    if (error) return { error: 'DB: ' + error.message };
+    revalidatePath('/piket');
+    return { success: true };
+  } catch (e: any) {
+    return { error: 'Action: ' + (e && e.message ? e.message : 'gagal') };
+  }
+}
+
+export async function updatePiket(id: string, day: number, userId: string) {
+  try {
+    await requireRole('teacher');
+    if (!id || !day || !userId) return { error: 'Data tidak lengkap.' };
+    const admin = createAdminClient();
+    const { error } = await admin.from('piket_entries').update({ day_of_week: day, user_id: userId }).eq('id', id);
+    if (error) return { error: 'DB: ' + error.message };
+    revalidatePath('/piket');
+    return { success: true };
+  } catch (e: any) {
+    return { error: 'Action: ' + (e && e.message ? e.message : 'gagal') };
+  }
+}
+
+export async function removePiket(id: string) {
+  try {
+    await requireRole('teacher');
+    const admin = createAdminClient();
+    const { error } = await admin.from('piket_entries').delete().eq('id', id);
+    if (error) return { error: 'DB: ' + error.message };
+    revalidatePath('/piket');
+    return { success: true };
+  } catch (e: any) {
+    return { error: 'Action: ' + (e && e.message ? e.message : 'gagal') };
+  }
+}
+`);
+
+wf('components/piket/PiketBoard.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { addPiket, updatePiket, removePiket } from '@/lib/auth/piket-actions';
+import Avatar from '@/components/Avatar';
+import { X, Brush, Pencil, Check } from 'lucide-react';
+
+const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+export default function PiketBoard({ entries, members, isStaff }: any) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editDay, setEditDay] = useState(1);
+  const [editUser, setEditUser] = useState('');
+  const todayIdx = (new Date().getDay() + 6) % 7;
+
+  async function add(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    const res = await addPiket(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    setBusy(true);
+    setErr('');
+    const res = await updatePiket(editId, Number(editDay), editUser);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else {
+      setEditId(null);
+      router.refresh();
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus dari piket?')) return;
+    setErr('');
+    const res = await removePiket(id);
+    if (res && res.error) setErr(res.error);
+    else router.refresh();
+  }
+
+  const selCls = 'px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <div className="space-y-4">
+      {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{err}</div>}
+
+      {isStaff && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); add(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-4 grid sm:grid-cols-3 gap-2"
+        >
+          <select name="day" className={selCls}>
+            {DAYS.map((d, i) => (
+              <option key={d} value={i + 1}>{d}</option>
+            ))}
+          </select>
+          <select name="user_id" required className={selCls}>
+            {members.map((m: any) => (
+              <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
+            ))}
+          </select>
+          <button disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            {busy ? '...' : 'Tambah Piket'}
+          </button>
+        </form>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-3">
+        {DAYS.map((d, i) => {
+          const list = entries.filter((e: any) => e.day_of_week === i + 1);
+          const isToday = i === todayIdx;
+          return (
+            <div key={d} className={'rounded-2xl border p-4 ' + (isToday ? 'border-acc bg-acc/5' : 'border-line bg-card')}>
+              <div className="flex items-center gap-2 mb-3">
+                <Brush className={'h-4 w-4 ' + (isToday ? 'text-acc' : 'text-mut')} />
+                <div className="font-semibold text-sm">{d}</div>
+                {isToday && <span className="text-[10px] px-2 py-0.5 rounded-full bg-acc text-acc-ink font-bold">HARI INI</span>}
+              </div>
+              {list.length === 0 ? (
+                <div className="text-xs text-mut">Belum ada petugas.</div>
+              ) : (
+                <div className="space-y-2">
+                  {list.map((e: any) => (
+                    <div key={e.id}>
+                      {editId === e.id ? (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <select value={editDay} onChange={(ev) => setEditDay(Number(ev.target.value))} className={selCls}>
+                              {DAYS.map((dd, ii) => (
+                                <option key={dd} value={ii + 1}>{dd}</option>
+                              ))}
+                            </select>
+                            <select value={editUser} onChange={(ev) => setEditUser(ev.target.value)} className={selCls}>
+                              {members.map((m: any) => (
+                                <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={saveEdit} disabled={busy} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-acc text-acc-ink text-xs font-semibold">
+                              <Check className="h-3 w-3" />
+                              Simpan
+                            </button>
+                            <button onClick={() => setEditId(null)} className="px-3 py-1.5 rounded-lg bg-line text-ink text-xs font-semibold">
+                              Batal
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Avatar data={e.profiles} className="h-7 w-7" />
+                          <div className="flex-1 text-sm truncate">{e.profiles?.full_name}</div>
+                          {isStaff && (
+                            <>
+                              <button
+                                onClick={() => { setEditId(e.id); setEditDay(e.day_of_week); setEditUser(e.user_id); }}
+                                className="p-1 text-mut hover:text-ink"
+                                aria-label="Edit"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button onClick={() => remove(e.id)} className="p-1 text-red-400 hover:bg-red-500/10 rounded" aria-label="Hapus">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+`);
+
+console.log('[OK] Piket v2 done: error transparan + edit piket');

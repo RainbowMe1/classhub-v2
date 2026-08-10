@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Lightbox from '@/components/feed/Lightbox';
 import UploadModal from './UploadModal';
+import { thumb } from '@/lib/img';
 import { updateAlbum, deleteAlbum, deleteGalleryMedia } from '@/lib/auth/gallery-actions';
 import { Upload, Trash2, Pencil, X, Check, Image as ImageIcon } from 'lucide-react';
 
@@ -114,7 +115,15 @@ export default function GalleryAlbum({ album, userId, isStaff }: { album: any; u
                 {m.media_type === 'video' ? (
                   <video src={m.media_url} muted preload="metadata" playsInline className="w-full h-auto" />
                 ) : (
-                  <img src={m.media_url} alt={m.caption || ''} loading="lazy" className="w-full h-auto" />
+                  <img
+                    src={thumb(m.media_url, 600)}
+                    data-full={m.media_url}
+                    alt={m.caption || ''}
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => { const t = e.currentTarget as any; if (t.src !== t.dataset.full) t.src = t.dataset.full; }}
+                    className="w-full h-auto"
+                  />
                 )}
               </button>
               {(isStaff || m.user_id === userId) && (

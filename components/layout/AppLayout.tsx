@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
@@ -18,6 +18,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
     { href: '/my-posts', icon: Files, label: 'Postinganku' },
     { href: '/chat', icon: MessageCircle, label: 'Chat' },
     { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/piket', icon: Brush, label: 'Piket' },
     { href: '/schedule', icon: Calendar, label: 'Jadwal' },
     { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
     { href: '/music', icon: Music, label: 'Musik' },

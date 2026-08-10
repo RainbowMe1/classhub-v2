@@ -1,6 +1,7 @@
 'use client';
 import { memo, useEffect, useRef, useState } from 'react';
 import Lightbox from './Lightbox';
+import { thumb } from '@/lib/img';
 import { ChevronLeft, ChevronRight, Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
 function isVideo(u: string) {
@@ -9,14 +10,16 @@ function isVideo(u: string) {
 
 function SmartImg({ src }: { src: string }) {
   const [loaded, setLoaded] = useState(false);
+  const [real, setReal] = useState(false);
   return (
     <div className="w-full min-h-[280px] bg-card-2">
       <img
-        src={src}
+        src={real ? src : thumb(src, 720)}
         alt=""
         loading="lazy"
         decoding="async"
         onLoad={() => setLoaded(true)}
+        onError={() => { if (!real) setReal(true); }}
         className={'w-full h-auto transition-opacity duration-300 ' + (loaded ? 'opacity-100' : 'opacity-0')}
       />
     </div>

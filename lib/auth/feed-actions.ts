@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireUser } from '@/lib/auth/actions';
 
-const PROFILE_FIELDS = 'full_name,username,role,avatar_url,avatar_zoom,avatar_x,avatar_y';
+const PROFILE_FIELDS = 'full_name,username,role,avatar_url,avatar_zoom,avatar_x,avatar_y,jabatan';
 
 export async function getFeedPage(cursor: string | null) {
   const user = await requireUser();

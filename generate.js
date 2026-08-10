@@ -21516,3 +21516,1872 @@ export default function AppLayout({ children, profile, settings }: { children: R
 `);
 
 console.log('[OK] POST MANAGEMENT done: feed clean + postinganku full + admin kelola');
+
+// === PART SEC: PASSWORD KUAT + ADMIN RESET PASSWORD ===
+
+wf('lib/auth/admin-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const COMMON = ['password', 'password1', '123456', '1234567', '12345678', '123456789', '12345', '121212', 'qwerty', 'abc123', '111111', 'iloveyou', 'admin123', 'sainstech123', 'kelas123', 'man4bogor'];
+
+function checkPw(pw: string): string | null {
+  if (pw.length < 8) return 'Password minimal 8 karakter.';
+  if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) return 'Password harus kombinasi huruf dan angka.';
+  if (COMMON.indexOf(pw.toLowerCase()) !== -1) return 'Password terlalu umum — pakai yang lebih unik.';
+  return null;
+}
+
+export async function adminCreateUser(formData: FormData) {
+  await requireRole('admin');
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const username = String(formData.get('username') || '').trim().toLowerCase();
+  const full_name = String(formData.get('full_name') || '').trim();
+  const role = String(formData.get('role') || 'student');
+  const password = String(formData.get('password') || '');
+
+  if (!email || !username || !full_name) return { error: 'Semua field wajib diisi.' };
+  const bad = checkPw(password);
+  if (bad) return { error: bad };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing) return { error: 'Username sudah dipakai.' };
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { username, full_name },
+  });
+  if (error) return { error: error.message };
+  if (data.user) {
+    await admin.from('profiles').update({ role, full_name, username }).eq('user_id', data.user.id);
+  }
+  revalidatePath('/admin/users');
+  revalidatePath('/members');
+  return { success: true };
+}
+
+export async function adminUpdateRole(userId: string, role: string) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('profiles').update({ role }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminSetBan(userId: string, banned: boolean) {
+  await requireRole('admin');
+  const admin = createAdminClient();
+  const { error } = await admin.from('profiles').update({ is_banned: banned }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminResetPassword(userId: string, password: string) {
+  await requireRole('admin');
+  const bad = checkPw(password);
+  if (bad) return { error: bad };
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, { password });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+`);
+
+wf('components/admin/AdminUsersClient.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { adminCreateUser, adminUpdateRole, adminSetBan, adminResetPassword } from '@/lib/auth/admin-actions';
+import { Plus, X, Shield, KeyRound, Check } from 'lucide-react';
+
+type Member = {
+  user_id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  is_banned: boolean;
+};
+
+export default function AdminUsersClient({ members, currentUserId }: { members: Member[]; currentUserId: string }) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [resetPw, setResetPw] = useState('');
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminCreateUser(fd);
+    setBusy(false);
+    if (res && res.error) setMsg('Gagal: ' + res.error);
+    else {
+      setMsg('Akun berhasil dibuat.');
+      setShowForm(false);
+      router.refresh();
+    }
+  }
+
+  async function changeRole(userId: string, role: string) {
+    const res = await adminUpdateRole(userId, role);
+    if (res && res.error) setMsg('Gagal ubah role: ' + res.error);
+    router.refresh();
+  }
+
+  async function toggleBan(m: Member) {
+    const res = await adminSetBan(m.user_id, !m.is_banned);
+    if (res && res.error) setMsg('Gagal: ' + res.error);
+    router.refresh();
+  }
+
+  async function doReset(userId: string) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminResetPassword(userId, resetPw);
+    setBusy(false);
+    if (res && res.error) setMsg('Gagal reset: ' + res.error);
+    else {
+      setMsg('Password berhasil direset. Kirim password baru lewat chat pribadi.');
+      setResetId(null);
+      setResetPw('');
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-ink">Manajemen Anggota</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong"
+        >
+          <Plus className="h-4 w-4" />
+          {showForm ? 'Tutup' : 'Buat Akun'}
+        </button>
+      </div>
+
+      {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm break-all">{msg}</div>}
+
+      {showForm && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-5 grid md:grid-cols-2 gap-4"
+        >
+          <input name="email" type="email" required placeholder="Email" className={inputCls} />
+          <input name="username" required placeholder="Username" className={inputCls} />
+          <input name="full_name" required placeholder="Nama lengkap" className={inputCls} />
+          <input name="password" required placeholder="Password (min 8, huruf+angka)" className={inputCls} />
+          <select name="role" className={inputCls}>
+            <option value="student">student</option>
+            <option value="teacher">teacher</option>
+            <option value="admin">admin</option>
+          </select>
+          <button disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            {busy ? 'Membuat...' : 'Buat Akun'}
+          </button>
+        </form>
+      )}
+
+      <div className="space-y-2">
+        {members.map((m) => (
+          <div key={m.user_id} className="bg-card border border-line rounded-2xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-line-2 flex items-center justify-center font-bold text-ink shrink-0">
+                {m.full_name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-ink truncate">
+                  {m.full_name}
+                  {m.user_id === currentUserId && <span className="text-mut font-normal"> (lu)</span>}
+                </div>
+                <div className="text-xs text-mut truncate">@{m.username} • {m.email}</div>
+              </div>
+              <select
+                value={m.role}
+                disabled={m.user_id === currentUserId}
+                onChange={(e) => changeRole(m.user_id, e.target.value)}
+                className="px-2 py-1.5 rounded-lg bg-card-2 border border-line text-xs text-ink disabled:opacity-40"
+              >
+                <option value="student">student</option>
+                <option value="teacher">teacher</option>
+                <option value="admin">admin</option>
+              </select>
+              <button
+                onClick={() => { setResetId(resetId === m.user_id ? null : m.user_id); setResetPw(''); }}
+                className="p-2 rounded-lg text-mut hover:text-ink hover:bg-line"
+                aria-label="Reset password"
+              >
+                <KeyRound className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => toggleBan(m)}
+                disabled={m.user_id === currentUserId}
+                className={'px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40 ' + (m.is_banned ? 'bg-acc text-acc-ink' : 'bg-red-500/10 text-red-400 border border-red-500/20')}
+              >
+                {m.is_banned ? 'Aktifkan' : 'Ban'}
+              </button>
+            </div>
+            {resetId === m.user_id && (
+              <div className="flex gap-2 mt-3">
+                <input
+                  value={resetPw}
+                  onChange={(e) => setResetPw(e.target.value)}
+                  placeholder="Password baru (min 8, huruf+angka)"
+                  className={inputCls}
+                />
+                <button onClick={() => doReset(m.user_id)} disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-xs font-semibold disabled:opacity-50 shrink-0">
+                  {busy ? '...' : 'Simpan'}
+                </button>
+                <button onClick={() => setResetId(null)} className="px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold shrink-0">
+                  Batal
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+`);
+
+(function () {
+  const sp = 'app/settings/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = "if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }";
+  const good = "if (pw.length < 8 || !/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) { setErr('Password minimal 8 karakter, kombinasi huruf dan angka.'); setBusy(false); return; }";
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] SEC: aturan password ganti-password diperkuat');
+  } else {
+    console.log('[SKIP] SEC settings (cek manual kalau perlu)');
+  }
+})();
+
+console.log('[OK] PART SEC done: password kuat + admin reset password');
+
+// === PART OWNER: OWNER KEBAL DARI ADMIN LAIN ===
+
+wf('lib/auth/admin-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const COMMON = ['password', 'password1', '123456', '1234567', '12345678', '123456789', '12345', '121212', 'qwerty', 'abc123', '111111', 'iloveyou', 'admin123', 'sainstech123', 'kelas123', 'man4bogor'];
+
+function checkPw(pw: string): string | null {
+  if (pw.length < 8) return 'Password minimal 8 karakter.';
+  if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) return 'Password harus kombinasi huruf dan angka.';
+  if (COMMON.indexOf(pw.toLowerCase()) !== -1) return 'Password terlalu umum — pakai yang lebih unik.';
+  return null;
+}
+
+async function guardOwner(admin: any, actorId: string, targetId: string): Promise<string | null> {
+  if (actorId === targetId) return null;
+  const [{ data: target }, { data: actor }] = await Promise.all([
+    admin.from('profiles').select('is_owner').eq('user_id', targetId).maybeSingle(),
+    admin.from('profiles').select('is_owner').eq('user_id', actorId).maybeSingle(),
+  ]);
+  if (target?.is_owner && !actor?.is_owner) {
+    return 'Akun owner tidak bisa diubah oleh admin lain.';
+  }
+  return null;
+}
+
+export async function adminCreateUser(formData: FormData) {
+  await requireRole('admin');
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const username = String(formData.get('username') || '').trim().toLowerCase();
+  const full_name = String(formData.get('full_name') || '').trim();
+  const role = String(formData.get('role') || 'student');
+  const password = String(formData.get('password') || '');
+
+  if (!email || !username || !full_name) return { error: 'Semua field wajib diisi.' };
+  const bad = checkPw(password);
+  if (bad) return { error: bad };
+  if (role === 'admin') return { error: 'Akun baru hanya boleh student/teacher. Naikkan role lewat dropdown setelah dibuat.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing) return { error: 'Username sudah dipakai.' };
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { username, full_name },
+  });
+  if (error) return { error: error.message };
+  if (data.user) {
+    await admin.from('profiles').update({ role, full_name, username }).eq('user_id', data.user.id);
+  }
+  revalidatePath('/admin/users');
+  revalidatePath('/members');
+  return { success: true };
+}
+
+export async function adminUpdateRole(userId: string, role: string) {
+  const user = await requireRole('admin');
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.from('profiles').update({ role }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminSetBan(userId: string, banned: boolean) {
+  const user = await requireRole('admin');
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.from('profiles').update({ is_banned: banned }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminResetPassword(userId: string, password: string) {
+  const user = await requireRole('admin');
+  const bad = checkPw(password);
+  if (bad) return { error: bad };
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.auth.admin.updateUserById(userId, { password });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+`);
+
+wf('components/admin/AdminUsersClient.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { adminCreateUser, adminUpdateRole, adminSetBan, adminResetPassword } from '@/lib/auth/admin-actions';
+import { Plus, X, KeyRound, Crown } from 'lucide-react';
+
+type Member = {
+  user_id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  is_banned: boolean;
+  is_owner?: boolean;
+};
+
+export default function AdminUsersClient({ members, currentUserId, currentIsOwner }: { members: Member[]; currentUserId: string; currentIsOwner: boolean }) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [resetPw, setResetPw] = useState('');
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminCreateUser(fd);
+    setBusy(false);
+    if (res && res.error) setMsg('Gagal: ' + res.error);
+    else {
+      setMsg('Akun berhasil dibuat.');
+      setShowForm(false);
+      router.refresh();
+    }
+  }
+
+  async function changeRole(userId: string, role: string) {
+    setMsg('');
+    const res = await adminUpdateRole(userId, role);
+    if (res && res.error) setMsg(res.error);
+    router.refresh();
+  }
+
+  async function toggleBan(m: Member) {
+    setMsg('');
+    const res = await adminSetBan(m.user_id, !m.is_banned);
+    if (res && res.error) setMsg(res.error);
+    router.refresh();
+  }
+
+  async function doReset(userId: string) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminResetPassword(userId, resetPw);
+    setBusy(false);
+    if (res && res.error) setMsg('Gagal reset: ' + res.error);
+    else {
+      setMsg('Password berhasil direset. Kirim password baru lewat chat pribadi.');
+      setResetId(null);
+      setResetPw('');
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-ink">Manajemen Anggota</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong"
+        >
+          <Plus className="h-4 w-4" />
+          {showForm ? 'Tutup' : 'Buat Akun'}
+        </button>
+      </div>
+
+      {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm break-all">{msg}</div>}
+
+      {showForm && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-5 grid md:grid-cols-2 gap-4"
+        >
+          <input name="email" type="email" required placeholder="Email" className={inputCls} />
+          <input name="username" required placeholder="Username" className={inputCls} />
+          <input name="full_name" required placeholder="Nama lengkap" className={inputCls} />
+          <input name="password" required placeholder="Password (min 8, huruf+angka)" className={inputCls} />
+          <select name="role" className={inputCls}>
+            <option value="student">student</option>
+            <option value="teacher">teacher</option>
+          </select>
+          <button disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            {busy ? 'Membuat...' : 'Buat Akun'}
+          </button>
+        </form>
+      )}
+
+      <div className="space-y-2">
+        {members.map((m) => {
+          const ownerLocked = !!m.is_owner && !currentIsOwner;
+          return (
+            <div key={m.user_id} className="bg-card border border-line rounded-2xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-line-2 flex items-center justify-center font-bold text-ink shrink-0">
+                  {m.full_name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-ink truncate flex items-center gap-1.5">
+                    {m.full_name}
+                    {m.is_owner && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-acc/10 text-acc border border-acc/30 font-bold">
+                        <Crown className="h-3 w-3" />
+                        OWNER
+                      </span>
+                    )}
+                    {m.user_id === currentUserId && <span className="text-mut font-normal">(lu)</span>}
+                  </div>
+                  <div className="text-xs text-mut truncate">@{m.username} • {m.email}</div>
+                </div>
+                <select
+                  value={m.role}
+                  disabled={m.user_id === currentUserId || ownerLocked}
+                  onChange={(e) => changeRole(m.user_id, e.target.value)}
+                  className="px-2 py-1.5 rounded-lg bg-card-2 border border-line text-xs text-ink disabled:opacity-40"
+                >
+                  <option value="student">student</option>
+                  <option value="teacher">teacher</option>
+                  <option value="admin">admin</option>
+                </select>
+                <button
+                  onClick={() => { setResetId(resetId === m.user_id ? null : m.user_id); setResetPw(''); }}
+                  disabled={ownerLocked}
+                  className="p-2 rounded-lg text-mut hover:text-ink hover:bg-line disabled:opacity-40"
+                  aria-label="Reset password"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => toggleBan(m)}
+                  disabled={m.user_id === currentUserId || ownerLocked}
+                  className={'px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40 ' + (m.is_banned ? 'bg-acc text-acc-ink' : 'bg-red-500/10 text-red-400 border border-red-500/20')}
+                >
+                  {m.is_banned ? 'Aktifkan' : 'Ban'}
+                </button>
+              </div>
+              {resetId === m.user_id && (
+                <div className="flex gap-2 mt-3">
+                  <input
+                    value={resetPw}
+                    onChange={(e) => setResetPw(e.target.value)}
+                    placeholder="Password baru (min 8, huruf+angka)"
+                    className={inputCls}
+                  />
+                  <button onClick={() => doReset(m.user_id)} disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-xs font-semibold disabled:opacity-50 shrink-0">
+                    {busy ? '...' : 'Simpan'}
+                  </button>
+                  <button onClick={() => setResetId(null)} className="px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold shrink-0">
+                    Batal
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/admin/users/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import AdminUsersClient from '@/components/admin/AdminUsersClient';
+
+export default async function AdminUsersPage() {
+  const user = await requireRole('admin');
+  const supabase = await createClient();
+  const { data: members } = await supabase.from('profiles').select('*').order('created_at');
+  const me = (members ?? []).find((m: any) => m.user_id === user.id);
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        <AdminUsersClient
+          members={members ?? []}
+          currentUserId={user.id}
+          currentIsOwner={!!me?.is_owner}
+        />
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] PART OWNER done: owner kebal dari admin lain');
+
+// === PART JABATAN: STRUKTUR ORGANISASI KELAS ===
+
+wf('components/JabatanTag.tsx', `export default function JabatanTag({ jabatan, className }: { jabatan: string | null; className?: string }) {
+  if (!jabatan) return null;
+  return (
+    <span className={'inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold ' + (className || '')}>
+      {jabatan}
+    </span>
+  );
+}
+`);
+
+wf('lib/auth/admin-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const COMMON = ['password', 'password1', '123456', '1234567', '12345678', '123456789', '12345', '121212', 'qwerty', 'abc123', '111111', 'iloveyou', 'admin123', 'sainstech123', 'kelas123', 'man4bogor'];
+
+function checkPw(pw: string): string | null {
+  if (pw.length < 8) return 'Password minimal 8 karakter.';
+  if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) return 'Password harus kombinasi huruf dan angka.';
+  if (COMMON.indexOf(pw.toLowerCase()) !== -1) return 'Password terlalu umum — pakai yang lebih unik.';
+  return null;
+}
+
+async function guardOwner(admin: any, actorId: string, targetId: string): Promise<string | null> {
+  if (actorId === targetId) return null;
+  const [{ data: target }, { data: actor }] = await Promise.all([
+    admin.from('profiles').select('is_owner').eq('user_id', targetId).maybeSingle(),
+    admin.from('profiles').select('is_owner').eq('user_id', actorId).maybeSingle(),
+  ]);
+  if (target?.is_owner && !actor?.is_owner) {
+    return 'Akun owner tidak bisa diubah oleh admin lain.';
+  }
+  return null;
+}
+
+export async function adminCreateUser(formData: FormData) {
+  await requireRole('admin');
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const username = String(formData.get('username') || '').trim().toLowerCase();
+  const full_name = String(formData.get('full_name') || '').trim();
+  const role = String(formData.get('role') || 'student');
+  const password = String(formData.get('password') || '');
+
+  if (!email || !username || !full_name) return { error: 'Semua field wajib diisi.' };
+  const bad = checkPw(password);
+  if (bad) return { error: bad };
+  if (role === 'admin') return { error: 'Akun baru hanya boleh student/teacher. Naikkan role lewat dropdown setelah dibuat.' };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin.from('profiles').select('id').eq('username', username).maybeSingle();
+  if (existing) return { error: 'Username sudah dipakai.' };
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { username, full_name },
+  });
+  if (error) return { error: error.message };
+  if (data.user) {
+    await admin.from('profiles').update({ role, full_name, username }).eq('user_id', data.user.id);
+  }
+  revalidatePath('/admin/users');
+  revalidatePath('/members');
+  return { success: true };
+}
+
+export async function adminUpdateRole(userId: string, role: string) {
+  const user = await requireRole('admin');
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.from('profiles').update({ role }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminSetBan(userId: string, banned: boolean) {
+  const user = await requireRole('admin');
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.from('profiles').update({ is_banned: banned }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function adminResetPassword(userId: string, password: string) {
+  const user = await requireRole('admin');
+  const bad = checkPw(password);
+  if (bad) return { error: bad };
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.auth.admin.updateUserById(userId, { password });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function adminSetJabatan(userId: string, jabatan: string) {
+  const user = await requireRole('admin');
+  const admin = createAdminClient();
+  const guard = await guardOwner(admin, user.id, userId);
+  if (guard) return { error: guard };
+  const { error } = await admin.from('profiles').update({ jabatan: jabatan || null }).eq('user_id', userId);
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  revalidatePath('/members');
+  revalidatePath('/feed');
+  return { success: true };
+}
+`);
+
+(function () {
+  const sp = 'lib/auth/feed-actions.ts';
+  let c = fs.readFileSync(sp, 'utf8');
+  const bad = "const PROFILE_FIELDS = 'full_name,username,role,avatar_url,avatar_zoom,avatar_x,avatar_y';";
+  const good = "const PROFILE_FIELDS = 'full_name,username,role,avatar_url,avatar_zoom,avatar_x,avatar_y,jabatan';";
+  if (c.indexOf(bad) !== -1) {
+    c = c.split(bad).join(good);
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] JABATAN: feed select nambah jabatan');
+  } else if (c.indexOf(good) !== -1) {
+    console.log('[SKIP] JABATAN feed udah ada');
+  } else {
+    console.log('[!!] JABATAN: PROFILE_FIELDS gak ketemu, cek manual');
+  }
+})();
+
+wf('components/feed/PostCard.tsx', `'use client';
+import { memo } from 'react';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import JabatanTag from '@/components/JabatanTag';
+import PostMedia from './PostMedia';
+import LikeButton from './LikeButton';
+import CommentButton from './CommentButton';
+
+function PostCard({ post, userId, actorName, likeCount, liked, commentCount }: any) {
+  return (
+    <div className="bg-card border border-line rounded-2xl p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <Avatar data={post.profiles} className="h-10 w-10" />
+        <div className="flex-1">
+          <div className="font-semibold flex items-center gap-2 flex-wrap">
+            {post.profiles?.full_name}
+            <AdminTag role={post.profiles?.role} />
+            <JabatanTag jabatan={post.profiles?.jabatan} />
+          </div>
+          <div className="text-xs text-mut">@{post.profiles?.username}</div>
+        </div>
+      </div>
+      {post.content && <p className="mb-3 whitespace-pre-wrap text-sm md:text-base">{post.content}</p>}
+      {post.media_urls && post.media_urls.length > 0 && <PostMedia urls={post.media_urls} />}
+      <div className="flex items-center gap-4 pt-3 border-t border-line">
+        <LikeButton
+          postId={post.id}
+          userId={userId}
+          initialCount={likeCount}
+          initialLiked={liked}
+          ownerId={post.user_id}
+          actorName={actorName}
+        />
+        <CommentButton
+          postId={post.id}
+          userId={userId}
+          count={commentCount}
+          postOwnerId={post.user_id}
+          actorName={actorName}
+          isStaff={false}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default memo(PostCard);
+`);
+
+wf('app/members/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import JabatanTag from '@/components/JabatanTag';
+
+export default async function MembersPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const { data: members } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('is_banned', false)
+    .order('full_name');
+
+  return (
+    <AppLayout profile={user.profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold">Anggota Kelas</h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {(members ?? []).map((m: any) => (
+            <div key={m.user_id} className="anim-fade-up bg-card border border-line rounded-2xl p-4 text-center">
+              <Avatar data={m} className="h-16 w-16 mx-auto text-xl" />
+              <div className="font-semibold text-sm mt-2 truncate flex items-center justify-center gap-2">
+                {m.full_name}
+                <AdminTag role={m.role} />
+              </div>
+              <div className="text-xs text-mut">@{m.username}</div>
+              <div className="mt-1.5 flex items-center justify-center gap-1.5 flex-wrap">
+                <JabatanTag jabatan={m.jabatan} />
+                {m.role !== 'admin' && <div className="text-[10px] uppercase text-acc">{m.role}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/admin/AdminUsersClient.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { adminCreateUser, adminUpdateRole, adminSetBan, adminResetPassword, adminSetJabatan } from '@/lib/auth/admin-actions';
+import { Plus, KeyRound, Crown } from 'lucide-react';
+
+const JABATAN = ['Ketua Kelas', 'Wakil Ketua', 'Sekretaris', 'Bendahara', 'Koordinator Keamanan', 'Koordinator Kebersihan'];
+
+type Member = {
+  user_id: string;
+  full_name: string;
+  username: string;
+  email: string;
+  role: string;
+  is_banned: boolean;
+  is_owner?: boolean;
+  jabatan?: string | null;
+};
+
+export default function AdminUsersClient({ members, currentUserId, currentIsOwner }: { members: Member[]; currentUserId: string; currentIsOwner: boolean }) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [resetId, setResetId] = useState<string | null>(null);
+  const [resetPw, setResetPw] = useState('');
+
+  async function create(fd: FormData) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminCreateUser(fd);
+    setBusy(false);
+    if (res && res.error) setMsg('Gagal: ' + res.error);
+    else {
+      setMsg('Akun berhasil dibuat.');
+      setShowForm(false);
+      router.refresh();
+    }
+  }
+
+  async function changeRole(userId: string, role: string) {
+    setMsg('');
+    const res = await adminUpdateRole(userId, role);
+    if (res && res.error) setMsg(res.error);
+    router.refresh();
+  }
+
+  async function changeJabatan(userId: string, jabatan: string) {
+    setMsg('');
+    const res = await adminSetJabatan(userId, jabatan);
+    if (res && res.error) setMsg(res.error);
+    else setMsg('Jabatan tersimpan.');
+    router.refresh();
+  }
+
+  async function toggleBan(m: Member) {
+    setMsg('');
+    const res = await adminSetBan(m.user_id, !m.is_banned);
+    if (res && res.error) setMsg(res.error);
+    router.refresh();
+  }
+
+  async function doReset(userId: string) {
+    setBusy(true);
+    setMsg('');
+    const res = await adminResetPassword(userId, resetPw);
+    setBusy(false);
+    if (res && res.error) setMsg('Gagal reset: ' + res.error);
+    else {
+      setMsg('Password berhasil direset. Kirim password baru lewat chat pribadi.');
+      setResetId(null);
+      setResetPw('');
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-ink">Manajemen Anggota</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong"
+        >
+          <Plus className="h-4 w-4" />
+          {showForm ? 'Tutup' : 'Buat Akun'}
+        </button>
+      </div>
+
+      {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm break-all">{msg}</div>}
+
+      {showForm && (
+        <form
+          onSubmit={(e) => { e.preventDefault(); create(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-5 grid md:grid-cols-2 gap-4"
+        >
+          <input name="email" type="email" required placeholder="Email" className={inputCls} />
+          <input name="username" required placeholder="Username" className={inputCls} />
+          <input name="full_name" required placeholder="Nama lengkap" className={inputCls} />
+          <input name="password" required placeholder="Password (min 8, huruf+angka)" className={inputCls} />
+          <select name="role" className={inputCls}>
+            <option value="student">student</option>
+            <option value="teacher">teacher</option>
+          </select>
+          <button disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
+            {busy ? 'Membuat...' : 'Buat Akun'}
+          </button>
+        </form>
+      )}
+
+      <div className="space-y-2">
+        {members.map((m) => {
+          const ownerLocked = !!m.is_owner && !currentIsOwner;
+          return (
+            <div key={m.user_id} className="bg-card border border-line rounded-2xl p-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="h-10 w-10 rounded-full bg-line-2 flex items-center justify-center font-bold text-ink shrink-0">
+                  {m.full_name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-ink truncate flex items-center gap-1.5">
+                    {m.full_name}
+                    {m.is_owner && (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-acc/10 text-acc border border-acc/30 font-bold">
+                        <Crown className="h-3 w-3" />
+                        OWNER
+                      </span>
+                    )}
+                    {m.user_id === currentUserId && <span className="text-mut font-normal">(lu)</span>}
+                  </div>
+                  <div className="text-xs text-mut truncate">@{m.username} • {m.email}</div>
+                </div>
+                <select
+                  value={m.jabatan || ''}
+                  disabled={ownerLocked}
+                  onChange={(e) => changeJabatan(m.user_id, e.target.value)}
+                  className="px-2 py-1.5 rounded-lg bg-card-2 border border-line text-xs text-ink disabled:opacity-40"
+                  aria-label="Jabatan"
+                >
+                  <option value="">— jabatan —</option>
+                  {JABATAN.map((j) => (
+                    <option key={j} value={j}>{j}</option>
+                  ))}
+                </select>
+                <select
+                  value={m.role}
+                  disabled={m.user_id === currentUserId || ownerLocked}
+                  onChange={(e) => changeRole(m.user_id, e.target.value)}
+                  className="px-2 py-1.5 rounded-lg bg-card-2 border border-line text-xs text-ink disabled:opacity-40"
+                >
+                  <option value="student">student</option>
+                  <option value="teacher">teacher</option>
+                  <option value="admin">admin</option>
+                </select>
+                <button
+                  onClick={() => { setResetId(resetId === m.user_id ? null : m.user_id); setResetPw(''); }}
+                  disabled={ownerLocked}
+                  className="p-2 rounded-lg text-mut hover:text-ink hover:bg-line disabled:opacity-40"
+                  aria-label="Reset password"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => toggleBan(m)}
+                  disabled={m.user_id === currentUserId || ownerLocked}
+                  className={'px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40 ' + (m.is_banned ? 'bg-acc text-acc-ink' : 'bg-red-500/10 text-red-400 border border-red-500/20')}
+                >
+                  {m.is_banned ? 'Aktifkan' : 'Ban'}
+                </button>
+              </div>
+              {resetId === m.user_id && (
+                <div className="flex gap-2 mt-3">
+                  <input
+                    value={resetPw}
+                    onChange={(e) => setResetPw(e.target.value)}
+                    placeholder="Password baru (min 8, huruf+angka)"
+                    className={inputCls}
+                  />
+                  <button onClick={() => doReset(m.user_id)} disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-xs font-semibold disabled:opacity-50 shrink-0">
+                    {busy ? '...' : 'Simpan'}
+                  </button>
+                  <button onClick={() => setResetId(null)} className="px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold shrink-0">
+                    Batal
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+`);
+
+console.log('[OK] PART JABATAN done: struktur organisasi kelas');
+
+// === PART HERO: BG MOBILE CUMA DI HERO + FIELD NAMA SEKOLAH ===
+
+(function () {
+  const sp = 'app/globals.css';
+  let c = fs.readFileSync(sp, 'utf8');
+  if (c.indexOf('.glass-hero') === -1) {
+    c += `
+.glass-hero { background-color: transparent; }
+@media (min-width: 768px) {
+  .glass-hero {
+    background-color: color-mix(in oklab, var(--t-card) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  }
+}
+`;
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] HERO: glass-hero css');
+  } else {
+    console.log('[SKIP] HERO css');
+  }
+})();
+
+wf('lib/auth/settings-actions.ts', `'use server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRole } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+export async function getClassSettings() {
+  const admin = createAdminClient();
+  const { data } = await admin.from('class_settings').select('*').limit(1);
+  return data && data.length > 0 ? data[0] : null;
+}
+
+export async function saveClassSettings(formData: FormData) {
+  await requireRole('admin');
+  const class_name = String(formData.get('class_name') || '').trim();
+  const subtitle = String(formData.get('subtitle') || '').trim();
+  const school_name = String(formData.get('school_name') || '').trim();
+  const teacher_name = String(formData.get('teacher_name') || '').trim();
+  const school_year = String(formData.get('school_year') || '').trim();
+  const remove_bg = formData.get('remove_bg') === 'on';
+  const remove_bg_mobile = formData.get('remove_bg_mobile') === 'on';
+  if (!class_name) return { error: 'Nama kelas wajib diisi.' };
+  const admin = createAdminClient();
+
+  async function uploadBg(file: File, path: string) {
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('gallery')
+      .upload(path + '.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload background gagal: ' + upErr.message };
+    return { url: admin.storage.from('gallery').getPublicUrl(path + '.' + ext).data.publicUrl };
+  }
+
+  let logo_url: string | null = null;
+  const file = formData.get('logo') as File | null;
+  if (file && file.size > 0) {
+    if (!file.type.startsWith('image/')) return { error: 'Logo harus gambar.' };
+    if (file.size > 2 * 1024 * 1024) return { error: 'Logo maksimal 2MB.' };
+    const ext = file.name.split('.').pop() || 'png';
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from('avatars')
+      .upload('class/logo.' + ext, buf, { contentType: file.type || 'image/png', upsert: true });
+    if (upErr) return { error: 'Upload logo gagal: ' + upErr.message };
+    logo_url = admin.storage.from('avatars').getPublicUrl('class/logo.' + ext).data.publicUrl;
+  }
+
+  let bg_url: string | null = null;
+  const bgFile = formData.get('bg') as File | null;
+  if (bgFile && bgFile.size > 0) {
+    if (!bgFile.type.startsWith('image/')) return { error: 'Background harus gambar.' };
+    if (bgFile.size > 10 * 1024 * 1024) return { error: 'Background maksimal 10MB.' };
+    const r = await uploadBg(bgFile, 'class/bg');
+    if ('error' in r && r.error) return { error: r.error };
+    bg_url = (r as any).url;
+  }
+
+  let bg_url_mobile: string | null = null;
+  const bgmFile = formData.get('bg_mobile') as File | null;
+  if (bgmFile && bgmFile.size > 0) {
+    if (!bgmFile.type.startsWith('image/')) return { error: 'Background HP harus gambar.' };
+    if (bgmFile.size > 10 * 1024 * 1024) return { error: 'Background HP maksimal 10MB.' };
+    const r = await uploadBg(bgmFile, 'class/bg-mobile');
+    if ('error' in r && r.error) return { error: r.error };
+    bg_url_mobile = (r as any).url;
+  }
+
+  const { data: existing } = await admin.from('class_settings').select('id').limit(1).maybeSingle();
+  const payload: any = {
+    class_name,
+    subtitle: subtitle || null,
+    school_name: school_name || null,
+    teacher_name: teacher_name || null,
+    school_year: school_year || null,
+  };
+  if (logo_url) payload.logo_url = logo_url;
+  if (bg_url) payload.bg_url = bg_url;
+  if (bg_url_mobile) payload.bg_url_mobile = bg_url_mobile;
+  if (remove_bg) payload.bg_url = null;
+  if (remove_bg_mobile) payload.bg_url_mobile = null;
+  const { error } = existing
+    ? await admin.from('class_settings').update(payload).eq('id', existing.id)
+    : await admin.from('class_settings').insert(payload);
+  if (error) return { error: error.message };
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+`);
+
+wf('components/admin/ClassSettingsForm.tsx', `'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { saveClassSettings } from '@/lib/auth/settings-actions';
+import { compressImage } from '@/lib/compress';
+
+export default function ClassSettingsForm({ initial }: { initial: any }) {
+  const router = useRouter();
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    setSaved(false);
+    try {
+      const out = new FormData();
+      const keys = ['class_name', 'subtitle', 'school_name', 'teacher_name', 'school_year'];
+      for (const k of keys) {
+        const v = fd.get(k);
+        if (v) out.append(k, v as string);
+      }
+      if (fd.get('remove_bg') === 'on') out.append('remove_bg', 'on');
+      if (fd.get('remove_bg_mobile') === 'on') out.append('remove_bg_mobile', 'on');
+      const bg = fd.get('bg') as File | null;
+      if (bg && bg.size > 0) out.append('bg', await compressImage(bg, 1600, 0.8));
+      const bgm = fd.get('bg_mobile') as File | null;
+      if (bgm && bgm.size > 0) out.append('bg_mobile', await compressImage(bgm, 1080, 0.8));
+      const logo = fd.get('logo') as File | null;
+      if (logo && logo.size > 0) out.append('logo', await compressImage(logo, 512, 0.85));
+      const res = await saveClassSettings(out);
+      if (res && res.error) setErr(res.error);
+      else { setSaved(true); router.refresh(); }
+    } catch (e: any) {
+      console.error('saveClassSettings error:', e);
+      setErr('Error: ' + (e && e.message ? e.message : 'gagal menyimpan'));
+    }
+    setBusy(false);
+  }
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+  const fileCls = 'w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink';
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); save(new FormData(e.currentTarget)); }}
+      className="bg-card border border-line rounded-2xl p-4 space-y-3"
+    >
+      <h2 className="font-semibold text-ink">Identitas Kelas</h2>
+      {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">{err}</div>}
+      {saved && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">Tersimpan ✓</div>}
+      <input name="class_name" defaultValue={initial?.class_name || ''} required placeholder="Nama kelas" className={inputCls} />
+      <input name="subtitle" defaultValue={initial?.subtitle || ''} placeholder="Subtitle (mis. MAN 4 Bogor)" className={inputCls} />
+      <div className="grid md:grid-cols-2 gap-3">
+        <input name="school_name" defaultValue={initial?.school_name || ''} placeholder="Nama sekolah (kosongkan biar hilang)" className={inputCls} />
+        <input name="teacher_name" defaultValue={initial?.teacher_name || ''} placeholder="Wali kelas" className={inputCls} />
+      </div>
+      <input name="school_year" defaultValue={initial?.school_year || ''} placeholder="Tahun ajaran" className={inputCls} />
+      <div className="grid md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-mut mb-1">Logo kelas (ikon aplikasi)</div>
+          <input name="logo" type="file" accept="image/*" className={fileCls} />
+        </div>
+        <div>
+          <div className="text-xs text-mut mb-1">Background PC (lebar)</div>
+          <input name="bg" type="file" accept="image/*" className={fileCls} />
+        </div>
+      </div>
+      <div>
+        <div className="text-xs text-mut mb-1">Background HP (muncul cuma di kartu identitas)</div>
+        <input name="bg_mobile" type="file" accept="image/*" className={fileCls} />
+      </div>
+      <div className="flex flex-wrap gap-4">
+        {initial?.bg_url && (
+          <label className="flex items-center gap-2 text-sm text-mut">
+            <input name="remove_bg" type="checkbox" className="accent-acc" />
+            Hapus background PC
+          </label>
+        )}
+        {initial?.bg_url_mobile && (
+          <label className="flex items-center gap-2 text-sm text-mut">
+            <input name="remove_bg_mobile" type="checkbox" className="accent-acc" />
+            Hapus background HP
+          </label>
+        )}
+      </div>
+      <button type="submit" disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+        {busy ? 'Menyimpan...' : 'Simpan Identitas'}
+      </button>
+    </form>
+  );
+}
+`);
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import { Calendar, ClipboardList, Users, Megaphone } from 'lucide-react';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users },
+  ];
+
+  const mobileBg = s?.bg_url_mobile || s?.bg_url;
+
+  return (
+    <AppLayout profile={user.profile} settings={s}>
+      {s?.bg_url && (
+        <div
+          className="hidden md:block fixed inset-0 pointer-events-none"
+          style={{ backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', zIndex: 0 }}
+        />
+      )}
+      {s?.bg_url && <div className="hidden md:block fixed inset-0 pointer-events-none bg-bg/60" style={{ zIndex: 0 }} />}
+
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6">
+        <section className={'relative overflow-hidden rounded-2xl border border-line p-4 md:p-5 ' + (mobileBg ? 'glass-hero' : 'glass')}>
+          {mobileBg && (
+            <>
+              <div
+                className="md:hidden absolute inset-0"
+                style={{ backgroundImage: 'url(' + mobileBg + ')', backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
+              <div className="md:hidden absolute inset-0 bg-bg/70" />
+            </>
+          )}
+          <div className="relative z-10 space-y-1">
+            <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+            <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+            {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+            {(s?.teacher_name || s?.school_year) && (
+              <div className="text-xs text-mut">
+                {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+                {s.teacher_name && s.school_year ? ' • ' : ''}
+                {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div>
+          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h2 className="text-lg md:text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          {stats.map((st) => (
+            <div key={st.label} className="bg-card border border-line rounded-2xl p-3 md:p-4">
+              <div className={'inline-flex p-2 md:p-2.5 rounded-xl mb-2 md:mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
+              </div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-xl md:text-2xl font-bold">{st.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-3 md:gap-4">
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-acc" />
+              Jadwal Hari Ini
+            </h3>
+            {(schedules?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+              Tugas Aktif
+            </h3>
+            {(tasks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-mut">{t.subject}</div>
+                    <div className="text-xs text-[#fb923c] mt-1">
+                      Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(announcements?.length ?? 0) > 0 && (
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Megaphone className="h-5 w-5 text-blue-400" />
+              Pengumuman
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] PART HERO done: bg mobile cuma di hero + field nama sekolah');
+
+// === PART HOME INTERAKTIF: STATS KLIKABLE + PIKET HARI INI ===
+
+wf('app/dashboard/page.tsx', `import { createClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/actions';
+import { getClassSettings } from '@/lib/auth/settings-actions';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import { Calendar, ClipboardList, Users, Megaphone, Brush } from 'lucide-react';
+import Link from 'next/link';
+
+export default async function DashboardPage() {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const s = await getClassSettings();
+  const today = new Date();
+  const dayOfWeek = today.getDay() === 0 ? 7 : today.getDay();
+
+  const [{ data: schedules }, { data: tasks }, { data: announcements }, { count: memberCount }, { data: piket }] = await Promise.all([
+    supabase.from('schedules').select('*').eq('day_of_week', dayOfWeek).order('start_time'),
+    supabase.from('tasks').select('*').eq('status', 'active').order('deadline').limit(5),
+    supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
+    supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_banned', false),
+    supabase
+      .from('piket_entries')
+      .select('*, profiles(full_name, username, avatar_url, avatar_zoom, avatar_x, avatar_y)')
+      .eq('day_of_week', dayOfWeek)
+      .order('created_at'),
+  ]);
+
+  const stats = [
+    { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar, href: '/schedule' },
+    { label: 'Tugas Aktif', value: String(tasks?.length ?? 0), color: 'text-[#fb923c]', bg: 'bg-[#fb923c]/10', Icon: ClipboardList, href: '/tasks' },
+    { label: 'Pengumuman', value: String(announcements?.length ?? 0), color: 'text-blue-400', bg: 'bg-blue-500/10', Icon: Megaphone, href: '#pengumuman' },
+    { label: 'Anggota', value: String(memberCount ?? 0), color: 'text-warn', bg: 'bg-warn/10', Icon: Users, href: '/members' },
+  ];
+
+  const mobileBg = s?.bg_url_mobile || s?.bg_url;
+
+  return (
+    <AppLayout profile={user.profile} settings={s}>
+      {s?.bg_url && (
+        <div
+          className="hidden md:block fixed inset-0 pointer-events-none"
+          style={{ backgroundImage: 'url(' + s.bg_url + ')', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed', zIndex: 0 }}
+        />
+      )}
+      {s?.bg_url && <div className="hidden md:block fixed inset-0 pointer-events-none bg-bg/60" style={{ zIndex: 0 }} />}
+
+      <div className="relative z-10 max-w-5xl mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6">
+        <section className={'relative overflow-hidden rounded-2xl border border-line p-4 md:p-5 ' + (mobileBg ? 'glass-hero' : 'glass')}>
+          {mobileBg && (
+            <>
+              <div
+                className="md:hidden absolute inset-0"
+                style={{ backgroundImage: 'url(' + mobileBg + ')', backgroundSize: 'cover', backgroundPosition: 'center' }}
+              />
+              <div className="md:hidden absolute inset-0 bg-bg/70" />
+            </>
+          )}
+          <div className="relative z-10 space-y-1">
+            <div className="text-xs uppercase tracking-[0.25em] text-mut">{s?.subtitle || 'Selamat datang'}</div>
+            <h1 className="text-2xl md:text-3xl font-bold text-grad">{s?.class_name || 'ClassHub'}</h1>
+            {s?.school_name && <div className="text-sm text-mut">{s.school_name}</div>}
+            {(s?.teacher_name || s?.school_year) && (
+              <div className="text-xs text-mut">
+                {s.teacher_name ? 'Wali Kelas: ' + s.teacher_name : ''}
+                {s.teacher_name && s.school_year ? ' • ' : ''}
+                {s.school_year ? 'Tahun Ajaran ' + s.school_year : ''}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div>
+          <div className="text-xs text-mut">{today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <h2 className="text-lg md:text-xl font-bold">Halo, {user.profile.full_name.split(' ')[0]} 👋</h2>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+          {stats.map((st) => (
+            <Link
+              key={st.label}
+              href={st.href}
+              className="bg-card border border-line rounded-2xl p-3 md:p-4 block hover:border-acc/40 active:scale-[0.98] transition"
+            >
+              <div className={'inline-flex p-2 md:p-2.5 rounded-xl mb-2 md:mb-3 ' + st.bg}>
+                <st.Icon className={'h-5 w-5 ' + st.color} />
+              </div>
+              <div className="text-xs text-mut">{st.label}</div>
+              <div className="text-xl md:text-2xl font-bold">{st.value}</div>
+            </Link>
+          ))}
+        </div>
+
+        <section className="bg-card border border-line rounded-2xl p-4 md:p-5">
+          <h3 className="font-semibold flex items-center gap-2 mb-4">
+            <Brush className="h-5 w-5 text-acc" />
+            Piket Hari Ini
+          </h3>
+          {(piket?.length ?? 0) === 0 ? (
+            <div className="text-center py-6 text-mut text-sm">Tidak ada piket hari ini 🎉</div>
+          ) : (
+            <div className="flex flex-wrap gap-2 md:gap-3">
+              {piket?.map((p: any) => (
+                <div key={p.id} className="flex items-center gap-2 p-2 pr-4 rounded-xl bg-card-2 border border-line">
+                  <Avatar data={p.profiles} className="h-8 w-8" />
+                  <div className="text-sm font-medium">{p.profiles?.full_name}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="grid md:grid-cols-2 gap-3 md:gap-4">
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Calendar className="h-5 w-5 text-acc" />
+              Jadwal Hari Ini
+            </h3>
+            {(schedules?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada jadwal hari ini 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {schedules?.map((sc: any) => (
+                  <div key={sc.id} className="flex items-center gap-3 p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-bold text-acc min-w-[90px]">
+                      {sc.start_time.slice(0, 5)}–{sc.end_time.slice(0, 5)}
+                    </div>
+                    <div className="flex-1 text-sm">{sc.subject}</div>
+                    {sc.room && <div className="text-xs text-mut">Ruang {sc.room}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-card border border-line rounded-2xl p-4 md:p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <ClipboardList className="h-5 w-5 text-[#fb923c]" />
+              Tugas Aktif
+            </h3>
+            {(tasks?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-mut text-sm">Tidak ada tugas aktif 🎉</div>
+            ) : (
+              <div className="space-y-2">
+                {tasks?.map((t: any) => (
+                  <div key={t.id} className="p-3 rounded-xl bg-card-2 border border-line">
+                    <div className="text-sm font-semibold">{t.title}</div>
+                    <div className="text-xs text-mut">{t.subject}</div>
+                    <div className="text-xs text-[#fb923c] mt-1">
+                      Deadline: {new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(announcements?.length ?? 0) > 0 && (
+          <div id="pengumuman" className="bg-card border border-line rounded-2xl p-4 md:p-5">
+            <h3 className="font-semibold flex items-center gap-2 mb-4">
+              <Megaphone className="h-5 w-5 text-blue-400" />
+              Pengumuman
+            </h3>
+            <div className="space-y-2">
+              {announcements?.map((a: any) => (
+                <div key={a.id} className="p-3 rounded-xl bg-card-2 border border-line border-l-2 border-l-acc">
+                  <div className="text-sm font-semibold">{a.is_pinned ? '📌 ' : ''}{a.title}</div>
+                  <p className="text-sm text-mut mt-1 whitespace-pre-wrap">{a.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] HOME INTERAKTIF done: stats clickable + piket hari ini');
+
+// === PART MUSIK v2: MINI PLAYER COLLAPSIBLE + LIMIT 8 LAGU + 8MB + FORMAT ===
+
+wf('components/music/MusicProvider.tsx', `'use client';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Play, Pause, SkipBack, SkipForward, Music as MusicIcon, ChevronDown, X } from 'lucide-react';
+
+type Track = { id: string; title: string; artist: string | null; url: string };
+
+const MusicCtx = createContext<{
+  current: Track | null;
+  playing: boolean;
+  playTrack: (t: Track, list: Track[]) => void;
+  toggle: () => void;
+  step: (d: number) => void;
+}>({ current: null, playing: false, playTrack: function () {}, toggle: function () {}, step: function () {} });
+
+export function useMusic() {
+  return useContext(MusicCtx);
+}
+
+export default function MusicProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [queue, setQueue] = useState<Track[]>([]);
+  const [current, setCurrent] = useState<Track | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (pathname === '/login' || pathname === '/') {
+      const a = audioRef.current;
+      if (a) a.pause();
+      setCurrent(null);
+      setPlaying(false);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (current && audioRef.current) {
+      audioRef.current.src = current.url;
+      audioRef.current.play().catch(function () {});
+      setCollapsed(false);
+    }
+  }, [current ? current.id : '']);
+
+  function playTrack(t: Track, list: Track[]) {
+    setQueue(list);
+    setCurrent(t);
+  }
+
+  function toggle() {
+    const a = audioRef.current;
+    if (!a || !current) return;
+    if (playing) a.pause();
+    else a.play().catch(function () {});
+  }
+
+  function step(dir: number) {
+    if (!current || queue.length === 0) return;
+    const idx = queue.findIndex((t) => t.id === current.id);
+    setCurrent(queue[(idx + dir + queue.length) % queue.length]);
+  }
+
+  function stopAll() {
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.removeAttribute('src');
+    }
+    setCurrent(null);
+    setPlaying(false);
+  }
+
+  return (
+    <MusicCtx.Provider value={{ current, playing, playTrack, toggle, step }}>
+      {children}
+      <audio ref={audioRef} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => step(1)} />
+
+      {current && !collapsed && (
+        <div className="fixed bottom-20 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-96 z-40 bg-card border border-line rounded-2xl p-3 shadow-xl">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCollapsed(true)} className="p-1.5 text-mut hover:text-ink" aria-label="Kecilkan player">
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <MusicIcon className="h-4 w-4 text-acc shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate">{current.title}</div>
+              <div className="text-xs text-mut truncate">{current.artist || 'Musik Kelas'}</div>
+            </div>
+            <button onClick={() => step(-1)} className="p-2 text-mut hover:text-ink" aria-label="Sebelumnya">
+              <SkipBack className="h-4 w-4" />
+            </button>
+            <button onClick={toggle} className="p-2.5 rounded-full bg-acc text-acc-ink" aria-label="Putar atau jeda">
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+            <button onClick={() => step(1)} className="p-2 text-mut hover:text-ink" aria-label="Berikutnya">
+              <SkipForward className="h-4 w-4" />
+            </button>
+            <button onClick={stopAll} className="p-1.5 text-mut hover:text-red-400" aria-label="Stop musik">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {current && collapsed && (
+        <button
+          onClick={() => setCollapsed(false)}
+          className="fixed bottom-20 right-3 md:bottom-6 md:right-6 z-40 p-3 rounded-full bg-acc text-acc-ink shadow-xl"
+          aria-label="Buka player musik"
+        >
+          <MusicIcon className={'h-5 w-5 ' + (playing ? 'animate-pulse' : '')} />
+        </button>
+      )}
+    </MusicCtx.Provider>
+  );
+}
+`);
+
+wf('lib/auth/music-actions.ts', `'use server';
+import { randomUUID } from 'crypto';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireUser } from '@/lib/auth/actions';
+import { revalidatePath } from 'next/cache';
+
+const MAX_SIZE = 8 * 1024 * 1024;
+const OK_EXT = ['mp3', 'm4a', 'aac', 'ogg', 'opus'];
+
+export async function uploadTrack(formData: FormData) {
+  const user = await requireUser();
+  const title = String(formData.get('title') || '').trim();
+  const artist = String(formData.get('artist') || '').trim();
+  const file = formData.get('file') as File | null;
+
+  if (!file || file.size === 0) return { error: 'Pilih file audio dulu.' };
+  if (!title) return { error: 'Judul lagu wajib diisi.' };
+  if (file.size > MAX_SIZE) return { error: 'Maksimal 8MB per lagu.' };
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  if (OK_EXT.indexOf(ext) === -1) {
+    return { error: 'Format harus mp3/m4a/aac/ogg/opus. FLAC & WAV tidak diizinkan biar storage hemat.' };
+  }
+
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from('tracks')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+  if ((count ?? 0) >= 8) {
+    return { error: 'Slot upload kamu penuh (8 lagu). Hapus salah satu di tab Upload Saya dulu.' };
+  }
+
+  const id = randomUUID();
+  const path = user.id + '/' + id + '.' + ext;
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { error: upErr } = await admin.storage
+    .from('music')
+    .upload(path, buf, { contentType: file.type || 'audio/mpeg', upsert: true });
+  if (upErr) return { error: 'Upload gagal: ' + upErr.message };
+  const url = admin.storage.from('music').getPublicUrl(path).data.publicUrl;
+
+  const { error } = await admin.from('tracks').insert({
+    id,
+    user_id: user.id,
+    title,
+    artist: artist || null,
+    url,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/music');
+  return { success: true };
+}
+
+export async function deleteTrack(id: string) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('tracks').select('user_id').eq('id', id).maybeSingle();
+  if (!row) return { error: 'Lagu tidak ditemukan.' };
+  const isStaff = user.profile.role !== 'student';
+  if (row.user_id !== user.id && !isStaff) return { error: 'Bukan lagu uploadanmu.' };
+  const { error } = await admin.from('tracks').delete().eq('id', id);
+  if (error) return { error: error.message };
+  revalidatePath('/music');
+  return { success: true };
+}
+`);
+
+wf('app/music/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { useMusic } from '@/components/music/MusicProvider';
+import { uploadTrack, deleteTrack } from '@/lib/auth/music-actions';
+import { Music, Play, Trash2, Search, Loader2 } from 'lucide-react';
+
+const MAX_SIZE = 8 * 1024 * 1024;
+const OK_EXT = ['mp3', 'm4a', 'aac', 'ogg', 'opus'];
+
+export default function MusicPage() {
+  const supabase = createClient();
+  const { playTrack } = useMusic();
+  const [profile, setProfile] = useState<any>(null);
+  const [tracks, setTracks] = useState<any[]>([]);
+  const [tab, setTab] = useState<'all' | 'mine'>('all');
+  const [q, setQ] = useState('');
+  const [err, setErr] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function load() {
+    const { data } = await supabase.from('tracks').select('*').order('created_at', { ascending: false });
+    setTracks(data ?? []);
+  }
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) setProfile(p);
+      load();
+    })();
+  }, []);
+
+  async function submit(fd: FormData) {
+    setBusy(true);
+    setErr('');
+    setMsg('');
+    const f = fileRef.current?.files?.[0];
+    if (!f) { setErr('Pilih file audio dulu.'); setBusy(false); return; }
+    if (f.size > MAX_SIZE) { setErr('Maksimal 8MB per lagu.'); setBusy(false); return; }
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (OK_EXT.indexOf(ext) === -1) { setErr('Format harus mp3/m4a/aac/ogg/opus. FLAC & WAV ditolak.'); setBusy(false); return; }
+    const res = await uploadTrack(fd);
+    setBusy(false);
+    if (res && res.error) setErr(res.error);
+    else {
+      setMsg('Lagu terunggah ✓');
+      if (fileRef.current) fileRef.current.value = '';
+      load();
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('Hapus lagu ini?')) return;
+    const res = await deleteTrack(id);
+    if (res && res.error) setErr(res.error);
+    else load();
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const mine = tracks.filter((t) => t.user_id === profile.user_id);
+  const list = (tab === 'all' ? tracks : mine).filter((t) => {
+    const s = q.trim().toLowerCase();
+    if (!s) return true;
+    return (t.title || '').toLowerCase().indexOf(s) !== -1 || (t.artist || '').toLowerCase().indexOf(s) !== -1;
+  });
+  const playable = list.map((t) => ({ id: t.id, title: t.title, artist: t.artist, url: t.url }));
+
+  const inputCls = 'px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Music className="h-6 w-6 text-acc" />
+          Musik Kelas
+        </h1>
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); submit(new FormData(e.currentTarget)); }}
+          className="bg-card border border-line rounded-2xl p-4 space-y-3"
+        >
+          <div className="grid sm:grid-cols-2 gap-2">
+            <input name="title" placeholder="Judul lagu" required className={inputCls} />
+            <input name="artist" placeholder="Artis (opsional)" className={inputCls} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileRef}
+              name="file"
+              type="file"
+              accept=".mp3,.m4a,.aac,.ogg,.opus,audio/mpeg,audio/mp4,audio/aac,audio/ogg"
+              className="flex-1 text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
+            />
+            <button disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center gap-2">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {busy ? 'Mengunggah...' : 'Unggah'}
+            </button>
+          </div>
+          <div className="text-xs text-mut">
+            Slot upload kamu: <span className="font-bold text-ink">{mine.length}/8</span> • Maks 8MB • Format: mp3, m4a, aac, ogg (FLAC/WAV ditolak)
+          </div>
+          {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+          {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        </form>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setTab('all')}
+            className={'px-3 py-1.5 rounded-lg text-xs font-semibold ' + (tab === 'all' ? 'bg-acc text-acc-ink' : 'bg-line text-mut hover:text-ink')}
+          >
+            Semua Musik ({tracks.length})
+          </button>
+          <button
+            onClick={() => setTab('mine')}
+            className={'px-3 py-1.5 rounded-lg text-xs font-semibold ' + (tab === 'mine' ? 'bg-acc text-acc-ink' : 'bg-line text-mut hover:text-ink')}
+          >
+            Upload Saya ({mine.length})
+          </button>
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="h-4 w-4 text-mut absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari judul atau artis..."
+              className={inputCls + ' w-full pl-9'}
+            />
+          </div>
+        </div>
+
+        {list.length === 0 ? (
+          <div className="text-center py-16 text-mut">Belum ada lagu di sini.</div>
+        ) : (
+          <div className="space-y-2">
+            {list.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 bg-card border border-line rounded-2xl p-3">
+                <button
+                  onClick={() => playTrack({ id: t.id, title: t.title, artist: t.artist, url: t.url }, playable)}
+                  className="p-2.5 rounded-full bg-acc text-acc-ink shrink-0"
+                  aria-label="Putar"
+                >
+                  <Play className="h-4 w-4" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">{t.title}</div>
+                  <div className="text-xs text-mut truncate">{t.artist || 'Tidak diketahui'}</div>
+                </div>
+                {(t.user_id === profile.user_id || profile.role !== 'student') && (
+                  <button onClick={() => remove(t.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg shrink-0" aria-label="Hapus">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] MUSIK v2 done: player collapsible + limit 8 + 8MB + format');

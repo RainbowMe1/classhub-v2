@@ -13,6 +13,7 @@ export async function saveClassSettings(formData: FormData) {
   await requireRole('admin');
   const class_name = String(formData.get('class_name') || '').trim();
   const subtitle = String(formData.get('subtitle') || '').trim();
+  const school_name = String(formData.get('school_name') || '').trim();
   const teacher_name = String(formData.get('teacher_name') || '').trim();
   const school_year = String(formData.get('school_year') || '').trim();
   const remove_bg = formData.get('remove_bg') === 'on';
@@ -68,6 +69,7 @@ export async function saveClassSettings(formData: FormData) {
   const payload: any = {
     class_name,
     subtitle: subtitle || null,
+    school_name: school_name || null,
     teacher_name: teacher_name || null,
     school_year: school_year || null,
   };

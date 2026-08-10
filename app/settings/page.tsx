@@ -210,7 +210,7 @@ export default function SettingsPage() {
 
   async function savePw() {
     setBusy(true); setMsg(''); setErr('');
-    if (pw.length < 6) { setErr('Password minimal 6 karakter.'); setBusy(false); return; }
+    if (pw.length < 8 || !/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) { setErr('Password minimal 8 karakter, kombinasi huruf dan angka.'); setBusy(false); return; }
     if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
     const { error } = await supabase.auth.updateUser({ password: pw });
     setBusy(false);

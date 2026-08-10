@@ -185,3 +185,12 @@ body, aside, header, nav {
     contain-intrinsic-size: auto 640px;
   }
 }
+
+.glass-hero { background-color: transparent; }
+@media (min-width: 768px) {
+  .glass-hero {
+    background-color: color-mix(in oklab, var(--t-card) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  }
+}

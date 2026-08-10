@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Play, Pause, SkipBack, SkipForward, Music as MusicIcon } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music as MusicIcon, ChevronDown, X } from 'lucide-react';
 
 type Track = { id: string; title: string; artist: string | null; url: string };
 
@@ -23,6 +23,7 @@ export default function MusicProvider({ children }: { children: React.ReactNode 
   const [queue, setQueue] = useState<Track[]>([]);
   const [current, setCurrent] = useState<Track | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (pathname === '/login' || pathname === '/') {
@@ -37,6 +38,7 @@ export default function MusicProvider({ children }: { children: React.ReactNode 
     if (current && audioRef.current) {
       audioRef.current.src = current.url;
       audioRef.current.play().catch(function () {});
+      setCollapsed(false);
     }
   }, [current ? current.id : '']);
 
@@ -58,13 +60,27 @@ export default function MusicProvider({ children }: { children: React.ReactNode 
     setCurrent(queue[(idx + dir + queue.length) % queue.length]);
   }
 
+  function stopAll() {
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.removeAttribute('src');
+    }
+    setCurrent(null);
+    setPlaying(false);
+  }
+
   return (
     <MusicCtx.Provider value={{ current, playing, playTrack, toggle, step }}>
       {children}
       <audio ref={audioRef} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => step(1)} />
-      {current && (
+
+      {current && !collapsed && (
         <div className="fixed bottom-20 left-3 right-3 md:bottom-4 md:left-auto md:right-4 md:w-96 z-40 bg-card border border-line rounded-2xl p-3 shadow-xl">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCollapsed(true)} className="p-1.5 text-mut hover:text-ink" aria-label="Kecilkan player">
+              <ChevronDown className="h-4 w-4" />
+            </button>
             <MusicIcon className="h-4 w-4 text-acc shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">{current.title}</div>
@@ -79,8 +95,21 @@ export default function MusicProvider({ children }: { children: React.ReactNode 
             <button onClick={() => step(1)} className="p-2 text-mut hover:text-ink" aria-label="Berikutnya">
               <SkipForward className="h-4 w-4" />
             </button>
+            <button onClick={stopAll} className="p-1.5 text-mut hover:text-red-400" aria-label="Stop musik">
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </div>
+      )}
+
+      {current && collapsed && (
+        <button
+          onClick={() => setCollapsed(false)}
+          className="fixed bottom-20 right-3 md:bottom-6 md:right-6 z-40 p-3 rounded-full bg-acc text-acc-ink shadow-xl"
+          aria-label="Buka player musik"
+        >
+          <MusicIcon className={'h-5 w-5 ' + (playing ? 'animate-pulse' : '')} />
+        </button>
       )}
     </MusicCtx.Provider>
   );

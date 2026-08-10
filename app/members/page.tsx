@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth/actions';
 import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
+import JabatanTag from '@/components/JabatanTag';
 
 export default async function MembersPage() {
   const user = await requireUser();
@@ -26,7 +27,10 @@ export default async function MembersPage() {
                 <AdminTag role={m.role} />
               </div>
               <div className="text-xs text-mut">@{m.username}</div>
-              {m.role !== 'admin' && <div className="text-[10px] uppercase text-acc mt-1">{m.role}</div>}
+              <div className="mt-1.5 flex items-center justify-center gap-1.5 flex-wrap">
+                <JabatanTag jabatan={m.jabatan} />
+                {m.role !== 'admin' && <div className="text-[10px] uppercase text-acc">{m.role}</div>}
+              </div>
             </div>
           ))}
         </div>

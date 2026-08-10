@@ -119,7 +119,7 @@ export default function NewPostPage() {
                     setFiles((f) => f.filter((_, j) => j !== i));
                     setPreviews((f) => f.filter((_, j) => j !== i));
                   }}
-                  className="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white"
+                  className="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-ink"
                   aria-label="Hapus media"
                 >
                   <X className="h-3 w-3" />

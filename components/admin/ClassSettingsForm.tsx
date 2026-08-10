@@ -16,7 +16,7 @@ export default function ClassSettingsForm({ initial }: { initial: any }) {
     setSaved(false);
     try {
       const out = new FormData();
-      const keys = ['class_name', 'subtitle', 'teacher_name', 'school_year'];
+      const keys = ['class_name', 'subtitle', 'school_name', 'teacher_name', 'school_year'];
       for (const k of keys) {
         const v = fd.get(k);
         if (v) out.append(k, v as string);
@@ -53,9 +53,10 @@ export default function ClassSettingsForm({ initial }: { initial: any }) {
       <input name="class_name" defaultValue={initial?.class_name || ''} required placeholder="Nama kelas" className={inputCls} />
       <input name="subtitle" defaultValue={initial?.subtitle || ''} placeholder="Subtitle (mis. MAN 4 Bogor)" className={inputCls} />
       <div className="grid md:grid-cols-2 gap-3">
+        <input name="school_name" defaultValue={initial?.school_name || ''} placeholder="Nama sekolah (kosongkan biar hilang)" className={inputCls} />
         <input name="teacher_name" defaultValue={initial?.teacher_name || ''} placeholder="Wali kelas" className={inputCls} />
-        <input name="school_year" defaultValue={initial?.school_year || ''} placeholder="Tahun ajaran" className={inputCls} />
       </div>
+      <input name="school_year" defaultValue={initial?.school_year || ''} placeholder="Tahun ajaran" className={inputCls} />
       <div className="grid md:grid-cols-2 gap-3">
         <div>
           <div className="text-xs text-mut mb-1">Logo kelas (ikon aplikasi)</div>
@@ -67,7 +68,7 @@ export default function ClassSettingsForm({ initial }: { initial: any }) {
         </div>
       </div>
       <div>
-        <div className="text-xs text-mut mb-1">Background HP (potret, pakai gambar beda)</div>
+        <div className="text-xs text-mut mb-1">Background HP (muncul cuma di kartu identitas)</div>
         <input name="bg_mobile" type="file" accept="image/*" className={fileCls} />
       </div>
       <div className="flex flex-wrap gap-4">

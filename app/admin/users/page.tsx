@@ -7,9 +7,16 @@ export default async function AdminUsersPage() {
   const user = await requireRole('admin');
   const supabase = await createClient();
   const { data: members } = await supabase.from('profiles').select('*').order('created_at');
+  const me = (members ?? []).find((m: any) => m.user_id === user.id);
   return (
     <AppLayout profile={user.profile}>
-      <AdminUsersClient members={(members ?? []) as any} currentUserId={user.id} />
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        <AdminUsersClient
+          members={members ?? []}
+          currentUserId={user.id}
+          currentIsOwner={!!me?.is_owner}
+        />
+      </div>
     </AppLayout>
   );
 }

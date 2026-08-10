@@ -2,6 +2,7 @@
 import { memo } from 'react';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
+import JabatanTag from '@/components/JabatanTag';
 import PostMedia from './PostMedia';
 import LikeButton from './LikeButton';
 import CommentButton from './CommentButton';
@@ -12,9 +13,10 @@ function PostCard({ post, userId, actorName, likeCount, liked, commentCount }: a
       <div className="flex items-center gap-3 mb-3">
         <Avatar data={post.profiles} className="h-10 w-10" />
         <div className="flex-1">
-          <div className="font-semibold flex items-center gap-2">
+          <div className="font-semibold flex items-center gap-2 flex-wrap">
             {post.profiles?.full_name}
             <AdminTag role={post.profiles?.role} />
+            <JabatanTag jabatan={post.profiles?.jabatan} />
           </div>
           <div className="text-xs text-mut">@{post.profiles?.username}</div>
         </div>

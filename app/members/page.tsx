@@ -92,7 +92,7 @@ export default function MembersPage() {
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-400 hover:underline"
               >
                 <AtSign className="h-4 w-4" />
-                {sel.instagram.startsWith('@') ? sel.instagram : '@' + (sel.instagram.split('/').filter(Boolean).pop() || sel.instagram)}
+                {sel.instagram.startsWith('@') ? sel.instagram : '@' + sel.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\/?/, '')}
               </a>
             )}
             <div className="text-xs text-mut border-t border-line pt-3">

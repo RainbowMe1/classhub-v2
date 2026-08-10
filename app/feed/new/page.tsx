@@ -162,7 +162,7 @@ export default function NewPostPage() {
             setQueue((q) => q.slice(1));
             setEditFile(null);
           }}
-          onDone={(f) => {
+          onDone={(f: File) => {
             addFile(f);
             setQueue((q) => q.slice(1));
             setEditFile(null);

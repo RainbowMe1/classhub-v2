@@ -3,19 +3,30 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Plus, X, Loader2 } from 'lucide-react';
 import StoryViewer from './StoryViewer';
-import StoryEditor from '../StoryEditor';
+import RatioEditor from '../RatioEditor';
 
 export default function StoryBar({ userId }: { userId: string }) {
   const supabase = createClient();
   const [groups, setGroups] = useState<any[]>([]);
   const [viewedIds, setViewedIds] = useState<string[]>([]);
   const [open, setOpen] = useState<number | null>(null);
+  const [showPick, setShowPick] = useState(false);
+  const [picked, setPicked] = useState<File | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
+  const [editedFile, setEditedFile] = useState<File | null>(null);
+  const [showCaption, setShowCaption] = useState(false);
+  const [capPreview, setCapPreview] = useState('');
   const [caption, setCaption] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editedFile) {
+      const u = URL.createObjectURL(editedFile);
+      setCapPreview(u);
+      return function () { URL.revokeObjectURL(u); };
+    }
+  }, [editedFile]);
 
   async function load() {
     const { data: stories } = await supabase
@@ -56,7 +67,7 @@ export default function StoryBar({ userId }: { userId: string }) {
         .eq('user_id', userId)
         .gt('expires_at', new Date().toISOString());
       if ((count ?? 0) >= 8) {
-        setErr('Story aktif maksimal 8. Hapus story lama dulu (buka story kamu, tekan ikon tempat sampah).');
+        setErr('Story aktif maksimal 8. Hapus story lama dulu.');
         setBusy(false);
         return;
       }
@@ -74,7 +85,8 @@ export default function StoryBar({ userId }: { userId: string }) {
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       });
       if (dbErr) { setErr(dbErr.message); setBusy(false); return; }
-      setShowCreate(false);
+      setShowCaption(false);
+      setEditedFile(null);
       setCaption('');
       load();
     } catch {
@@ -86,7 +98,7 @@ export default function StoryBar({ userId }: { userId: string }) {
   return (
     <div>
       <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-        <button onClick={() => setShowCreate(true)} className="flex flex-col items-center gap-1 shrink-0">
+        <button onClick={() => { setPicked(null); setErr(''); setShowPick(true); }} className="flex flex-col items-center gap-1 shrink-0">
           <div className="h-16 w-16 rounded-full bg-card border border-line flex items-center justify-center">
             <Plus className="h-6 w-6 text-acc" />
           </div>
@@ -107,12 +119,12 @@ export default function StoryBar({ userId }: { userId: string }) {
         })}
       </div>
 
-      {showCreate && (
+      {showPick && (
         <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-card border border-line rounded-2xl w-full max-w-sm p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-ink">Buat Story</h3>
-              <button onClick={() => setShowCreate(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+              <h3 className="font-semibold text-ink">Pilih Foto Story</h3>
+              <button onClick={() => setShowPick(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -120,13 +132,52 @@ export default function StoryBar({ userId }: { userId: string }) {
             <input
               type="file"
               accept="image/*"
-              ref={fileRef}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) setEditFile(f);
-              }}
+              onChange={(e) => setPicked(e.target.files?.[0] || null)}
               className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
             />
+            <button
+              disabled={!picked}
+              onClick={() => {
+                if (picked) {
+                  setShowPick(false);
+                  setEditFile(picked);
+                }
+              }}
+              className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50"
+            >
+              Lanjut ke Editor
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editFile && (
+        <RatioEditor
+          file={editFile}
+          onClose={() => setEditFile(null)}
+          onDone={(f) => {
+            setEditFile(null);
+            setEditedFile(f);
+            setShowCaption(true);
+          }}
+        />
+      )}
+
+      {showCaption && editedFile && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-card border border-line rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-ink">Tulis Caption</h3>
+              <button
+                onClick={() => { setShowCaption(false); setEditedFile(null); }}
+                className="p-2 text-mut hover:text-ink"
+                aria-label="Tutup"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+            {capPreview && <img src={capPreview} alt="" className="w-full max-h-64 object-contain rounded-xl border border-line bg-card-2" />}
             <input
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
@@ -135,29 +186,14 @@ export default function StoryBar({ userId }: { userId: string }) {
             />
             <button
               disabled={busy}
-              onClick={() => {
-                const f = fileRef.current?.files?.[0];
-                if (!f) { setErr('Pilih gambar dulu.'); return; }
-                setEditFile(f);
-              }}
+              onClick={() => publish(editedFile)}
               className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {busy ? 'Mengunggah...' : 'Edit & Terbitkan (24 jam)'}
+              {busy ? 'Mengunggah...' : 'Terbitkan Story'}
             </button>
           </div>
         </div>
-      )}
-
-      {editFile && (
-        <StoryEditor
-          file={editFile}
-          onClose={() => setEditFile(null)}
-          onDone={(f) => {
-            setEditFile(null);
-            publish(f);
-          }}
-        />
       )}
 
       {open !== null && groups.length > 0 && (

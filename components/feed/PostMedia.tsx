@@ -1,29 +1,10 @@
 'use client';
 import { memo, useEffect, useRef, useState } from 'react';
 import Lightbox from './Lightbox';
-import { thumb } from '@/lib/img';
 import { ChevronLeft, ChevronRight, Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
 function isVideo(u: string) {
   return u.includes('.mp4') || u.includes('.webm');
-}
-
-function SmartImg({ src }: { src: string }) {
-  const [loaded, setLoaded] = useState(false);
-  const [real, setReal] = useState(false);
-  return (
-    <div className="w-full min-h-[280px] bg-card-2">
-      <img
-        src={real ? src : thumb(src, 720)}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onLoad={() => setLoaded(true)}
-        onError={() => { if (!real) setReal(true); }}
-        className={'w-full h-auto transition-opacity duration-300 ' + (loaded ? 'opacity-100' : 'opacity-0')}
-      />
-    </div>
-  );
 }
 
 function AutoVideo({ src }: { src: string }) {
@@ -88,7 +69,7 @@ function AutoVideo({ src }: { src: string }) {
             const v = e.currentTarget;
             if (v.duration) setProg((v.currentTime / v.duration) * 100);
           }}
-          className="w-full h-auto max-h-[75vh] bg-black cursor-pointer"
+          className="w-full h-auto max-h-[75vh] bg-black block"
         />
         {!playing && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -147,7 +128,7 @@ function PostMediaInner({ urls }: { urls: string[] }) {
             <AutoVideo src={urls[0]} />
           ) : (
             <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
-              <SmartImg src={urls[0]} />
+              <img src={urls[0]} alt="" loading="lazy" decoding="async" className="w-full h-auto block" />
             </button>
           )}
         </div>
@@ -170,7 +151,7 @@ function PostMediaInner({ urls }: { urls: string[] }) {
                 <AutoVideo src={url} />
               ) : (
                 <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
-                  <SmartImg src={url} />
+                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-auto block" />
                 </button>
               )}
             </div>

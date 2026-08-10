@@ -20585,3 +20585,812 @@ export default function PiketBoard({ entries, members, isStaff }: any) {
 `);
 
 console.log('[OK] Piket v2 done: error transparan + edit piket');
+
+// === RATIO EDITOR + STORY FLOW + REVERT THUMB CROP ===
+
+(function () {
+  const sp = 'components/feed/PostMedia.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  const pairs = [
+    ["import { thumb } from '@/lib/img';\n", ''],
+    ['  const [real, setReal] = useState(false);\n', ''],
+    ['src={real ? src : thumb(src, 720)}', 'src={src}'],
+    ["        onError={() => { if (!real) setReal(true); }}\n", ''],
+  ];
+  for (const p of pairs) {
+    if (c.indexOf(p[0]) !== -1) { c = c.split(p[0]).join(p[1]); changed = true; }
+  }
+  if (changed) { fs.writeFileSync(sp, c, 'utf8'); console.log('[OK] revert thumb feed'); } else console.log('[SKIP] revert thumb feed');
+})();
+
+(function () {
+  const sp = 'components/gallery/GalleryAlbum.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  const pairs = [
+    ["import { thumb } from '@/lib/img';\n", ''],
+    ['src={thumb(m.media_url, 600)}', 'src={m.media_url}'],
+    ['                    data-full={m.media_url}\n', ''],
+    ["                    onError={(e) => { const t = e.currentTarget as any; if (t.src !== t.dataset.full) t.src = t.dataset.full; }}\n", ''],
+  ];
+  for (const p of pairs) {
+    if (c.indexOf(p[0]) !== -1) { c = c.split(p[0]).join(p[1]); changed = true; }
+  }
+  if (changed) { fs.writeFileSync(sp, c, 'utf8'); console.log('[OK] revert thumb galeri'); } else console.log('[SKIP] revert thumb galeri');
+})();
+
+wf('components/RatioEditor.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+
+const RATIOS = [
+  { id: 'asli', label: 'Asli', h: 0 },
+  { id: '1:1', label: '1:1', h: 1080 },
+  { id: '4:5', label: '4:5', h: 1350 },
+  { id: '9:16', label: '9:16', h: 1920 },
+  { id: '16:9', label: '16:9', h: 608 },
+];
+
+export default function RatioEditor({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [ratio, setRatio] = useState('asli');
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function dims(img: HTMLImageElement) {
+    const W = 1080;
+    const r = RATIOS.find((x) => x.id === ratio) || RATIOS[0];
+    const H = r.h === 0 ? Math.min(1920, Math.max(540, Math.round((W * img.height) / img.width))) : r.h;
+    return { W, H };
+  }
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    const { W, H } = dims(img);
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = W / 2 - pos.x * dw;
+    const dy = H / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos, ratio]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    const c = canvasRef.current;
+    if (!d || !img || !c) return;
+    const base = Math.max(c.width / img.width, c.height / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const fx = dw / rect.width;
+    const fy = dh / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - ((e.clientX - d.sx) * fx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - ((e.clientY - d.sy) * fy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'hasil.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Edit Foto</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {RATIOS.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setRatio(r.id)}
+              className={'px-2.5 py-1 rounded-lg text-xs font-semibold ' + (ratio === r.id ? 'bg-acc text-acc-ink' : 'bg-line text-mut hover:text-ink')}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-full h-auto rounded-xl border border-line touch-none cursor-move"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser foto buat atur posisi, zoom buat ukuran, pilih rasio di atas.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Pakai Foto Ini
+        </button>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('components/PostEditor.tsx', `'use client';
+import RatioEditor from './RatioEditor';
+export default function PostEditor(props: any) {
+  return <RatioEditor {...props} />;
+}
+`);
+
+wf('components/StoryEditor.tsx', `'use client';
+import RatioEditor from './RatioEditor';
+export default function StoryEditor(props: any) {
+  return <RatioEditor {...props} />;
+}
+`);
+
+wf('components/feed/StoryBar.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Plus, X, Loader2 } from 'lucide-react';
+import StoryViewer from './StoryViewer';
+import RatioEditor from './RatioEditor';
+
+export default function StoryBar({ userId }: { userId: string }) {
+  const supabase = createClient();
+  const [groups, setGroups] = useState<any[]>([]);
+  const [viewedIds, setViewedIds] = useState<string[]>([]);
+  const [open, setOpen] = useState<number | null>(null);
+  const [showPick, setShowPick] = useState(false);
+  const [picked, setPicked] = useState<File | null>(null);
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [editedFile, setEditedFile] = useState<File | null>(null);
+  const [showCaption, setShowCaption] = useState(false);
+  const [capPreview, setCapPreview] = useState('');
+  const [caption, setCaption] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (editedFile) {
+      const u = URL.createObjectURL(editedFile);
+      setCapPreview(u);
+      return function () { URL.revokeObjectURL(u); };
+    }
+  }, [editedFile]);
+
+  async function load() {
+    const { data: stories } = await supabase
+      .from('stories')
+      .select('*, profiles(full_name, username)')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at');
+    const map = new Map<string, any>();
+    for (const s of stories ?? []) {
+      if (!map.has(s.user_id)) map.set(s.user_id, { profile: s.profiles, stories: [], user_id: s.user_id });
+      map.get(s.user_id).stories.push(s);
+    }
+    const gs = Array.from(map.values());
+    setGroups(gs);
+    const ids: string[] = [];
+    for (const g of gs) for (const s of g.stories) ids.push(s.id);
+    if (ids.length > 0) {
+      const { data: views } = await supabase
+        .from('story_views')
+        .select('story_id')
+        .eq('user_id', userId)
+        .in('story_id', ids);
+      setViewedIds((views ?? []).map((v: any) => v.story_id));
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function publish(file: File) {
+    setBusy(true);
+    setErr('');
+    try {
+      const { count } = await supabase
+        .from('stories')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gt('expires_at', new Date().toISOString());
+      if ((count ?? 0) >= 8) {
+        setErr('Story aktif maksimal 8. Hapus story lama dulu.');
+        setBusy(false);
+        return;
+      }
+      const storyId = crypto.randomUUID();
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = userId + '/' + storyId + '.' + ext;
+      const { error: upErr } = await supabase.storage.from('stories').upload(path, file);
+      if (upErr) { setErr('Upload gagal: ' + upErr.message); setBusy(false); return; }
+      const url = supabase.storage.from('stories').getPublicUrl(path).data.publicUrl;
+      const { error: dbErr } = await supabase.from('stories').insert({
+        user_id: userId,
+        media_url: url,
+        media_type: 'image',
+        caption: caption.trim() || null,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+      if (dbErr) { setErr(dbErr.message); setBusy(false); return; }
+      setShowCaption(false);
+      setEditedFile(null);
+      setCaption('');
+      load();
+    } catch {
+      setErr('Gagal membuat story.');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div>
+      <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+        <button onClick={() => { setPicked(null); setErr(''); setShowPick(true); }} className="flex flex-col items-center gap-1 shrink-0">
+          <div className="h-16 w-16 rounded-full bg-card border border-line flex items-center justify-center">
+            <Plus className="h-6 w-6 text-acc" />
+          </div>
+          <span className="text-[10px] text-mut">Ceritamu</span>
+        </button>
+        {groups.map((g, i) => {
+          const allViewed = g.stories.every((s: any) => viewedIds.indexOf(s.id) !== -1);
+          return (
+            <button key={i} onClick={() => setOpen(i)} className="flex flex-col items-center gap-1 shrink-0">
+              <div className={'h-16 w-16 rounded-full p-0.5 ' + (allViewed ? 'border border-line-2' : 'border-2 border-acc')}>
+                <div className="h-full w-full rounded-full bg-line-2 flex items-center justify-center text-lg font-bold text-ink">
+                  {g.profile?.full_name?.charAt(0) || 'U'}
+                </div>
+              </div>
+              <span className="text-[10px] text-mut max-w-[64px] truncate">{g.profile?.full_name}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {showPick && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-card border border-line rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-ink">Pilih Foto Story</h3>
+              <button onClick={() => setShowPick(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPicked(e.target.files?.[0] || null)}
+              className="w-full text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
+            />
+            <button
+              disabled={!picked}
+              onClick={() => {
+                if (picked) {
+                  setShowPick(false);
+                  setEditFile(picked);
+                }
+              }}
+              className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50"
+            >
+              Lanjut ke Editor
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editFile && (
+        <RatioEditor
+          file={editFile}
+          onClose={() => setEditFile(null)}
+          onDone={(f) => {
+            setEditFile(null);
+            setEditedFile(f);
+            setShowCaption(true);
+          }}
+        />
+      )}
+
+      {showCaption && editedFile && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-card border border-line rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-ink">Tulis Caption</h3>
+              <button
+                onClick={() => { setShowCaption(false); setEditedFile(null); }}
+                className="p-2 text-mut hover:text-ink"
+                aria-label="Tutup"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {err && <div className="p-2 rounded-lg bg-red-500/10 text-red-400 text-xs">{err}</div>}
+            {capPreview && <img src={capPreview} alt="" className="w-full max-h-64 object-contain rounded-xl border border-line bg-card-2" />}
+            <input
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Caption (opsional)"
+              className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <button
+              disabled={busy}
+              onClick={() => publish(editedFile)}
+              className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {busy ? 'Mengunggah...' : 'Terbitkan Story'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {open !== null && groups.length > 0 && (
+        <StoryViewer groups={groups} start={open} userId={userId} onClose={() => { setOpen(null); load(); }} />
+      )}
+    </div>
+  );
+}
+`);
+
+console.log('[OK] PART RATIO done: revert crop + ratio editor + story flow caption');
+
+// === RATIO FIX: PASTIKAN FILE ADA + IMPORT PATH BENER ===
+
+(function () {
+  const path = require('path');
+  const fs = require('fs');
+
+  // 1. Pastikan RatioEditor.tsx ada di components/
+  const ratioPath = 'components/RatioEditor.tsx';
+  if (!fs.existsSync(ratioPath)) {
+    fs.writeFileSync(ratioPath, `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+
+const RATIOS = [
+  { id: 'asli', label: 'Asli', h: 0 },
+  { id: '1:1', label: '1:1', h: 1080 },
+  { id: '4:5', label: '4:5', h: 1350 },
+  { id: '9:16', label: '9:16', h: 1920 },
+  { id: '16:9', label: '16:9', h: 608 },
+];
+
+export default function RatioEditor({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [ratio, setRatio] = useState('asli');
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () { imgRef.current = i; draw(); };
+    i.src = url;
+  }, [file]);
+
+  function dims(img: HTMLImageElement) {
+    const W = 1080;
+    const r = RATIOS.find((x) => x.id === ratio) || RATIOS[0];
+    const H = r.h === 0 ? Math.min(1920, Math.max(540, Math.round((W * img.height) / img.width))) : r.h;
+    return { W, H };
+  }
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    const { W, H } = dims(img);
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(W / img.width, H / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = W / 2 - pos.x * dw;
+    const dy = H / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => { draw(); }, [zoom, pos, ratio]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    const c = canvasRef.current;
+    if (!d || !img || !c) return;
+    const base = Math.max(c.width / img.width, c.height / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const fx = dw / rect.width;
+    const fy = dh / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - ((e.clientX - d.sx) * fx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - ((e.clientY - d.sy) * fy) / dh)),
+    });
+  }
+  function up() { dragRef.current = null; }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) { if (b) onDone(new File([b], 'hasil.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Edit Foto</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {RATIOS.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setRatio(r.id)}
+              className={'px-2.5 py-1 rounded-lg text-xs font-semibold ' + (ratio === r.id ? 'bg-acc text-acc-ink' : 'bg-line text-mut hover:text-ink')}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-full h-auto rounded-xl border border-line touch-none cursor-move"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser foto buat atur posisi, zoom buat ukuran, pilih rasio di atas.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Pakai Foto Ini
+        </button>
+      </div>
+    </div>
+  );
+}
+`, 'utf8');
+    console.log('[OK] RATIO-FIX: RatioEditor.tsx dibuat di components/');
+  } else {
+    console.log('[SKIP] RATIO-FIX: RatioEditor.tsx udah ada');
+  }
+
+  // 2. Fix import di StoryBar.tsx
+  const storyPath = 'components/feed/StoryBar.tsx';
+  if (fs.existsSync(storyPath)) {
+    let c = fs.readFileSync(storyPath, 'utf8');
+    const bad = "import RatioEditor from './RatioEditor';";
+    const good = "import RatioEditor from '../RatioEditor';";
+    if (c.indexOf(bad) !== -1) {
+      c = c.split(bad).join(good);
+      fs.writeFileSync(storyPath, c, 'utf8');
+      console.log('[OK] RATIO-FIX: import StoryBar diubah ../RatioEditor');
+    } else if (c.indexOf(good) !== -1) {
+      console.log('[SKIP] RATIO-FIX: StoryBar udah bener');
+    } else {
+      console.log('[!!] RATIO-FIX: pola import StoryBar aneh, cek manual');
+    }
+  } else {
+    console.log('[!!] RATIO-FIX: StoryBar.tsx gak ada?');
+  }
+
+  // 3. Fix import di PostEditor.tsx (kalau ada)
+  const postEditorPath = 'components/PostEditor.tsx';
+  if (fs.existsSync(postEditorPath)) {
+    let c = fs.readFileSync(postEditorPath, 'utf8');
+    if (c.indexOf("import RatioEditor") === -1) {
+      fs.writeFileSync(postEditorPath, `'use client';
+import RatioEditor from './RatioEditor';
+export default function PostEditor(props: any) { return <RatioEditor {...props} />; }
+`, 'utf8');
+      console.log('[OK] RATIO-FIX: PostEditor.tsx dibikin/replaced');
+    }
+  }
+
+  // 4. Fix import di StoryEditor.tsx (kalau ada)
+  const storyEditorPath = 'components/StoryEditor.tsx';
+  if (fs.existsSync(storyEditorPath)) {
+    let c = fs.readFileSync(storyEditorPath, 'utf8');
+    if (c.indexOf("import RatioEditor") === -1) {
+      fs.writeFileSync(storyEditorPath, `'use client';
+import RatioEditor from './RatioEditor';
+export default function StoryEditor(props: any) { return <RatioEditor {...props} />; }
+`, 'utf8');
+      console.log('[OK] RATIO-FIX: StoryEditor.tsx dibikin/replaced');
+    }
+  }
+
+  // 5. Pastikan app/feed/new pakai PostEditor dari komponen (bukan inline)
+  const newPostPath = 'app/feed/new/page.tsx';
+  if (fs.existsSync(newPostPath)) {
+    let c = fs.readFileSync(newPostPath, 'utf8');
+    if (c.indexOf("import PostEditor from '@/components/PostEditor'") !== -1) {
+      console.log('[OK] RATIO-FIX: feed/new pakai PostEditor komponen');
+    } else if (c.indexOf("import PostEditor") === -1) {
+      c = c.split("import { ArrowLeft, Loader2, X } from 'lucide-react';").join("import { ArrowLeft, Loader2, X } from 'lucide-react';\nimport PostEditor from '@/components/PostEditor';");
+      fs.writeFileSync(newPostPath, c, 'utf8');
+      console.log('[OK] RATIO-FIX: feed/new dikasih import PostEditor');
+    }
+  }
+})();
+
+console.log('[OK] RATIO-FIX selesai: cek log di atas');
+
+// === MEDIA CLEAN: IMG POLIS, NO BLACK BAR, NO FADE-TRICK ===
+
+wf('components/feed/PostMedia.tsx', `'use client';
+import { memo, useEffect, useRef, useState } from 'react';
+import Lightbox from './Lightbox';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, Play, Pause } from 'lucide-react';
+
+function isVideo(u: string) {
+  return u.includes('.mp4') || u.includes('.webm');
+}
+
+function AutoVideo({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [prog, setProg] = useState(0);
+  const [dur, setDur] = useState(0);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const ob = new IntersectionObserver(
+      function (entries) {
+        for (const en of entries) {
+          if (en.isIntersecting) {
+            if (!v.dataset.userpaused) v.play().catch(function () {});
+          } else {
+            v.pause();
+          }
+        }
+      },
+      { threshold: 0.6 }
+    );
+    ob.observe(v);
+    return function () { ob.disconnect(); };
+  }, [src]);
+
+  function togglePlay() {
+    const v = ref.current;
+    if (!v) return;
+    if (v.paused) { delete v.dataset.userpaused; v.play().catch(function () {}); }
+    else { v.dataset.userpaused = '1'; v.pause(); }
+  }
+  function toggleMute() {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  }
+  function seek(val: number) {
+    const v = ref.current;
+    if (!v || !dur) return;
+    v.currentTime = (val / 100) * dur;
+  }
+
+  return (
+    <div>
+      <div className="relative">
+        <video
+          ref={ref}
+          src={src}
+          muted
+          loop
+          playsInline
+          preload="none"
+          onClick={togglePlay}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget;
+            if (v.duration) setProg((v.currentTime / v.duration) * 100);
+          }}
+          className="w-full h-auto max-h-[75vh] bg-black block"
+        />
+        {!playing && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="p-3 rounded-full bg-black/60 text-white">
+              <Play className="h-6 w-6" />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-card-2 border-t border-line">
+        <button onClick={togglePlay} className="p-1.5 text-ink" aria-label="Putar atau jeda">
+          {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={prog}
+          onChange={(e) => seek(Number(e.target.value))}
+          className="flex-1 accent-acc"
+          aria-label="Progres video"
+        />
+        <button onClick={toggleMute} className="p-1.5 text-ink" aria-label="Suara">
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+        <a href={src} download className="text-xs font-semibold text-acc hover:underline px-1">
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function PostMediaInner({ urls }: { urls: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  function onScroll() {
+    const el = trackRef.current;
+    if (!el) return;
+    setIdx(Math.round(el.scrollLeft / el.clientWidth));
+  }
+
+  function go(i: number) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+  }
+
+  if (urls.length === 1) {
+    return (
+      <>
+        <div className="mb-3 mx-auto w-full max-w-md rounded-xl overflow-hidden border border-line bg-card-2">
+          {isVideo(urls[0]) ? (
+            <AutoVideo src={urls[0]} />
+          ) : (
+            <button onClick={() => setOpen(0)} className="block w-full" aria-label="Lihat detail">
+              <img src={urls[0]} alt="" loading="lazy" decoding="async" className="w-full h-auto block" />
+            </button>
+          )}
+        </div>
+        {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="relative mb-3 mx-auto w-full max-w-md">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-xl border border-line bg-card-2 no-scrollbar"
+        >
+          {urls.map((url, i) => (
+            <div key={i} className="snap-center shrink-0 w-full">
+              {isVideo(url) ? (
+                <AutoVideo src={url} />
+              ) : (
+                <button onClick={() => setOpen(i)} className="block w-full" aria-label="Lihat detail">
+                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-auto block" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {idx > 0 && (
+          <button
+            onClick={() => go(idx - 1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Sebelumnya"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {idx < urls.length - 1 && (
+          <button
+            onClick={() => go(idx + 1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80"
+            aria-label="Berikutnya"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs">
+          {idx + 1}/{urls.length}
+        </div>
+
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {urls.map((_, i) => (
+            <div
+              key={i}
+              className={'h-1.5 rounded-full transition-all ' + (i === idx ? 'w-4 bg-acc' : 'w-1.5 bg-white/40')}
+            />
+          ))}
+        </div>
+      </div>
+
+      {open !== null && <Lightbox urls={urls} index={open} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+
+export default memo(PostMediaInner);
+`);
+
+console.log('[OK] MEDIA CLEAN done: img polos, no black bar, no fade-trick');

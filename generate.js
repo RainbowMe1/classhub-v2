@@ -23385,3 +23385,977 @@ export default function MusicPage() {
 `);
 
 console.log('[OK] MUSIK v2 done: player collapsible + limit 8 + 8MB + format');
+
+// === PART POLISH2: PIKET HOME FIX + ADMIN GLOW + MEMBER DETAIL ===
+
+(function () {
+  const sp = 'app/dashboard/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  const t1 = "      .eq('day_of_week', dayOfWeek)\n      .order('created_at'),";
+  const r1 = "      .order('created_at'),";
+  if (c.indexOf(t1) !== -1) { c = c.split(t1).join(r1); changed = true; }
+  const t2 = '  const stats = [';
+  const r2 = "  const piketToday = (piket ?? []).filter((p: any) => p.day_of_week === dayOfWeek);\n\n  const stats = [";
+  if (c.indexOf('piketToday') === -1 && c.indexOf(t2) !== -1) { c = c.split(t2).join(r2); changed = true; }
+  const t3 = '{(piket?.length ?? 0) === 0 ? (';
+  const r3 = '{piketToday.length === 0 ? (';
+  if (c.indexOf(t3) !== -1) { c = c.split(t3).join(r3); changed = true; }
+  const t4 = '{piket?.map((p: any) => (';
+  const r4 = '{piketToday.map((p: any) => (';
+  if (c.indexOf(t4) !== -1) { c = c.split(t4).join(r4); changed = true; }
+  if (changed) { fs.writeFileSync(sp, c, 'utf8'); console.log('[OK] POLISH2: piket home difilter di JS'); }
+  else console.log('[SKIP] POLISH2 dashboard');
+})();
+
+wf('components/Avatar.tsx', `export default function Avatar({ data, className }: { data: any; className?: string }) {
+  const size = className || 'h-10 w-10';
+  const adminGlow = data?.role === 'admin' && data?.glow_border !== false;
+
+  const inner = data?.avatar_url ? (
+    <img
+      src={data.avatar_url}
+      alt=""
+      className="h-full w-full rounded-full object-cover"
+      style={{ transform: 'scale(' + (data.avatar_zoom || 1) + ') translate(' + (data.avatar_x || 0) + '%, ' + (data.avatar_y || 0) + '%)' }}
+    />
+  ) : (
+    <div className="h-full w-full rounded-full bg-line-2 flex items-center justify-center font-bold text-ink">
+      {(data?.full_name || 'U').charAt(0)}
+    </div>
+  );
+
+  if (!adminGlow) {
+    return <div className={size + ' rounded-full overflow-hidden shrink-0'}>{inner}</div>;
+  }
+  return (
+    <div className={size + ' rounded-full p-[2px] bg-gradient-to-tr from-acc via-teal-400 to-blue-500 shrink-0'}>
+      <div className="h-full w-full rounded-full overflow-hidden border border-bg">{inner}</div>
+    </div>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import { UserCog, KeyRound, Sparkles } from 'lucide-react';
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); }
+    })();
+  }, []);
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 8 || !/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) { setErr('Password minimal 8 karakter, kombinasi huruf dan angka.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓ Gunakan password baru mulai sekarang.'); setPw(''); setPw2(''); }
+  }
+
+  async function toggleGlow(val: boolean) {
+    if (!profile) return;
+    setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ glow_border: val }).eq('user_id', profile.user_id);
+    if (error) setErr('Gagal simpan preferensi: ' + error.message);
+    else setProfile({ ...profile, glow_border: val });
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <div className="text-sm text-mut">
+            Username: <span className="text-ink font-semibold">@{profile.username}</span> • Role: <span className="text-ink font-semibold">{profile.role}</span>
+          </div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        {profile.role === 'admin' && (
+          <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-acc" />
+              Tampilan Admin
+            </h2>
+            <label className="flex items-center gap-3 text-sm text-mut cursor-pointer">
+              <input
+                type="checkbox"
+                checked={profile.glow_border !== false}
+                onChange={(e) => toggleGlow(e.target.checked)}
+                className="accent-acc h-4 w-4"
+              />
+              Pakai border gradient di avatar (khusus admin)
+            </label>
+          </div>
+        )}
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-acc" />
+            Ganti Password
+          </h2>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 8, huruf+angka)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/members/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import JabatanTag from '@/components/JabatanTag';
+import { X, Users } from 'lucide-react';
+
+export default function MembersPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [sel, setSel] = useState<any | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) setProfile(p);
+      const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
+      setMembers(m ?? []);
+    })();
+  }, []);
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Users className="h-6 w-6 text-acc" />
+          Anggota Kelas
+        </h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {members.map((m) => (
+            <button
+              key={m.user_id}
+              onClick={() => setSel(m)}
+              className="anim-fade-up bg-card border border-line rounded-2xl p-4 text-center hover:border-acc/40 active:scale-[0.98] transition"
+            >
+              <Avatar data={m} className="h-16 w-16 mx-auto text-xl" />
+              <div className="font-semibold text-sm mt-2 truncate">{m.full_name}</div>
+              <div className="text-xs text-mut">@{m.username}</div>
+              <div className="mt-1.5 flex items-center justify-center gap-1.5 flex-wrap">
+                <AdminTag role={m.role} />
+                <JabatanTag jabatan={m.jabatan} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sel && (
+        <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => setSel(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end -mb-2">
+              <button onClick={() => setSel(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <Avatar data={sel} className="h-24 w-24 mx-auto text-3xl" />
+            <div>
+              <div className="text-lg font-bold flex items-center justify-center gap-2">
+                {sel.full_name}
+                <AdminTag role={sel.role} />
+              </div>
+              <div className="text-sm text-mut">@{sel.username}</div>
+              <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+                <JabatanTag jabatan={sel.jabatan} />
+                <span className="text-[10px] uppercase text-acc font-bold">{sel.role}</span>
+              </div>
+            </div>
+            {sel.bio && <p className="text-sm text-mut whitespace-pre-wrap">{sel.bio}</p>}
+            <div className="text-xs text-mut border-t border-line pt-3">
+              Bergabung {new Date(sel.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] PART POLISH2 done: piket home fix + admin glow + member detail');
+
+// === PART AVATAR: UPLOAD FOTO PROFIL + AVATAR CLICKABLE ===
+
+wf('components/AvatarEditor.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
+
+export default function AvatarEditor({ file, onDone, onClose }: { file: File; onDone: (f: File) => void; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+  const S = 512;
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = function () {
+      imgRef.current = i;
+      draw();
+    };
+    i.src = url;
+    return function () { URL.revokeObjectURL(url); };
+  }, [file]);
+
+  function draw() {
+    const c = canvasRef.current;
+    const img = imgRef.current;
+    if (!c || !img) return;
+    c.width = S;
+    c.height = S;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const scale = base * zoom;
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = S / 2 - pos.x * dw;
+    const dy = S / 2 - pos.y * dh;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  useEffect(() => {
+    draw();
+  }, [zoom, pos]);
+
+  function down(e: React.PointerEvent) {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    dragRef.current = { sx: e.clientX, sy: e.clientY, px: pos.x, py: pos.y };
+  }
+  function move(e: React.PointerEvent) {
+    const d = dragRef.current;
+    const img = imgRef.current;
+    if (!d || !img) return;
+    const base = Math.max(S / img.width, S / img.height);
+    const dw = img.width * base * zoom;
+    const dh = img.height * base * zoom;
+    const rect = (e.currentTarget as Element).getBoundingClientRect();
+    const fx = dw / rect.width;
+    const fy = dh / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, d.px - ((e.clientX - d.sx) * fx) / dw)),
+      y: Math.min(1, Math.max(0, d.py - ((e.clientY - d.sy) * fy) / dh)),
+    });
+  }
+  function up() {
+    dragRef.current = null;
+  }
+
+  function save() {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob(function (b) {
+      if (b) onDone(new File([b], 'avatar.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-4 space-y-3 w-full max-w-sm">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-ink">Atur Foto Profil</h3>
+          <button onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          className="w-56 h-56 mx-auto block rounded-full border-2 border-line touch-none cursor-move bg-card-2"
+        />
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-mut shrink-0">Zoom</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="flex-1 accent-acc"
+          />
+        </div>
+        <p className="text-xs text-mut">Geser buat atur posisi. Preview bulat = hasil akhir.</p>
+        <button onClick={save} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold">
+          Simpan Foto
+        </button>
+      </div>
+    </div>
+  );
+}
+`);
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AvatarEditor from '@/components/AvatarEditor';
+import { UserCog, KeyRound, Sparkles, Camera } from 'lucide-react';
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) { setProfile(p); setName(p.full_name || ''); }
+    })();
+  }, []);
+
+  async function uploadAvatar(f: File) {
+    if (!profile) return;
+    setBusy(true);
+    setMsg('');
+    setErr('');
+    const path = profile.user_id + '/avatar.jpg';
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, f, { upsert: true, contentType: 'image/jpeg' });
+    if (upErr) { setErr('Upload foto gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url, avatar_zoom: 1, avatar_x: 0, avatar_y: 0 })
+      .eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan: ' + error.message); return; }
+    setProfile({ ...profile, avatar_url: url, avatar_zoom: 1, avatar_x: 0, avatar_y: 0 });
+    setEditFile(null);
+    setMsg('Foto profil diganti ✓');
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 8 || !/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) { setErr('Password minimal 8 karakter, kombinasi huruf dan angka.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓ Gunakan password baru mulai sekarang.'); setPw(''); setPw2(''); }
+  }
+
+  async function toggleGlow(val: boolean) {
+    if (!profile) return;
+    setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ glow_border: val }).eq('user_id', profile.user_id);
+    if (error) setErr('Gagal simpan preferensi: ' + error.message);
+    else setProfile({ ...profile, glow_border: val });
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-4">
+            <Avatar data={profile} className="h-16 w-16 text-xl" />
+            <div className="flex-1">
+              <div className="text-sm text-mut mb-2">
+                Username: <span className="text-ink font-semibold">@{profile.username}</span> • Role: <span className="text-ink font-semibold">{profile.role}</span>
+              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50"
+              >
+                <Camera className="h-4 w-4" />
+                Ganti Foto Profil
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setEditFile(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        {profile.role === 'admin' && (
+          <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-acc" />
+              Tampilan Admin
+            </h2>
+            <label className="flex items-center gap-3 text-sm text-mut cursor-pointer">
+              <input
+                type="checkbox"
+                checked={profile.glow_border !== false}
+                onChange={(e) => toggleGlow(e.target.checked)}
+                className="accent-acc h-4 w-4"
+              />
+              Pakai border gradient di avatar (khusus admin)
+            </label>
+          </div>
+        )}
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-acc" />
+            Ganti Password
+          </h2>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 8, huruf+angka)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+
+      {editFile && (
+        <AvatarEditor
+          file={editFile}
+          onClose={() => setEditFile(null)}
+          onDone={uploadAvatar}
+        />
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
+import Link from 'next/link';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
+import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
+import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
+import type { Profile } from '@/types/database';
+
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/piket', icon: Brush, label: 'Piket' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
+    extra.push({ href: '/admin/posts', icon: Shield, label: 'Kelola Postingan' });
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
+
+  return (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
+            </Link>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <Link href="/settings" className="flex items-center gap-3 px-2 pb-3 rounded-lg hover:bg-line/50 transition" aria-label="Buka profil">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
+            </div>
+          </Link>
+          <LogoutButton withLabel />
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Link href="/settings" aria-label="Buka profil">
+              <Avatar data={profile} className="h-7 w-7" />
+            </Link>
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
+  );
+}
+`);
+
+console.log('[OK] PART AVATAR done: upload foto profil + avatar clickable');
+
+// === PART BIO: BIO PENDEK + INSTAGRAM DI PROFIL & MEMBERS ===
+
+wf('app/settings/page.tsx', `'use client';
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AvatarEditor from '@/components/AvatarEditor';
+import { UserCog, KeyRound, Sparkles, Camera, AtSign } from 'lucide-react';
+
+export default function SettingsPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+  const [ig, setIg] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) {
+        setProfile(p);
+        setName(p.full_name || '');
+        setBio(p.bio || '');
+        setIg(p.instagram || '');
+      }
+    })();
+  }, []);
+
+  async function uploadAvatar(f: File) {
+    if (!profile) return;
+    setBusy(true);
+    setMsg('');
+    setErr('');
+    const path = profile.user_id + '/avatar.jpg';
+    const { error: upErr } = await supabase.storage.from('avatars').upload(path, f, { upsert: true, contentType: 'image/jpeg' });
+    if (upErr) { setErr('Upload foto gagal: ' + upErr.message); setBusy(false); return; }
+    const url = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl + '?v=' + Date.now();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url, avatar_zoom: 1, avatar_x: 0, avatar_y: 0 })
+      .eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) { setErr('Gagal simpan: ' + error.message); return; }
+    setProfile({ ...profile, avatar_url: url, avatar_zoom: 1, avatar_x: 0, avatar_y: 0 });
+    setEditFile(null);
+    setMsg('Foto profil diganti ✓');
+  }
+
+  async function saveName() {
+    if (!profile || !name.trim()) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ full_name: name.trim() }).eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan nama: ' + error.message);
+    else setMsg('Nama tersimpan ✓');
+  }
+
+  async function saveBio() {
+    if (!profile) return;
+    setBusy(true); setMsg(''); setErr('');
+    const { error } = await supabase
+      .from('profiles')
+      .update({ bio: bio.trim() || null, instagram: ig.trim() || null })
+      .eq('user_id', profile.user_id);
+    setBusy(false);
+    if (error) setErr('Gagal simpan: ' + error.message);
+    else {
+      setProfile({ ...profile, bio: bio.trim() || null, instagram: ig.trim() || null });
+      setMsg('Bio & Instagram tersimpan ✓');
+    }
+  }
+
+  async function savePw() {
+    setBusy(true); setMsg(''); setErr('');
+    if (pw.length < 8 || !/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) { setErr('Password minimal 8 karakter, kombinasi huruf dan angka.'); setBusy(false); return; }
+    if (pw !== pw2) { setErr('Konfirmasi password tidak sama.'); setBusy(false); return; }
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) setErr('Gagal ganti password: ' + error.message);
+    else { setMsg('Password diganti ✓ Gunakan password baru mulai sekarang.'); setPw(''); setPw2(''); }
+  }
+
+  async function toggleGlow(val: boolean) {
+    if (!profile) return;
+    setMsg(''); setErr('');
+    const { error } = await supabase.from('profiles').update({ glow_border: val }).eq('user_id', profile.user_id);
+    if (error) setErr('Gagal simpan preferensi: ' + error.message);
+    else setProfile({ ...profile, glow_border: val });
+  }
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  const inputCls = 'w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50';
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <UserCog className="h-6 w-6 text-acc" />
+          Profil Saya
+        </h1>
+
+        {msg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-sm">{msg}</div>}
+        {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-4">
+            <Avatar data={profile} className="h-16 w-16 text-xl" />
+            <div className="flex-1">
+              <div className="text-sm text-mut mb-2">
+                Username: <span className="text-ink font-semibold">@{profile.username}</span> • Role: <span className="text-ink font-semibold">{profile.role}</span>
+              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-line text-ink text-sm font-semibold hover:bg-line-2 disabled:opacity-50"
+              >
+                <Camera className="h-4 w-4" />
+                Ganti Foto Profil
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setEditFile(f);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <button onClick={saveName} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Simpan Nama
+          </button>
+        </div>
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <AtSign className="h-5 w-5 text-acc" />
+            Bio & Instagram
+          </h2>
+          <div>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, 60))}
+              rows={2}
+              maxLength={60}
+              placeholder="Bio pendek buat kartu anggota (maks 60 karakter)"
+              className={inputCls + ' resize-none'}
+            />
+            <div className="text-right text-[10px] text-mut">{bio.length}/60</div>
+          </div>
+          <input
+            value={ig}
+            onChange={(e) => setIg(e.target.value)}
+            placeholder="Instagram (mis. @deza atau link lengkap)"
+            className={inputCls}
+          />
+          <button onClick={saveBio} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Simpan Bio & IG
+          </button>
+        </div>
+
+        {profile.role === 'admin' && (
+          <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-acc" />
+              Tampilan Admin
+            </h2>
+            <label className="flex items-center gap-3 text-sm text-mut cursor-pointer">
+              <input
+                type="checkbox"
+                checked={profile.glow_border !== false}
+                onChange={(e) => toggleGlow(e.target.checked)}
+                className="accent-acc h-4 w-4"
+              />
+              Pakai border gradient di avatar (khusus admin)
+            </label>
+          </div>
+        )}
+
+        <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+          <h2 className="font-semibold flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-acc" />
+            Ganti Password
+          </h2>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password baru (min. 8, huruf+angka)" className={inputCls} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Ulangi password baru" className={inputCls} />
+          <button onClick={savePw} disabled={busy} className="px-4 py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold hover:bg-acc-strong disabled:opacity-50">
+            Ganti Password
+          </button>
+        </div>
+      </div>
+
+      {editFile && (
+        <AvatarEditor
+          file={editFile}
+          onClose={() => setEditFile(null)}
+          onDone={uploadAvatar}
+        />
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+wf('app/members/page.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import AppLayout from '@/components/layout/AppLayout';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import JabatanTag from '@/components/JabatanTag';
+import { X, Users, Instagram } from 'lucide-react';
+
+function igUrl(v: string) {
+  if (v.startsWith('http')) return v;
+  return 'https://instagram.com/' + v.replace(/^@/, '').trim();
+}
+
+export default function MembersPage() {
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [sel, setSel] = useState<any | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: p } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+      if (p) setProfile(p);
+      const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
+      setMembers(m ?? []);
+    })();
+  }, []);
+
+  if (!profile) return <div className="min-h-screen" />;
+
+  return (
+    <AppLayout profile={profile}>
+      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <Users className="h-6 w-6 text-acc" />
+          Anggota Kelas
+        </h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {members.map((m) => (
+            <button
+              key={m.user_id}
+              onClick={() => setSel(m)}
+              className="anim-fade-up bg-card border border-line rounded-2xl p-4 text-center hover:border-acc/40 active:scale-[0.98] transition"
+            >
+              <Avatar data={m} className="h-16 w-16 mx-auto text-xl" />
+              <div className="font-semibold text-sm mt-2 truncate">{m.full_name}</div>
+              <div className="text-xs text-mut">@{m.username}</div>
+              {m.bio && <div className="text-[11px] text-mut mt-1 truncate">{m.bio}</div>}
+              <div className="mt-1.5 flex items-center justify-center gap-1.5 flex-wrap">
+                <AdminTag role={m.role} />
+                <JabatanTag jabatan={m.jabatan} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sel && (
+        <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => setSel(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end -mb-2">
+              <button onClick={() => setSel(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <Avatar data={sel} className="h-24 w-24 mx-auto text-3xl" />
+            <div>
+              <div className="text-lg font-bold flex items-center justify-center gap-2">
+                {sel.full_name}
+                <AdminTag role={sel.role} />
+              </div>
+              <div className="text-sm text-mut">@{sel.username}</div>
+              <div className="mt-2 flex items-center justify-center gap-2 flex-wrap">
+                <JabatanTag jabatan={sel.jabatan} />
+                <span className="text-[10px] uppercase text-acc font-bold">{sel.role}</span>
+              </div>
+            </div>
+            {sel.bio && <p className="text-sm text-mut whitespace-pre-wrap">{sel.bio}</p>}
+            {sel.instagram && (
+              <a
+                href={igUrl(sel.instagram)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-400 hover:underline"
+              >
+                <Instagram className="h-4 w-4" />
+                {sel.instagram.startsWith('@') ? sel.instagram : '@' + sel.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\//, '')}
+              </a>
+            )}
+            <div className="text-xs text-mut border-t border-line pt-3">
+              Bergabung {new Date(sel.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
+      )}
+    </AppLayout>
+  );
+}
+`);
+
+console.log('[OK] PART BIO done: bio 60 char + instagram di profil & members');

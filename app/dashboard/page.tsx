@@ -21,9 +21,10 @@ export default async function DashboardPage() {
     supabase
       .from('piket_entries')
       .select('*, profiles(full_name, username, avatar_url, avatar_zoom, avatar_x, avatar_y)')
-      .eq('day_of_week', dayOfWeek)
       .order('created_at'),
   ]);
+
+  const piketToday = (piket ?? []).filter((p: any) => p.day_of_week === dayOfWeek);
 
   const stats = [
     { label: 'Jadwal Hari Ini', value: String(schedules?.length ?? 0), color: 'text-acc', bg: 'bg-acc/10', Icon: Calendar, href: '/schedule' },
@@ -95,11 +96,11 @@ export default async function DashboardPage() {
             <Brush className="h-5 w-5 text-acc" />
             Piket Hari Ini
           </h3>
-          {(piket?.length ?? 0) === 0 ? (
+          {piketToday.length === 0 ? (
             <div className="text-center py-6 text-mut text-sm">Tidak ada piket hari ini 🎉</div>
           ) : (
             <div className="flex flex-wrap gap-2 md:gap-3">
-              {piket?.map((p: any) => (
+              {piketToday.map((p: any) => (
                 <div key={p.id} className="flex items-center gap-2 p-2 pr-4 rounded-xl bg-card-2 border border-line">
                   <Avatar data={p.profiles} className="h-8 w-8" />
                   <div className="text-sm font-medium">{p.profiles?.full_name}</div>

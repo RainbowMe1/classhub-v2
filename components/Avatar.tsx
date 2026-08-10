@@ -1,23 +1,26 @@
 export default function Avatar({ data, className }: { data: any; className?: string }) {
   const size = className || 'h-10 w-10';
-  if (!data?.avatar_url) {
-    return (
-      <div className={'rounded-full bg-line-2 flex items-center justify-center font-bold shrink-0 ' + size}>
-        {(data?.full_name || 'U').charAt(0)}
-      </div>
-    );
+  const adminGlow = data?.role === 'admin' && data?.glow_border !== false;
+
+  const inner = data?.avatar_url ? (
+    <img
+      src={data.avatar_url}
+      alt=""
+      className="h-full w-full rounded-full object-cover"
+      style={{ transform: 'scale(' + (data.avatar_zoom || 1) + ') translate(' + (data.avatar_x || 0) + '%, ' + (data.avatar_y || 0) + '%)' }}
+    />
+  ) : (
+    <div className="h-full w-full rounded-full bg-line-2 flex items-center justify-center font-bold text-ink">
+      {(data?.full_name || 'U').charAt(0)}
+    </div>
+  );
+
+  if (!adminGlow) {
+    return <div className={size + ' rounded-full overflow-hidden shrink-0'}>{inner}</div>;
   }
-  const z = data.avatar_zoom && Number(data.avatar_zoom) > 1 ? Number(data.avatar_zoom) : 1;
-  const style =
-    z > 1
-      ? {
-          transform:
-            'scale(' + z + ') translate(' + ((0.5 - Number(data.avatar_x ?? 0.5)) * 100) + '%, ' + ((0.5 - Number(data.avatar_y ?? 0.5)) * 100) + '%)',
-        }
-      : undefined;
   return (
-    <div className={'relative overflow-hidden rounded-full shrink-0 ' + size}>
-      <img src={data.avatar_url} alt="" className="h-full w-full object-cover" style={style} />
+    <div className={size + ' rounded-full p-[2px] bg-gradient-to-tr from-acc via-teal-400 to-blue-500 shrink-0'}>
+      <div className="h-full w-full rounded-full overflow-hidden border border-bg">{inner}</div>
     </div>
   );
 }

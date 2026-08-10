@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
+import { logout } from '@/lib/auth/actions';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
@@ -63,7 +64,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
             <BackgroundPicker />
             <span className="text-[10px] text-mut ml-auto">Tampilan</span>
           </div>
-          <div className="flex items-center gap-3 px-2 pb-3">
+          <Link href="/settings" className="flex items-center gap-3 px-2 pb-3 rounded-lg hover:bg-line/50 transition" aria-label="Buka profil">
             <Avatar data={profile} className="h-9 w-9" />
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">{profile.full_name}</div>
@@ -73,7 +74,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
                 <div className="text-xs text-acc uppercase">{profile.role}</div>
               )}
             </div>
-          </div>
+          </Link>
           <LogoutButton withLabel />
         </div>
       </aside>
@@ -82,7 +83,9 @@ export default function AppLayout({ children, profile, settings }: { children: R
         <div className="flex items-center justify-between px-4 h-14">
           <ClassBrand size="sm" initial={settings} />
           <div className="flex items-center gap-2">
-            <Avatar data={profile} className="h-7 w-7" />
+            <Link href="/settings" aria-label="Buka profil">
+              <Avatar data={profile} className="h-7 w-7" />
+            </Link>
             <span className="text-xs text-mut">@{profile.username}</span>
             <LogoutButton />
           </div>

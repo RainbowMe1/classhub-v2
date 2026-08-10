@@ -21394,3 +21394,74 @@ export default memo(PostMediaInner);
 `);
 
 console.log('[OK] MEDIA CLEAN done: img polos, no black bar, no fade-trick');
+
+// === REFRESH FIX: PAKSA FEED RE-RENDER SETELAH AKSI ===
+
+(function () {
+  const sp = 'components/feed/PostModMenu.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  
+  // Tambah import useRouter
+  if (c.indexOf("import { useRouter }") === -1) {
+    c = c.split("import { useState }").join("import { useState } from 'react';\nimport { useRouter } from 'next/navigation';");
+    changed = true;
+  }
+  
+  // Tambah router.refresh() setelah aksi berhasil
+  const patterns = [
+    ['const res = await hidePost(postId, true);', 'if (res && res.success) { router.refresh(); } else if (res && res.error) window.alert(res.error);'],
+    ['const res = await hidePost(postId, false);', 'if (res && res.success) { router.refresh(); } else if (res && res.error) window.alert(res.error);'],
+    ['const res = await deletePost(postId);', 'if (res && res.success) { router.refresh(); } else if (res && res.error) window.alert(res.error);'],
+  ];
+  
+  for (const [target, replacement] of patterns) {
+    if (c.indexOf(target) !== -1 && c.indexOf('router.refresh()') === -1) {
+      c = c.split(target).join(target + '\n    ' + replacement);
+      changed = true;
+    }
+  }
+  
+  // Pastikan router di-inisialisasi di komponen
+  if (c.indexOf('const router = useRouter()') === -1) {
+    c = c.split('const [open, setOpen] = useState(false);').join('const router = useRouter();\n  const [open, setOpen] = useState(false);');
+    changed = true;
+  }
+  
+  if (changed) {
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] REFRESH FIX: PostModMenu ditambah router.refresh()');
+  } else {
+    console.log('[SKIP] REFRESH FIX PostModMenu');
+  }
+})();
+
+(function () {
+  const sp = 'app/my-posts/page.tsx';
+  let c = fs.readFileSync(sp, 'utf8');
+  let changed = false;
+  
+  // Cari fungsi remove dan tambah router.refresh()
+  const target = 'if (res && res.error) window.alert(res.error);';
+  const replacement = 'if (res && res.error) window.alert(res.error);\n    else router.refresh();';
+  
+  if (c.indexOf(target) !== -1 && c.indexOf('router.refresh()') === -1) {
+    c = c.split(target).join(replacement);
+    changed = true;
+  }
+  
+  // Pastikan router ada
+  if (c.indexOf('const router = useRouter()') === -1) {
+    c = c.split('export default function MyPostsPage() {').join('export default function MyPostsPage() {\n  const router = useRouter();');
+    changed = true;
+  }
+  
+  if (changed) {
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] REFRESH FIX: MyPostsPage ditambah router.refresh()');
+  } else {
+    console.log('[SKIP] REFRESH FIX MyPostsPage');
+  }
+})();
+
+console.log('[OK] REFRESH FIX done');

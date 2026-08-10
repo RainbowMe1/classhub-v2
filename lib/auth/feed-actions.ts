@@ -15,9 +15,18 @@ export async function getFeedPage(cursor: string | null) {
     .order('created_at', { ascending: false })
     .limit(5);
   if (cursor) query = query.lt('created_at', cursor);
-  const { data: posts } = await query;
-  const list = posts ?? [];
-  const ids = list.map((p: any) => p.id);
+  const { data: posts, error } = await query;
+  if (error) {
+    return {
+      posts: [],
+      likeCounts: {},
+      likedByMe: {},
+      commentCounts: {},
+      nextCursor: null,
+    };
+  }
+  const list: any[] = (posts as any[]) ?? [];
+  const ids = list.map((p) => p.id);
 
   const likeCounts: Record<string, number> = {};
   const likedByMe: Record<string, boolean> = {};
@@ -35,11 +44,12 @@ export async function getFeedPage(cursor: string | null) {
       commentCounts[x.post_id] = (commentCounts[x.post_id] ?? 0) + 1;
     }
   }
+  const lastPost: any = list.length > 0 ? list[list.length - 1] : null;
   return {
     posts: list,
     likeCounts,
     likedByMe,
     commentCounts,
-    nextCursor: list.length === 5 ? (list[list.length - 1] as any).created_at : null,
+    nextCursor: list.length === 5 && lastPost ? lastPost.created_at : null,
   };
 }

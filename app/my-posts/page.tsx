@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import { deleteOwnPost } from '@/lib/auth/moderation-actions';
@@ -11,6 +12,7 @@ function isVideo(u: string) {
 
 export default function MyPostsPage() {
   const supabase = createClient();
+  const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,8 +40,12 @@ export default function MyPostsPage() {
   async function remove(id: string) {
     if (!window.confirm('Hapus postingan ini? Slot upload kamu bakal kosong lagi.')) return;
     const res = await deleteOwnPost(id);
-    if (res && res.error) window.alert(res.error);
-    else if (profile) load(profile.user_id);
+    if (res && res.error) {
+      window.alert(res.error);
+    } else {
+      router.refresh();
+      if (profile) load(profile.user_id);
+    }
   }
 
   if (!profile) return <div className="min-h-screen" />;

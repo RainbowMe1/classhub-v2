@@ -46,9 +46,9 @@ export default function AISettings({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <div className="text-xs text-mut mb-1">Model</div>
-          <input name="model" defaultValue="llama-3.3-70b-versatile" className={inputCls} />
+          <input name="model" defaultValue="meta-llama/llama-4-scout-17b-16e-instruct" className={inputCls} />
           <div className="text-[10px] text-mut mt-1">
-            Rekomendasi: <code className="text-acc">llama-3.3-70b-versatile</code>, <code className="text-acc">llama-3.1-8b-instant</code>, <code className="text-acc">meta-llama/llama-4-scout-17b-16e-instruct</code>
+            Rekomendasi: <code className="text-acc">meta-llama/llama-4-scout-17b-16e-instruct</code>, <code className="text-acc">llama-3.1-8b-instant</code>, <code className="text-acc">meta-llama/llama-4-scout-17b-16e-instruct</code>
           </div>
         </div>
         <button disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">

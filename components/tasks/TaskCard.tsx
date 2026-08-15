@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitTask } from '@/lib/auth/task-actions';
 import SubmissionsSheet from './SubmissionsSheet';
-import { Clock, CheckCircle2, AlertCircle, Upload, Users, Paperclip } from 'lucide-react';
+import { Users, Paperclip } from 'lucide-react';
 
-export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { task: any; mySub: any; subCount: number; isStaff: boolean; userId: string }) {
+export default function TaskCard({ task, mySub, subCount, isStaff, userId }: any) {
   const router = useRouter();
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,34 +26,27 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
   }
 
   return (
-    <div className="bg-card border border-line rounded-2xl p-4 space-y-3">
+    <div className="bg-card border border-line rounded-2xl p-4 md:p-5 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold text-ink">{task.title}</div>
-          <div className="text-xs text-mut mt-0.5">{task.subject}</div>
+          <div className="font-semibold">{task.title}</div>
+          <div className="text-xs text-mut">{task.subject}</div>
         </div>
         {mySub ? (
-          <span className="flex items-center gap-1 text-xs text-acc shrink-0">
-            <CheckCircle2 className="h-4 w-4" />
-            {mySub.status === 'graded' ? 'Nilai: ' + mySub.grade : mySub.status === 'late' ? 'Terlambat' : 'Masuk'}
+          <span className="text-xs px-2 py-1 rounded-lg bg-acc/10 text-acc font-semibold">
+            {mySub.status === 'graded' ? 'Nilai: ' + mySub.grade : mySub.status === 'late' ? 'Terlambat' : 'Dikumpulkan'}
           </span>
         ) : late ? (
-          <span className="flex items-center gap-1 text-xs text-red-400 shrink-0">
-            <AlertCircle className="h-4 w-4" />
-            Lewat deadline
-          </span>
+          <span className="text-xs px-2 py-1 rounded-lg bg-red-500/10 text-red-400 font-semibold">Lewat deadline</span>
         ) : (
-          <span className="flex items-center gap-1 text-xs text-[#fb923c] shrink-0">
-            <Clock className="h-4 w-4" />
-            Aktif
-          </span>
+          <span className="text-xs px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-semibold">Aktif</span>
         )}
       </div>
 
-      {task.description && <p className="text-sm text-ink-soft whitespace-pre-wrap">{task.description}</p>}
+      {task.description && <p className="text-sm text-mut whitespace-pre-wrap">{task.description}</p>}
 
       {task.attachment_url && (
-        <a href={task.attachment_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-acc hover:underline">
+        <a href={task.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-acc hover:underline">
           <Paperclip className="h-3 w-3" />
           Lampiran tugas
         </a>
@@ -64,29 +57,26 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
       </div>
 
       {mySub && mySub.feedback && (
-        <div className="p-3 rounded-xl bg-bg border border-line text-sm text-ink-soft">
-          <span className="text-acc font-semibold">Feedback: </span>
-          {mySub.feedback}
+        <div className="p-3 rounded-xl bg-card-2 border border-line text-sm">
+          <span className="font-semibold text-acc">Feedback:</span> {mySub.feedback}
         </div>
       )}
 
-      {!isStaff && !mySub && (
+      {!mySub && (
         <form
           onSubmit={(e) => { e.preventDefault(); submit(new FormData(e.currentTarget)); }}
           className="flex flex-wrap items-center gap-2 pt-2 border-t border-line"
         >
-          <input type="hidden" name="task_id" value={task.id} />
+          <input name="task_id" type="hidden" value={task.id} />
           <input
-            type="file"
             name="file"
+            type="file"
             required
-            className="flex-1 min-w-[160px] text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
+            className="flex-1 text-xs text-mut file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-line file:text-xs file:text-ink"
           />
-          <button type="submit" disabled={busy} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-acc text-acc-ink text-xs font-semibold disabled:opacity-50">
-            <Upload className="h-3 w-3" />
+          <button disabled={busy} className="px-3 py-2 rounded-lg bg-acc text-acc-ink text-xs font-semibold hover:bg-acc-strong disabled:opacity-50">
             {busy ? 'Mengunggah...' : 'Kumpulkan'}
           </button>
-          <div className="w-full text-[10px] text-mut">Maksimal 50MB per file</div>
           {err && <div className="w-full text-xs text-red-400">{err}</div>}
         </form>
       )}
@@ -96,7 +86,7 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: { t
           onClick={() => setOpenSubs(true)}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-line text-ink text-xs font-semibold hover:bg-line-2"
         >
-          <Users className="h-3 w-3" />
+          <Users className="h-3.5 w-3.5" />
           Lihat Submission ({subCount})
         </button>
       )}

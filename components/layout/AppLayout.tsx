@@ -6,6 +6,7 @@ import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
+import ThemeToggle from '@/components/ThemeToggle';
 import BackgroundPicker from '@/components/BackgroundPicker';
 import LogoutButton from '@/components/LogoutButton';
 import type { Profile } from '@/types/database';
@@ -58,6 +59,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
         </nav>
         <div className="p-4 border-t border-line">
           <div className="flex items-center gap-2 px-2 pb-3">
+            <ThemeToggle />
             <BackgroundPicker />
             <span className="text-[10px] text-mut ml-auto">Tampilan</span>
           </div>
@@ -80,10 +82,10 @@ export default function AppLayout({ children, profile, settings }: { children: R
         <div className="flex items-center justify-between px-4 h-14">
           <ClassBrand size="sm" initial={settings} />
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link href="/settings" aria-label="Buka profil">
               <Avatar data={profile} className="h-7 w-7" />
             </Link>
-            <span className="text-xs text-mut">@{profile.username}</span>
             <LogoutButton />
           </div>
         </div>

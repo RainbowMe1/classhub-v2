@@ -6,8 +6,11 @@ import AISettings from './AISettings';
 
 type M = { role: 'user' | 'model'; text: string };
 
+const LS_KEY = 'ch-ai-history';
+
 export default function AIChat({ isAdmin, configured, model }: { isAdmin: boolean; configured: boolean; model: string }) {
   const [msgs, setMsgs] = useState<M[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -15,8 +18,33 @@ export default function AIChat({ isAdmin, configured, model }: { isAdmin: boolea
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setMsgs(parsed);
+      }
+    } catch (e) {}
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(msgs.slice(-100)));
+    } catch (e) {}
+  }, [msgs, loaded]);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs, busy]);
+
+  function clear() {
+    setMsgs([]);
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch (e) {}
+  }
 
   async function send() {
     const t = text.trim();
@@ -26,7 +54,7 @@ export default function AIChat({ isAdmin, configured, model }: { isAdmin: boolea
     setMsgs(next);
     setText('');
     setBusy(true);
-    const res = await askAI(next);
+    const res = await askAI(next.slice(-16));
     setBusy(false);
     if (res && res.error) setErr(res.error);
     else setMsgs([...next, { role: 'model' as const, text: res.text || '(tidak ada jawaban)' }]);
@@ -41,19 +69,11 @@ export default function AIChat({ isAdmin, configured, model }: { isAdmin: boolea
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-line text-mut font-normal">{model}</span>
         </h1>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setMsgs([])}
-            className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line"
-            aria-label="Bersihkan percakapan"
-          >
+          <button onClick={clear} className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line" aria-label="Bersihkan percakapan">
             <Trash2 className="h-4 w-4" />
           </button>
           {isAdmin && (
-            <button
-              onClick={() => setShowCfg(true)}
-              className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line"
-              aria-label="Pengaturan AI"
-            >
+            <button onClick={() => setShowCfg(true)} className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line" aria-label="Pengaturan AI">
               <Settings2 className="h-4 w-4" />
             </button>
           )}
@@ -65,7 +85,7 @@ export default function AIChat({ isAdmin, configured, model }: { isAdmin: boolea
           <div className="text-center text-mut space-y-2">
             <Bot className="h-12 w-12 mx-auto text-line-2" />
             <p className="text-sm">AI belum dikonfigurasi.</p>
-            <p className="text-xs">{isAdmin ? 'Pencet ikon gerigi di kanan atas buat masukin Gemini API key.' : 'Minta admin mengaktifkan fitur ini.'}</p>
+            <p className="text-xs">{isAdmin ? 'Pencet ikon gerigi di kanan atas buat masukin Groq API key.' : 'Minta admin mengaktifkan fitur ini.'}</p>
           </div>
         </div>
       ) : (
@@ -110,12 +130,7 @@ export default function AIChat({ isAdmin, configured, model }: { isAdmin: boolea
               placeholder="Tanya apa aja..."
               className="flex-1 px-4 py-3 rounded-xl bg-card border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
             />
-            <button
-              onClick={send}
-              disabled={busy || !text.trim()}
-              className="p-3 rounded-xl bg-acc text-acc-ink disabled:opacity-50"
-              aria-label="Kirim"
-            >
+            <button onClick={send} disabled={busy || !text.trim()} className="p-3 rounded-xl bg-acc text-acc-ink disabled:opacity-50" aria-label="Kirim">
               <Send className="h-4 w-4" />
             </button>
           </div>

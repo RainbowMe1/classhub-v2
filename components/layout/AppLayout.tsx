@@ -1,7 +1,6 @@
 'use client';
 import Link from 'next/link';
 import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
-import { logout } from '@/lib/auth/actions';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
@@ -83,10 +82,10 @@ export default function AppLayout({ children, profile, settings }: { children: R
         <div className="flex items-center justify-between px-4 h-14">
           <ClassBrand size="sm" initial={settings} />
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Link href="/settings" aria-label="Buka profil">
               <Avatar data={profile} className="h-7 w-7" />
             </Link>
-            <span className="text-xs text-mut">@{profile.username}</span>
             <LogoutButton />
           </div>
         </div>

@@ -822,332 +822,443 @@ export default function TaskCard({ task, mySub, subCount, isStaff, userId }: any
 
 console.log('[OK] PART TASK STAFF SUBMIT done: admin juga bisa ngumpulin tugas');
 
-// === PART LIQUID NAV: BOTTOM NAV GELOMBANG ===
 
-wf('components/layout/MobileNav.tsx', `'use client';
-import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
-import NotifBadge from '@/components/NotifBadge';
-import ClassBrand from '@/components/ClassBrand';
 
-export default function MobileNav({ items, userId }: { items: any[]; userId: string }) {
-  const pathname = usePathname();
-  const [open, setOpen] = useState(false);
 
-  const bar = [
-    items.find((i) => i.href === '/dashboard'),
-    items.find((i) => i.href === '/feed'),
-    items.find((i) => i.href === '/my-posts'),
-    items.find((i) => i.href === '/notifications'),
-  ].filter(Boolean);
+// === PART COMMENT SHEET MOBILE: BOTTOM SHEET, X SELALU KELIHATAN ===
+
+wf('components/feed/CommentsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { deleteCommentAdmin } from '@/lib/auth/moderation-actions';
+import { X, Send, Trash2 } from 'lucide-react';
+
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName, isStaff }: any) {
+  const supabase = createClient();
+  const [comments, setComments] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<any>(null);
+  const [err, setErr] = useState('');
+
+  async function load() {
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(username, full_name)')
+      .eq('post_id', postId)
+      .order('created_at');
+    setComments(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [postId]);
+
+  async function submit() {
+    if (!text.trim()) return;
+    setErr('');
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: userId,
+      content: text.trim(),
+      parent_id: replyTo ? replyTo.id : null,
+    });
+    if (error) { setErr('Gagal kirim: ' + error.message); return; }
+    const target = replyTo ? replyTo.user_id : postOwnerId;
+    if (target && target !== userId) {
+      await supabase.from('notifications').insert({
+        user_id: target,
+        type: 'comment',
+        title: actorName + (replyTo ? ' membalas komentarmu' : ' mengomentari postinganmu'),
+        actor_id: userId,
+        target_type: 'post',
+        target_id: postId,
+      });
+    }
+    setText('');
+    setReplyTo(null);
+    load();
+  }
+
+  async function del(id: string, ownerId: string) {
+    if (ownerId === userId) {
+      const { error } = await supabase.from('comments').delete().eq('id', id);
+      if (!error) load();
+    } else {
+      const res = await deleteCommentAdmin(id);
+      if (res && res.error) setErr('Gagal hapus: ' + res.error);
+      else load();
+    }
+  }
+
+  const top = comments.filter((c) => !c.parent_id);
+  const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
 
   return (
-    <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-3 pb-2">
-        <div className="relative h-16 bg-card rounded-2xl shadow-2xl border border-line flex overflow-visible">
-          {bar.map((item: any) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="relative flex-1 flex flex-col items-center justify-end pb-1.5"
-                aria-label={item.label}
-              >
-                {active ? (
-                  <>
-                    <span className="pointer-events-none absolute -top-7 inset-x-0 flex justify-center">
-                      <span className="relative block" style={{ width: 92, height: 62 }}>
-                        {/* lekukan liquid */}
-                        <span
-                          className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-b-full bg-bg"
-                          style={{ width: 68, height: 34 }}
-                        />
-                        <span className="absolute bottom-0 left-0 rounded-br-full bg-bg" style={{ width: 12, height: 12 }} />
-                        <span className="absolute bottom-0 right-0 rounded-bl-full bg-bg" style={{ width: 12, height: 12 }} />
-                        {/* bubble naik */}
-                        <span className="absolute left-1/2 -translate-x-1/2 top-0 h-14 w-14 rounded-full bg-acc text-acc-ink border-4 border-bg shadow-xl flex items-center justify-center">
-                          <item.icon className="h-5 w-5" />
-                        </span>
-                      </span>
-                    </span>
-                    <span className="text-[10px] font-semibold text-acc">{item.label}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="relative mb-0.5">
-                      <item.icon className="h-5 w-5 text-mut" />
-                      {item.href === '/notifications' && (
-                        <span className="absolute -top-1 -right-2">
-                          <NotifBadge userId={userId} />
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-mut">{item.label}</span>
-                  </>
-                )}
-              </Link>
-            );
-          })}
-          <button
-            onClick={() => setOpen(true)}
-            className="flex-1 flex flex-col items-center justify-end pb-1.5"
-            aria-label="Menu"
-          >
-            <Menu className="h-5 w-5 text-mut mb-0.5" />
-            <span className="text-[10px] text-mut">Menu</span>
-          </button>
-        </div>
-      </nav>
-
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/60 md:hidden" onClick={() => setOpen(false)}>
-          <div
-            className="absolute right-0 top-0 h-full w-72 bg-card border-l border-line p-5 overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-line mb-4">
-              <ClassBrand size="sm" />
-              <button onClick={() => setOpen(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {items.map((item: any) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ' +
-                  (pathname === item.href ? 'bg-acc/10 text-acc' : 'text-mut hover:bg-line hover:text-ink')
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-                {item.href === '/notifications' && <NotifBadge userId={userId} />}
-              </Link>
-            ))}
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-end md:items-center justify-center" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="bg-card border border-line rounded-t-2xl md:rounded-2xl w-full md:max-w-md max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 pt-2 pb-3 px-4 border-b border-line">
+          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line-2 md:hidden" />
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-ink">Komentar</h3>
+            <button onClick={onClose} className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line" aria-label="Tutup komentar">
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
-      )}
-    </>
-  );
-}
-`);
 
-console.log('[OK] PART LIQUID NAV done: bottom nav gelombang');
-
-// === PART LIQUID NAV v2: LEKUKAN DI-CLIP, NO BLOB HITAM ===
-
-wf('components/layout/MobileNav.tsx', `'use client';
-import { useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
-import NotifBadge from '@/components/NotifBadge';
-import ClassBrand from '@/components/ClassBrand';
-
-export default function MobileNav({ items, userId }: { items: any[]; userId: string }) {
-  const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-
-  const bar = [
-    items.find((i) => i.href === '/dashboard'),
-    items.find((i) => i.href === '/feed'),
-    items.find((i) => i.href === '/my-posts'),
-    items.find((i) => i.href === '/notifications'),
-  ].filter(Boolean);
-
-  const activeIndex = bar.findIndex((i: any) => pathname === i.href);
-
-  return (
-    <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-3 pb-2">
-        <div className="relative h-16 bg-card rounded-2xl shadow-2xl flex">
-          {activeIndex >= 0 && (
-            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-              <div
-                className="absolute top-0"
-                style={{ left: (activeIndex + 0.5) * 20 + '%', transform: 'translateX(-50%)' }}
-              >
-                <div className="relative" style={{ width: 92, height: 40 }}>
-                  <div
-                    className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-b-full bg-bg"
-                    style={{ width: 68, height: 34 }}
-                  />
-                  <div className="absolute bottom-0 left-0 rounded-br-full bg-bg" style={{ width: 12, height: 12 }} />
-                  <div className="absolute bottom-0 right-0 rounded-bl-full bg-bg" style={{ width: 12, height: 12 }} />
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{err}</div>}
+          {top.length === 0 ? (
+            <div className="text-center py-10 text-mut text-sm">Belum ada komentar. Mulai diskusi!</div>
+          ) : (
+            top.map((c) => (
+              <div key={c.id} className="space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-8 w-8 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold text-ink shrink-0">
+                    {(c.profiles?.full_name || 'U').charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-ink">{c.profiles?.full_name}</div>
+                    <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button onClick={() => setReplyTo(c)} className="text-xs text-mut hover:text-ink">Balas</button>
+                      {(c.user_id === userId || isStaff) && (
+                        <button onClick={() => del(c.id, c.user_id)} className="text-xs text-red-400 hover:text-red-300 inline-flex items-center gap-1">
+                          <Trash2 className="h-3 w-3" />
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                {repliesOf(c.id).map((r) => (
+                  <div key={r.id} className="flex items-start gap-2.5 pl-8">
+                    <div className="h-7 w-7 rounded-full bg-line-2 flex items-center justify-center text-[10px] font-bold text-ink shrink-0">
+                      {(r.profiles?.full_name || 'U').charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-ink">{r.profiles?.full_name}</div>
+                      <p className="text-sm whitespace-pre-wrap break-words">{r.content}</p>
+                      {(r.user_id === userId || isStaff) && (
+                        <button onClick={() => del(r.id, r.user_id)} className="text-xs text-red-400 mt-0.5">Hapus</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
+            ))
+          )}
+        </div>
+
+        <div className="shrink-0 border-t border-line p-3 space-y-2">
+          {replyTo && (
+            <div className="flex items-center justify-between text-xs text-mut">
+              <span>Membalas {replyTo.profiles?.full_name}</span>
+              <button onClick={() => setReplyTo(null)} className="hover:text-ink" aria-label="Batal membalas">
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
-
-          {bar.map((item: any) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="relative flex-1 flex flex-col items-center justify-end pb-1.5"
-                aria-label={item.label}
-              >
-                {active ? (
-                  <>
-                    <span className="pointer-events-none absolute -top-7 inset-x-0 flex justify-center">
-                      <span className="h-14 w-14 rounded-full bg-acc text-acc-ink border-4 border-bg shadow-xl flex items-center justify-center">
-                        <item.icon className="h-5 w-5" />
-                      </span>
-                    </span>
-                    <span className="text-[10px] font-semibold text-acc">{item.label}</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="relative mb-0.5">
-                      <item.icon className="h-5 w-5 text-mut" />
-                      {item.href === '/notifications' && (
-                        <span className="absolute -top-1 -right-2">
-                          <NotifBadge userId={userId} />
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-[10px] text-mut">{item.label}</span>
-                  </>
-                )}
-              </Link>
-            );
-          })}
-
-          <button
-            onClick={() => setOpen(true)}
-            className="flex-1 flex flex-col items-center justify-end pb-1.5"
-            aria-label="Menu"
-          >
-            <Menu className="h-5 w-5 text-mut mb-0.5" />
-            <span className="text-[10px] text-mut">Menu</span>
-          </button>
-        </div>
-      </nav>
-
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/60 md:hidden" onClick={() => setOpen(false)}>
-          <div
-            className="absolute right-0 top-0 h-full w-72 bg-card border-l border-line p-5 overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-line mb-4">
-              <ClassBrand size="sm" />
-              <button onClick={() => setOpen(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {items.map((item: any) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ' +
-                  (pathname === item.href ? 'bg-acc/10 text-acc' : 'text-mut hover:bg-line hover:text-ink')
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-                {item.href === '/notifications' && <NotifBadge userId={userId} />}
-              </Link>
-            ))}
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Tulis komentar..."
+              className="flex-1 px-4 py-2.5 rounded-full bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <button onClick={submit} className="p-2.5 rounded-full bg-acc text-acc-ink shrink-0" aria-label="Kirim komentar">
+              <Send className="h-4 w-4" />
+            </button>
           </div>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 `);
 
-console.log('[OK] PART LIQUID NAV v2 done: lekukan clip rapi, no blob');
+console.log('[OK] COMMENT SHEET MOBILE done: bottom sheet + X selalu kelihatan');
 
-// === PART NAV BALIK SEMULA: MOBILE NAV NORMAL ===
+// === PART POLISH3: FIX SHEET TERJEBAK + HAPUS THEME TOGGLE ===
 
-wf('components/layout/MobileNav.tsx', `'use client';
-import { useState } from 'react';
+(function () {
+  const sp = 'app/globals.css';
+  let c = fs.readFileSync(sp, 'utf8');
+  if (c.indexOf('anim-fade-up-fix') === -1) {
+    c += `
+/* anim-fade-up-fix: jangan sisakan transform, biar fixed overlay gak terjebak */
+.anim-fade-up { animation-fill-mode: backwards !important; }
+`;
+    fs.writeFileSync(sp, c, 'utf8');
+    console.log('[OK] POLISH3: css fill-mode backwards');
+  } else {
+    console.log('[SKIP] POLISH3 css');
+  }
+})();
+
+wf('components/feed/CommentsSheet.tsx', `'use client';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { createClient } from '@/lib/supabase/client';
+import { deleteCommentAdmin } from '@/lib/auth/moderation-actions';
+import { X, Send, Trash2 } from 'lucide-react';
+
+export default function CommentsSheet({ postId, userId, onClose, postOwnerId, actorName, isStaff }: any) {
+  const supabase = createClient();
+  const [comments, setComments] = useState<any[]>([]);
+  const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<any>(null);
+  const [err, setErr] = useState('');
+
+  async function load() {
+    const { data } = await supabase
+      .from('comments')
+      .select('*, profiles(username, full_name)')
+      .eq('post_id', postId)
+      .order('created_at');
+    setComments(data ?? []);
+  }
+
+  useEffect(() => {
+    load();
+  }, [postId]);
+
+  async function submit() {
+    if (!text.trim()) return;
+    setErr('');
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: userId,
+      content: text.trim(),
+      parent_id: replyTo ? replyTo.id : null,
+    });
+    if (error) { setErr('Gagal kirim: ' + error.message); return; }
+    const target = replyTo ? replyTo.user_id : postOwnerId;
+    if (target && target !== userId) {
+      await supabase.from('notifications').insert({
+        user_id: target,
+        type: 'comment',
+        title: actorName + (replyTo ? ' membalas komentarmu' : ' mengomentari postinganmu'),
+        actor_id: userId,
+        target_type: 'post',
+        target_id: postId,
+      });
+    }
+    setText('');
+    setReplyTo(null);
+    load();
+  }
+
+  async function del(id: string, ownerId: string) {
+    if (ownerId === userId) {
+      const { error } = await supabase.from('comments').delete().eq('id', id);
+      if (!error) load();
+    } else {
+      const res = await deleteCommentAdmin(id);
+      if (res && res.error) setErr('Gagal hapus: ' + res.error);
+      else load();
+    }
+  }
+
+  const top = comments.filter((c) => !c.parent_id);
+  const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] bg-black/70 flex items-end md:items-center justify-center" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="bg-card border border-line rounded-t-2xl md:rounded-2xl w-full md:max-w-md max-h-[85vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="shrink-0 pt-2 pb-3 px-4 border-b border-line">
+          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line-2 md:hidden" />
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-ink">Komentar</h3>
+            <button onClick={onClose} className="p-2 text-mut hover:text-ink rounded-lg hover:bg-line" aria-label="Tutup komentar">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{err}</div>}
+          {top.length === 0 ? (
+            <div className="text-center py-10 text-mut text-sm">Belum ada komentar. Mulai diskusi!</div>
+          ) : (
+            top.map((c) => (
+              <div key={c.id} className="space-y-2">
+                <div className="flex items-start gap-2.5">
+                  <div className="h-8 w-8 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold text-ink shrink-0">
+                    {(c.profiles?.full_name || 'U').charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-ink">{c.profiles?.full_name}</div>
+                    <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button onClick={() => setReplyTo(c)} className="text-xs text-mut hover:text-ink">Balas</button>
+                      {(c.user_id === userId || isStaff) && (
+                        <button onClick={() => del(c.id, c.user_id)} className="text-xs text-red-400 hover:text-red-300 inline-flex items-center gap-1">
+                          <Trash2 className="h-3 w-3" />
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {repliesOf(c.id).map((r) => (
+                  <div key={r.id} className="flex items-start gap-2.5 pl-8">
+                    <div className="h-7 w-7 rounded-full bg-line-2 flex items-center justify-center text-[10px] font-bold text-ink shrink-0">
+                      {(r.profiles?.full_name || 'U').charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-ink">{r.profiles?.full_name}</div>
+                      <p className="text-sm whitespace-pre-wrap break-words">{r.content}</p>
+                      {(r.user_id === userId || isStaff) && (
+                        <button onClick={() => del(r.id, r.user_id)} className="text-xs text-red-400 mt-0.5">Hapus</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="shrink-0 border-t border-line p-3 space-y-2">
+          {replyTo && (
+            <div className="flex items-center justify-between text-xs text-mut">
+              <span>Membalas {replyTo.profiles?.full_name}</span>
+              <button onClick={() => setReplyTo(null)} className="hover:text-ink" aria-label="Batal membalas">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Tulis komentar..."
+              className="flex-1 px-4 py-2.5 rounded-full bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50"
+            />
+            <button onClick={submit} className="p-2.5 rounded-full bg-acc text-acc-ink shrink-0" aria-label="Kirim komentar">
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+`);
+
+wf('components/layout/AppLayout.tsx', `'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
+import MobileNav from '@/components/layout/MobileNav';
 import ClassBrand from '@/components/ClassBrand';
+import Avatar from '@/components/Avatar';
+import AdminTag from '@/components/AdminTag';
+import BackgroundPicker from '@/components/BackgroundPicker';
+import LogoutButton from '@/components/LogoutButton';
+import type { Profile } from '@/types/database';
 
-export default function MobileNav({ items, userId }: { items: any[]; userId: string }) {
-  const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-
-  const bar = [items[0], items[1], items[2], items.find((i) => i.href === '/notifications')].filter(Boolean);
+export default function AppLayout({ children, profile, settings }: { children: React.ReactNode; profile: Profile; settings?: any }) {
+  const baseItems = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/feed', icon: Newspaper, label: 'Feed' },
+    { href: '/my-posts', icon: Files, label: 'Postinganku' },
+    { href: '/chat', icon: MessageCircle, label: 'Chat' },
+    { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
+    { href: '/piket', icon: Brush, label: 'Piket' },
+    { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
+    { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/portfolio', icon: Globe, label: 'Portofolio' },
+    { href: '/notifications', icon: Bell, label: 'Notifikasi' },
+    { href: '/members', icon: Users, label: 'Members' },
+    { href: '/settings', icon: UserCog, label: 'Profil' },
+  ];
+  const extra: typeof baseItems = [];
+  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role !== 'student') {
+    extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
+    extra.push({ href: '/admin/posts', icon: Shield, label: 'Kelola Postingan' });
+    extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });
+    extra.push({ href: '/admin/portfolio', icon: Award, label: 'Edit Portofolio' });
+    extra.push({ href: '/admin/moderation', icon: ShieldAlert, label: 'Moderasi' });
+  }
+  const navItems = [...baseItems, ...extra];
 
   return (
-    <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden glass border-t border-line">
-        <div className="flex">
-          {bar.map((item: any) => (
+    <div className="min-h-screen text-ink relative">
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
+        <div className="p-6 border-b border-line">
+          <ClassBrand size="lg" initial={settings} />
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={'flex-1 flex flex-col items-center gap-1 py-2.5 ' + (pathname === item.href ? 'text-acc' : 'text-mut')}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-mut hover:bg-line hover:text-ink transition"
             >
-              <span className="relative">
-                <item.icon className="h-5 w-5" />
-                {item.href === '/notifications' && (
-                  <span className="absolute -top-1 -right-2">
-                    <NotifBadge userId={userId} />
-                  </span>
-                )}
-              </span>
-              <span className="text-[10px]">{item.label}</span>
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.href === '/notifications' && <NotifBadge userId={profile.user_id} />}
             </Link>
           ))}
-          <button
-            onClick={() => setOpen(true)}
-            className="flex-1 flex flex-col items-center gap-1 py-2.5 text-mut"
-            aria-label="Menu"
-          >
-            <Menu className="h-5 w-5" />
-            <span className="text-[10px]">Menu</span>
-          </button>
-        </div>
-      </nav>
-
-      {open && (
-        <div className="fixed inset-0 z-50 bg-black/60 md:hidden" onClick={() => setOpen(false)}>
-          <div
-            className="absolute right-0 top-0 h-full w-72 bg-card border-l border-line p-5 overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-line mb-4">
-              <ClassBrand size="sm" />
-              <button onClick={() => setOpen(false)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
-                <X className="h-5 w-5" />
-              </button>
+        </nav>
+        <div className="p-4 border-t border-line">
+          <div className="flex items-center gap-2 px-2 pb-3">
+            <BackgroundPicker />
+            <span className="text-[10px] text-mut ml-auto">Tampilan</span>
+          </div>
+          <Link href="/settings" className="flex items-center gap-3 px-2 pb-3 rounded-lg hover:bg-line/50 transition" aria-label="Buka profil">
+            <Avatar data={profile} className="h-9 w-9" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.full_name}</div>
+              {profile.role === 'admin' ? (
+                <AdminTag role="admin" className="text-xs" />
+              ) : (
+                <div className="text-xs text-acc uppercase">{profile.role}</div>
+              )}
             </div>
-            {items.map((item: any) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ' +
-                  (pathname === item.href ? 'bg-acc/10 text-acc' : 'text-mut hover:bg-line hover:text-ink')
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-                {item.href === '/notifications' && <NotifBadge userId={userId} />}
-              </Link>
-            ))}
+          </Link>
+          <LogoutButton withLabel />
+        </div>
+      </aside>
+
+      <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
+        <div className="flex items-center justify-between px-4 h-14">
+          <ClassBrand size="sm" initial={settings} />
+          <div className="flex items-center gap-2">
+            <Link href="/settings" aria-label="Buka profil">
+              <Avatar data={profile} className="h-7 w-7" />
+            </Link>
+            <span className="text-xs text-mut">@{profile.username}</span>
+            <LogoutButton />
           </div>
         </div>
-      )}
-    </>
+      </header>
+
+      <div className="md:pl-64">
+        <main className="pb-24 md:pb-8">{children}</main>
+      </div>
+
+      <MobileNav items={navItems} userId={profile.user_id} />
+    </div>
   );
 }
 `);
 
-console.log('[OK] NAV BALIK SEMULA done: mobile nav normal lagi');
+console.log('[OK] PART POLISH3 done: sheet portal + fill-mode + theme toggle hilang');

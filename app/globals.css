@@ -194,3 +194,6 @@ body, aside, header, nav {
     -webkit-backdrop-filter: blur(18px) saturate(1.5);
   }
 }
+
+/* anim-fade-up-fix: jangan sisakan transform, biar fixed overlay gak terjebak */
+.anim-fade-up { animation-fill-mode: backwards !important; }

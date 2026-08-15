@@ -20,26 +20,27 @@ export default async function GalleryPage() {
     if (!mediaByAlbum[m.album_id]) mediaByAlbum[m.album_id] = [];
     mediaByAlbum[m.album_id].push(m);
   }
+  const myCount = (media ?? []).filter((m: any) => m.user_id === user.id).length;
 
   return (
     <AppLayout profile={user.profile}>
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
         {(errAlbums || errMedia) && (
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm break-all">
+          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
             {errAlbums ? 'Error album: ' + errAlbums.message : 'Error media: ' + (errMedia ? errMedia.message : '')}
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">Galeri Kelas</h1>
-          {isStaff && <CreateAlbumForm />}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ImageIcon className="h-6 w-6 text-acc" />
+            Galeri Kelas
+          </h1>
+          <CreateAlbumForm />
         </div>
 
         {(albums?.length ?? 0) === 0 ? (
-          <div className="text-center py-16 text-mut">
-            <ImageIcon className="h-12 w-12 mx-auto mb-4" />
-            <p>{isStaff ? 'Belum ada album. Buat album pertama!' : 'Belum ada album. Tunggu admin membuat album.'}</p>
-          </div>
+          <div className="text-center py-16 text-mut">Belum ada album. Buat album pertama!</div>
         ) : (
           (albums ?? []).map((a: any) => (
             <GalleryAlbum
@@ -47,6 +48,7 @@ export default async function GalleryPage() {
               album={{ ...a, gallery_media: mediaByAlbum[a.id] ?? [] }}
               userId={user.id}
               isStaff={isStaff}
+              myCount={myCount}
             />
           ))
         )}

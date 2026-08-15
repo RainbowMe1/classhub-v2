@@ -2,10 +2,12 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireUser, requireRole } from '@/lib/auth/actions';
 
+const FALLBACKS = ['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.1-pro'];
+
 export async function saveAISettings(formData: FormData) {
   await requireRole('admin');
   const api_key = String(formData.get('api_key') || '').trim();
-  const model = String(formData.get('model') || '').trim() || 'gemini-2.5-flash';
+  const model = String(formData.get('model') || '').trim() || 'gemini-flash-latest';
   const admin = createAdminClient();
   const { data: existing } = await admin.from('ai_settings').select('id').limit(1).maybeSingle();
   const payload: any = { model };
@@ -27,26 +29,35 @@ export async function askAI(messages: { role: string; text: string }[]) {
   const admin = createAdminClient();
   const { data } = await admin.from('ai_settings').select('*').limit(1).maybeSingle();
   if (!data || !data.api_key) return { error: 'AI belum dikonfigurasi. Admin harus isi API key dulu di halaman AI.' };
-  const model = data.model || 'gemini-2.5-flash';
-  try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + data.api_key, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: 'Kamu asisten kelas yang ramah dan membantu. Jawab dalam Bahasa Indonesia dengan ringkas dan jelas.' }],
-        },
-        contents: messages.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
-      }),
-    });
-    if (!res.ok) {
+
+  const first = data.model || 'gemini-flash-latest';
+  const models = [first].concat(FALLBACKS.filter((m) => m !== first));
+  let lastErr = '';
+
+  for (const model of models) {
+    try {
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + data.api_key, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: 'Kamu asisten kelas yang ramah dan membantu. Jawab dalam Bahasa Indonesia dengan ringkas dan jelas.' }],
+          },
+          contents: messages.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const text = (json?.candidates?.[0]?.content?.parts || []).map((p: any) => p.text).join('') || '(tidak ada jawaban)';
+        return { text };
+      }
       const t = await res.text();
-      return { error: 'Gemini error ' + res.status + ': ' + t.slice(0, 300) };
+      lastErr = 'Gemini error ' + res.status + ' (' + model + '): ' + t.slice(0, 250);
+      if (res.status !== 404) break;
+    } catch (e: any) {
+      lastErr = 'Gagal memanggil Gemini: ' + (e && e.message ? e.message : 'network error');
+      break;
     }
-    const json = await res.json();
-    const text = (json?.candidates?.[0]?.content?.parts || []).map((p: any) => p.text).join('') || '(tidak ada jawaban)';
-    return { text };
-  } catch (e: any) {
-    return { error: 'Gagal memanggil Gemini: ' + (e && e.message ? e.message : 'network error') };
   }
+  return { error: lastErr };
 }

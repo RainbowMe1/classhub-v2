@@ -2,12 +2,12 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireUser, requireRole } from '@/lib/auth/actions';
 
-const FALLBACKS = ['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.1-pro'];
+const FALLBACKS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash'];
 
 export async function saveAISettings(formData: FormData) {
   await requireRole('admin');
   const api_key = String(formData.get('api_key') || '').trim();
-  const model = String(formData.get('model') || '').trim() || 'gemini-flash-latest';
+  const model = String(formData.get('model') || '').trim() || 'gemini-3.6-flash';
   const admin = createAdminClient();
   const { data: existing } = await admin.from('ai_settings').select('id').limit(1).maybeSingle();
   const payload: any = { model };
@@ -30,9 +30,10 @@ export async function askAI(messages: { role: string; text: string }[]) {
   const { data } = await admin.from('ai_settings').select('*').limit(1).maybeSingle();
   if (!data || !data.api_key) return { error: 'AI belum dikonfigurasi. Admin harus isi API key dulu di halaman AI.' };
 
-  const first = data.model || 'gemini-flash-latest';
+  const first = data.model || 'gemini-3.6-flash';
   const models = [first].concat(FALLBACKS.filter((m) => m !== first));
   let lastErr = '';
+  let usedModel = '';
 
   for (const model of models) {
     try {
@@ -49,7 +50,8 @@ export async function askAI(messages: { role: string; text: string }[]) {
       if (res.ok) {
         const json = await res.json();
         const text = (json?.candidates?.[0]?.content?.parts || []).map((p: any) => p.text).join('') || '(tidak ada jawaban)';
-        return { text };
+        usedModel = model;
+        return { text, usedModel };
       }
       const t = await res.text();
       lastErr = 'Gemini error ' + res.status + ' (' + model + '): ' + t.slice(0, 250);

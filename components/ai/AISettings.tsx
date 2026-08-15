@@ -46,7 +46,7 @@ export default function AISettings({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <div className="text-xs text-mut mb-1">Model</div>
-          <input name="model" defaultValue="gemini-flash-latest" className={inputCls} />
+          <input name="model" defaultValue="gemini-3.6-flash" className={inputCls} />
         </div>
         <button disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
           {busy ? 'Menyimpan...' : 'Simpan'}

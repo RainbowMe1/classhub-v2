@@ -24,14 +24,31 @@ export async function saveAISettings(formData: FormData) {
   return { success: true };
 }
 
-async function callGroq(apiKey: string, model: string, messages: any[], useTools: boolean) {
-  const body: any = { model, messages, temperature: 0.7, max_tokens: 2048 };
-  if (useTools) body.tools = [{ type: 'web_search' }];
-  return await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-    body: JSON.stringify(body),
-  });
+async function fetchGrounding(q: string): Promise<string> {
+  const parts: string[] = [];
+  try {
+    const ddg = await fetch('https://api.duckduckgo.com/?q=' + encodeURIComponent(q) + '&format=json&no_html=1');
+    if (ddg.ok) {
+      const j = await ddg.json();
+      if (j.AbstractText) parts.push(String(j.AbstractText));
+      else if (j.Answer && typeof j.Answer === 'string') parts.push(j.Answer);
+    }
+  } catch (e) {}
+  try {
+    const ws = await fetch('https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + encodeURIComponent(q) + '&format=json');
+    if (ws.ok) {
+      const j = await ws.json();
+      const title = j?.query?.search?.[0]?.title;
+      if (title) {
+        const sum = await fetch('https://id.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+        if (sum.ok) {
+          const sj = await sum.json();
+          if (sj.extract) parts.push(String(sj.extract));
+        }
+      }
+    }
+  } catch (e) {}
+  return parts.filter(Boolean).join('\n').slice(0, 3000);
 }
 
 export async function askAI(messages: { role: string; text: string }[]) {
@@ -40,16 +57,21 @@ export async function askAI(messages: { role: string; text: string }[]) {
   const { data } = await admin.from('ai_settings').select('*').limit(1).maybeSingle();
   if (!data || !data.api_key) return { error: 'AI belum dikonfigurasi. Admin harus isi Groq API key dulu di halaman AI.' };
 
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const grounding = lastUser ? await fetchGrounding(lastUser.text) : '';
+
   const today = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  let system =
+    'Kamu asisten kelas Sainstech 2 yang ramah dan membantu. Jawab dalam Bahasa Indonesia dengan ringkas dan jelas. ' +
+    'Hari ini adalah ' + today + '.';
+  if (grounding) {
+    system +=
+      '\n\nKONTEKS TERKINI HASIL PENCARIAN WEB (prioritaskan ini untuk fakta terbaru, dan sebutkan bahwa informasinya dari sumber terkini):\n' +
+      grounding;
+  }
+
   const chatMessages = [
-    {
-      role: 'system',
-      content:
-        'Kamu asisten kelas Sainstech 2 yang ramah dan membantu. Jawab dalam Bahasa Indonesia dengan ringkas dan jelas. ' +
-        'Hari ini adalah ' + today + '. Pengetahuan dasarmu mungkin lebih lama dari tanggal itu. ' +
-        'Jika tersedia alat pencarian web, gunakan untuk pertanyaan tentang kejadian terbaru. ' +
-        'Jika tidak yakin tentang fakta terbaru, katakan jujur bahwa informasimu mungkin belum terkini.',
-    },
+    { role: 'system', content: system },
     ...messages.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
   ];
 
@@ -59,10 +81,11 @@ export async function askAI(messages: { role: string; text: string }[]) {
 
   for (const model of models) {
     try {
-      let res = await callGroq(data.api_key, model, chatMessages, true);
-      if (res.status === 400) {
-        res = await callGroq(data.api_key, model, chatMessages, false);
-      }
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.api_key },
+        body: JSON.stringify({ model, messages: chatMessages, temperature: 0.7, max_tokens: 2048 }),
+      });
       if (res.ok) {
         const json = await res.json();
         const text = (json?.choices?.[0]?.message?.content || '').trim() || '(tidak ada jawaban)';

@@ -2,12 +2,12 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireUser, requireRole } from '@/lib/auth/actions';
 
-const FALLBACKS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash'];
+const FALLBACKS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'meta-llama/llama-4-scout-17b-16e-instruct', 'gemma2-9b-it'];
 
 export async function saveAISettings(formData: FormData) {
   await requireRole('admin');
   const api_key = String(formData.get('api_key') || '').trim();
-  const model = String(formData.get('model') || '').trim() || 'gemini-3.6-flash';
+  const model = String(formData.get('model') || '').trim() || 'llama-3.3-70b-versatile';
   const admin = createAdminClient();
   const { data: existing } = await admin.from('ai_settings').select('id').limit(1).maybeSingle();
   const payload: any = { model };
@@ -28,36 +28,44 @@ export async function askAI(messages: { role: string; text: string }[]) {
   await requireUser();
   const admin = createAdminClient();
   const { data } = await admin.from('ai_settings').select('*').limit(1).maybeSingle();
-  if (!data || !data.api_key) return { error: 'AI belum dikonfigurasi. Admin harus isi API key dulu di halaman AI.' };
+  if (!data || !data.api_key) return { error: 'AI belum dikonfigurasi. Admin harus isi Groq API key dulu di halaman AI.' };
 
-  const first = data.model || 'gemini-3.6-flash';
+  const first = data.model || 'llama-3.3-70b-versatile';
   const models = [first].concat(FALLBACKS.filter((m) => m !== first));
   let lastErr = '';
   let usedModel = '';
 
+  const payload = {
+    model: '',
+    messages: [
+      { role: 'system', content: 'Kamu asisten kelas yang ramah dan membantu. Jawab dalam Bahasa Indonesia dengan ringkas, jelas, dan pakai format yang enak dibaca. Kalau ditanya materi pelajaran, kasih contoh konkret.' },
+      ...messages.map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
+    ],
+    temperature: 0.7,
+    max_tokens: 2048,
+  };
+
   for (const model of models) {
     try {
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + data.api_key, {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: 'Kamu asisten kelas yang ramah dan membantu. Jawab dalam Bahasa Indonesia dengan ringkas dan jelas.' }],
-          },
-          contents: messages.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + data.api_key,
+        },
+        body: JSON.stringify({ ...payload, model }),
       });
       if (res.ok) {
         const json = await res.json();
-        const text = (json?.candidates?.[0]?.content?.parts || []).map((p: any) => p.text).join('') || '(tidak ada jawaban)';
+        const text = (json?.choices?.[0]?.message?.content || '').trim() || '(tidak ada jawaban)';
         usedModel = model;
         return { text, usedModel };
       }
       const t = await res.text();
-      lastErr = 'Gemini error ' + res.status + ' (' + model + '): ' + t.slice(0, 250);
-      if (res.status !== 404) break;
+      lastErr = 'Groq error ' + res.status + ' (' + model + '): ' + t.slice(0, 250);
+      if (res.status !== 404 && res.status !== 429) break;
     } catch (e: any) {
-      lastErr = 'Gagal memanggil Gemini: ' + (e && e.message ? e.message : 'network error');
+      lastErr = 'Gagal memanggil Groq: ' + (e && e.message ? e.message : 'network error');
       break;
     }
   }

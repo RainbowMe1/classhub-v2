@@ -33,7 +33,7 @@ export default function AISettings({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-acc" />
-            Pengaturan AI
+            Pengaturan AI (Groq)
           </h3>
           <button type="button" onClick={onClose} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
             <X className="h-5 w-5" />
@@ -41,17 +41,23 @@ export default function AISettings({ onClose }: { onClose: () => void }) {
         </div>
         {err && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{err}</div>}
         <div>
-          <div className="text-xs text-mut mb-1">Gemini API Key (kosongkan biar tetap yang lama)</div>
-          <input name="api_key" type="password" placeholder="AIza..." className={inputCls} />
+          <div className="text-xs text-mut mb-1">Groq API Key (kosongkan biar tetap yang lama)</div>
+          <input name="api_key" type="password" placeholder="gsk_..." className={inputCls} />
         </div>
         <div>
           <div className="text-xs text-mut mb-1">Model</div>
-          <input name="model" defaultValue="gemini-3.6-flash" className={inputCls} />
+          <input name="model" defaultValue="llama-3.3-70b-versatile" className={inputCls} />
+          <div className="text-[10px] text-mut mt-1">
+            Rekomendasi: <code className="text-acc">llama-3.3-70b-versatile</code>, <code className="text-acc">llama-3.1-8b-instant</code>, <code className="text-acc">meta-llama/llama-4-scout-17b-16e-instruct</code>
+          </div>
         </div>
         <button disabled={busy} className="w-full py-2 rounded-lg bg-acc text-acc-ink text-sm font-semibold disabled:opacity-50">
           {busy ? 'Menyimpan...' : 'Simpan'}
         </button>
-        <p className="text-[11px] text-mut">Key disimpan di database & dipakai server-side. Gak pernah dikirim ke browser anggota.</p>
+        <p className="text-[11px] text-mut">
+          Ambil key gratis di <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-acc underline">console.groq.com</a>.
+          Key disimpan di database & dipakai server-side.
+        </p>
       </form>
     </div>
   );

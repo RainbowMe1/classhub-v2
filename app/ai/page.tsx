@@ -12,7 +12,7 @@ export default async function AIPage() {
       <AIChat
         isAdmin={user.profile.role === 'admin'}
         configured={!!data?.api_key}
-        model={data?.model || 'gemini-3.6-flash'}
+        model={data?.model || 'llama-3.3-70b-versatile'}
       />
     </AppLayout>
   );

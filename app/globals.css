@@ -218,3 +218,11 @@ h1, h2, h3, .font-black {
   font-family: 'Poppins', 'Inter', sans-serif;
   letter-spacing: -0.02em;
 }
+
+/* UI-UPGRADE: READABILITY */
+.bg-card {
+  background-color: color-mix(in srgb, var(--t-card, #161616) 90%, transparent) !important;
+}
+.bg-card-2 {
+  background-color: color-mix(in srgb, var(--t-card-2, #1f1f1f) 92%, transparent) !important;
+}

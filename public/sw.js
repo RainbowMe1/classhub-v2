@@ -34,3 +34,22 @@ self.addEventListener('fetch', function (e) {
       })
   );
 });
+
+self.addEventListener('push', function (e) {
+  if (!e.data) return;
+  var data = e.data.json();
+  var title = data.title || 'ClassHub';
+  var options = {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: data.url || '/dashboard' },
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function (e) {
+  e.notification.close();
+  var url = e.notification.data && e.notification.data.url ? e.notification.data.url : '/dashboard';
+  e.waitUntil(clients.openWindow(url));
+});

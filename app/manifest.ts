@@ -1,36 +1,23 @@
 import type { MetadataRoute } from 'next';
-import { createAdminClient } from '@/lib/supabase/admin';
 
-export const revalidate = 300;
-
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  let name = 'ClassHub';
-  let logo: string | null = null;
-  try {
-    const admin = createAdminClient();
-    const { data } = await admin.from('class_settings').select('*').limit(1);
-    if (data && data.length > 0) {
-      name = data[0].class_name || name;
-      logo = data[0].logo_url || null;
-    }
-  } catch (e) {}
-
-  const icons: any[] = [];
-  if (logo) {
-    icons.push({ url: logo, sizes: '192x192', type: 'image/png' });
-    icons.push({ url: logo, sizes: '512x512', type: 'image/png' });
-  }
-  icons.push({ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' });
-  icons.push({ url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' });
-
+export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: name,
-    short_name: name,
-    description: 'Aplikasi kelas kamu',
+    name: 'ClassHub XII Sains Tech 2',
+    short_name: 'ClassHub',
+    description: 'Aplikasi kelas XII Sains Tech 2 MAN 4 Bogor — feed, chat, tugas, piket, jadwal, galeri, musik, dan asisten AI.',
+    id: 'classhub-xii-sainstech-2',
     start_url: '/',
+    scope: '/',
     display: 'standalone',
+    orientation: 'portrait',
     background_color: '#0a0a0a',
     theme_color: '#0a0a0a',
-    icons: icons,
+    lang: 'id',
+    categories: ['education', 'productivity'],
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
   };
 }

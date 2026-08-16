@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap');
 @import "tailwindcss";
 
 @theme inline {
@@ -197,3 +198,23 @@ body, aside, header, nav {
 
 /* anim-fade-up-fix: jangan sisakan transform, biar fixed overlay gak terjebak */
 .anim-fade-up { animation-fill-mode: backwards !important; }
+
+/* UI-UPGRADE: GLASS */
+.glass {
+  background: color-mix(in srgb, var(--t-card, #161616) 72%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* UI-UPGRADE: FONTS (rules) */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+h1, h2, h3, .font-black {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+}

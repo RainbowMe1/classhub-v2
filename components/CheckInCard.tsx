@@ -61,7 +61,10 @@ export default function CheckInCard() {
   const [mood, setMood] = useState('happy');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    load();
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -75,8 +78,6 @@ export default function CheckInCard() {
     }
   }, []);
 
-  useEffect(() => { if (mounted) load(); }, [load, mounted]);
-
   async function doCheckIn() {
     setBusy(true);
     setErrMsg('');
@@ -87,37 +88,34 @@ export default function CheckInCard() {
     await load();
   }
 
-  // Server render: kosong (placeholder)
-  if (!mounted) {
-    return <div className="bg-card border border-line rounded-2xl p-5 h-[200px]" />;
-  }
-
-  // Client render: full content
+  const showGreeting = mounted ? greeting() : 'Selamat datang';
+  const showQuote = mounted ? quoteOfDay() : 'Memuat...';
+  const showStreak = status ? status.streak : 0;
   const todayMood = status && status.today ? MOODS.find((m) => m.key === status.today.mood) : null;
 
   return (
     <div className="bg-card border border-line rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold">{greeting()}! 👋</div>
+        <div className="text-sm font-semibold">{showGreeting}! 👋</div>
         <div className="flex items-center gap-1 text-xs font-bold text-orange-400">
           <Flame className="h-4 w-4" />
-          Streak: {status ? status.streak : 0} hari
+          Streak: {showStreak} hari
         </div>
       </div>
 
       <div className="flex items-start gap-2 p-3 rounded-xl bg-card-2 border border-line">
         <Sparkles className="h-4 w-4 text-acc shrink-0 mt-0.5" />
-        <p className="text-sm text-mut italic">"{quoteOfDay()}"</p>
+        <p className="text-sm text-mut italic">"{showQuote}"</p>
       </div>
 
-      {phase === 'loading' && (
+      {mounted && phase === 'loading' && (
         <div className="flex items-center gap-2 text-sm text-mut">
           <Loader2 className="h-4 w-4 animate-spin" />
           Memuat check-in...
         </div>
       )}
 
-      {phase === 'error' && (
+      {mounted && phase === 'error' && (
         <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs space-y-1">
           <div className="flex items-center gap-2 font-semibold">
             <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -127,7 +125,7 @@ export default function CheckInCard() {
         </div>
       )}
 
-      {phase === 'ready' && status && (status.today ? (
+      {mounted && phase === 'ready' && status && (status.today ? (
         <div className="flex items-center gap-2 text-sm text-acc">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           Kamu udah check-in hari ini dengan mood {todayMood ? todayMood.emoji : '😊'} — sampai jumpa besok!

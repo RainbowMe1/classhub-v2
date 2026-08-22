@@ -93,7 +93,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
       </header>
 
       <div className="md:pl-64">
-        <main className="pb-24 md:pb-8">{children}</main>
+        <main className="pb-24 md:pb-8"><CheckInCard />{children}</main>
       </div>
 
       <MobileNav items={navItems} userId={profile.user_id} />

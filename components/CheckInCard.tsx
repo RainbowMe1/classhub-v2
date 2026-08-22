@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { getCheckInStatus, checkIn } from '@/lib/auth/checkin-actions';
 import { Flame, Sparkles, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -61,6 +62,11 @@ export default function CheckInCard() {
   const [errMsg, setErrMsg] = useState('');
   const [mood, setMood] = useState('happy');
   const [busy, setBusy] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -82,7 +88,7 @@ export default function CheckInCard() {
     if (pathname === '/dashboard') load();
   }, [pathname, load]);
 
-  if (pathname !== '/dashboard') return null;
+  if (!mounted || pathname !== '/dashboard') return null;
 
   async function doCheckIn() {
     setBusy(true);
@@ -98,8 +104,8 @@ export default function CheckInCard() {
 
   const todayMood = status && status.today ? MOODS.find((m) => m.key === status.today.mood) : null;
 
-  return (
-    <div className="max-w-5xl mx-auto px-4 pt-4 pb-2">
+  return createPortal(
+    <div className="max-w-5xl mx-auto px-4 pt-4 pb-24 md:pb-8">
       <div className="bg-card border border-line rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">{greeting()}! 👋</div>
@@ -168,6 +174,7 @@ export default function CheckInCard() {
           </>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

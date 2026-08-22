@@ -42,3 +42,16 @@ export async function checkIn(mood: string) {
   }
   return { success: true };
 }
+
+export async function getCheckInHistory() {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('check_ins')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('check_in_date', { ascending: false })
+    .limit(90);
+  if (error) return [];
+  return data ?? [];
+}

@@ -7,15 +7,16 @@ function dayStr(offset: number) {
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 }
 
-export async function getCheckInStatus() {
+export async function getCheckInStatus(): Promise<any> {
   const user = await requireUser();
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('check_ins')
     .select('*')
     .eq('user_id', user.id)
     .order('check_in_date', { ascending: false })
     .limit(120);
+  if (error) return { error: 'DB: ' + error.message };
   const rows = data ?? [];
   const todayRow = rows.find((r) => r.check_in_date === dayStr(0)) || null;
   const dates = new Set(rows.map((r) => r.check_in_date));
@@ -37,7 +38,7 @@ export async function checkIn(mood: string) {
   });
   if (error) {
     if (error.code === '23505') return { error: 'Kamu udah check-in hari ini.' };
-    return { error: error.message };
+    return { error: 'DB: ' + error.message };
   }
   return { success: true };
 }

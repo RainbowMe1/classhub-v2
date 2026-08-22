@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
+import CheckInCard from '@/components/CheckInCard';
 import ClassBrand from '@/components/ClassBrand';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
@@ -93,7 +94,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
       </header>
 
       <div className="md:pl-64">
-        <main className="pb-24 md:pb-8"><CheckInCard />{children}</main>
+        <main className="pb-24 md:pb-8">{children}<CheckInCard /></main>
       </div>
 
       <MobileNav items={navItems} userId={profile.user_id} />

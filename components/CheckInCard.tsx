@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { getCheckInStatus, checkIn } from '@/lib/auth/checkin-actions';
-import { Flame, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
+import { Flame, Sparkles, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const QUOTES = [
   'Sedikit demi sedikit, lama-lama menjadi bukit.',
@@ -57,41 +57,55 @@ function greeting() {
 export default function CheckInCard() {
   const pathname = usePathname();
   const [status, setStatus] = useState<{ today: any; streak: number } | null>(null);
+  const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [errMsg, setErrMsg] = useState('');
   const [mood, setMood] = useState('happy');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (pathname !== '/dashboard') return;
-    (async () => {
-      try {
-        const s = await getCheckInStatus();
-        setStatus(s);
-      } catch (e) {}
-    })();
-  }, [pathname]);
+  const load = useCallback(async () => {
+    try {
+      const s: any = await getCheckInStatus();
+      if (s && s.error) {
+        setErrMsg(s.error);
+        setPhase('error');
+        return;
+      }
+      setStatus(s);
+      setPhase('ready');
+    } catch (e: any) {
+      setErrMsg(String((e && e.message) || e));
+      setPhase('error');
+    }
+  }, []);
 
-  if (pathname !== '/dashboard' || !status) return null;
+  useEffect(() => {
+    if (pathname === '/dashboard') load();
+  }, [pathname, load]);
+
+  if (pathname !== '/dashboard') return null;
 
   async function doCheckIn() {
     setBusy(true);
-    const res = await checkIn(mood);
+    setErrMsg('');
+    const res: any = await checkIn(mood);
     setBusy(false);
-    if (res && !res.error) {
-      const s = await getCheckInStatus();
-      setStatus(s);
+    if (res && res.error) {
+      setErrMsg(res.error);
+      return;
     }
+    await load();
   }
 
-  const todayMood = status.today ? MOODS.find((m) => m.key === status.today.mood) : null;
+  const todayMood = status && status.today ? MOODS.find((m) => m.key === status.today.mood) : null;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 pt-4">
-      <div className="bg-card border border-line rounded-2xl p-5 space-y-4 anim-fade-up">
+    <div className="max-w-5xl mx-auto px-4 pt-4 pb-2">
+      <div className="bg-card border border-line rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">{greeting()}! 👋</div>
           <div className="flex items-center gap-1 text-xs font-bold text-orange-400">
             <Flame className="h-4 w-4" />
-            Streak: {status.streak} hari
+            Streak: {status ? status.streak : 0} hari
           </div>
         </div>
 
@@ -100,13 +114,32 @@ export default function CheckInCard() {
           <p className="text-sm text-mut italic">"{quoteOfDay()}"</p>
         </div>
 
-        {status.today ? (
+        {phase === 'loading' && (
+          <div className="flex items-center gap-2 text-sm text-mut">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Memuat check-in...
+          </div>
+        )}
+
+        {phase === 'error' && (
+          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs space-y-1">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Check-in belum bisa dipakai
+            </div>
+            <div>{errMsg}</div>
+            <div className="text-red-300/80">Kalau pesannya "relation check_ins does not exist", artinya SQL tabel check_ins belum dijalanin di Supabase.</div>
+          </div>
+        )}
+
+        {phase === 'ready' && status && (status.today ? (
           <div className="flex items-center gap-2 text-sm text-acc">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             Kamu udah check-in hari ini dengan mood {todayMood ? todayMood.emoji : '😊'} — sampai jumpa besok!
           </div>
         ) : (
           <>
+            {errMsg && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{errMsg}</div>}
             <div className="text-xs text-mut">Mood kamu hari ini?</div>
             <div className="flex gap-2">
               {MOODS.map((m) => (
@@ -133,7 +166,7 @@ export default function CheckInCard() {
               Check-in Sekarang
             </button>
           </>
-        )}
+        ))}
       </div>
     </div>
   );

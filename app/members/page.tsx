@@ -1,20 +1,191 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, Crop } from 'lucide-react';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
 import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
-
-// Import Cropper
-import Cropper from 'react-cropper';
-import 'cropperjs/dist/cropper.css';
 
 function igUrl(v: string) {
   if (v.startsWith('http')) return v;
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
+}
+
+// Komponen Crop Foto Custom (Sama seperti di profil)
+function CropImageModal({ 
+  file, 
+  onClose, 
+  onCropComplete 
+}: { 
+  file: File; 
+  onClose: () => void; 
+  onCropComplete: (croppedFile: File) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      if (imgRef.current) {
+        imgRef.current.src = img.src;
+      }
+    };
+  }, [file]);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setScale(prev => Math.min(Math.max(prev + delta, 1), 3));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    setPosition({
+      x: touch.clientX - dragStart.x,
+      y: touch.clientY - dragStart.y
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const saveCrop = useCallback(() => {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size (512x512 untuk kualitas bagus)
+    canvas.width = 512;
+    canvas.height = 512;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Buat lingkaran clip
+    ctx.beginPath();
+    ctx.arc(256, 256, 256, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    // Gambar gambar dengan transformasi
+    const imgSize = Math.max(img.width, img.height) * scale;
+    const x = 256 - (img.width / 2) * scale + position.x;
+    const y = 256 - (img.height / 2) * scale + position.y;
+
+    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+    // Convert ke file
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const croppedFile = new File([blob], file.name, { type: 'image/jpeg' });
+        onCropComplete(croppedFile);
+      }
+    }, 'image/jpeg', 0.9);
+  }, [file, scale, position, onCropComplete]);
+
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
+      <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
+        <h3 className="text-lg font-bold mb-4">Atur Foto Profil</h3>
+        
+        {/* Preview Bulat */}
+        <div className="relative flex items-center justify-center mb-4">
+          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative">
+            <img
+              ref={imgRef}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onWheel={handleWheel}
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                cursor: isDragging ? 'grabbing' : 'grab',
+                touchAction: 'none'
+              }}
+              className="select-none"
+              alt="Crop preview"
+            />
+          </div>
+        </div>
+
+        {/* Zoom Slider */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <ZoomOut className="h-4 w-4 text-mut" />
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.1"
+              value={scale}
+              onChange={(e) => setScale(parseFloat(e.target.value))}
+              className="flex-1 h-1 bg-line rounded-lg appearance-none cursor-pointer accent-acc"
+            />
+            <ZoomIn className="h-4 w-4 text-mut" />
+          </div>
+          <p className="text-[10px] text-mut text-center">
+            Geser buat atur posisi. Preview bulat = hasil akhir.
+          </p>
+        </div>
+
+        {/* Tombol */}
+        <div className="flex gap-2">
+          <button 
+            onClick={onClose} 
+            className="flex-1 py-2.5 rounded-xl bg-line text-ink text-sm font-semibold"
+          >
+            Batal
+          </button>
+          <button 
+            onClick={saveCrop} 
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-green-400 to-teal-400 text-acc-ink text-sm font-bold"
+          >
+            Simpan Foto
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function MembersPage() {
@@ -29,9 +200,8 @@ export default function MembersPage() {
   
   // State untuk Crop Gambar
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [croppedFile, setCroppedFile] = useState<File | null>(null);
-  const cropperRef = useRef<HTMLImageElement>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
 
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState('');
@@ -59,32 +229,23 @@ export default function MembersPage() {
       is_banned: member.is_banned || false 
     });
     setSelectedFile(null);
-    setPreviewUrl(null);
     setCroppedFile(null);
+    setShowCropModal(false);
     setEditMsg(''); 
     setEditErr('');
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setCroppedFile(null); // Reset crop sebelumnya
+      setShowCropModal(true);
     }
   };
 
-  const applyCrop = () => {
-    const imageElement: any = cropperRef?.current;
-    const cropper: any = imageElement?.cropper;
-    if (cropper && selectedFile) {
-      cropper.getCroppedCanvas().toBlob((blob: Blob) => {
-        const cropped = new File([blob], selectedFile.name, { type: 'image/jpeg' });
-        setCroppedFile(cropped);
-        setPreviewUrl(null); // Sembunyikan cropper setelah berhasil
-      }, 'image/jpeg', 0.9);
-    }
+  const handleCropComplete = (cropped: File) => {
+    setCroppedFile(cropped);
+    setShowCropModal(false);
   };
 
   async function saveEdit() {
@@ -101,10 +262,9 @@ export default function MembersPage() {
     formData.append('role', editForm.role);
     formData.append('is_banned', editForm.is_banned ? 'on' : 'off');
     
-    // Gunakan file yang sudah di-crop, jika ada. Jika tidak, pakai file asli.
-    const finalFile = croppedFile || selectedFile;
-    if (finalFile) {
-      formData.append('avatar_file', finalFile);
+    // Gunakan file yang sudah di-crop
+    if (croppedFile) {
+      formData.append('avatar_file', croppedFile);
     }
 
     const res: any = await adminUpdateProfile(editingMember, formData);
@@ -193,7 +353,19 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL EDIT ANGGOTA (DENGAN FITUR CROP) */}
+      {/* MODAL CROP FOTO */}
+      {showCropModal && selectedFile && (
+        <CropImageModal
+          file={selectedFile}
+          onClose={() => {
+            setShowCropModal(false);
+            setSelectedFile(null);
+          }}
+          onCropComplete={handleCropComplete}
+        />
+      )}
+
+      {/* MODAL EDIT ANGGOTA */}
       {editingMember && (
         <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
           <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -209,34 +381,24 @@ export default function MembersPage() {
                 <input value={editForm.full_name} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
               </div>
               
-              {/* AREA UPLOAD & CROP FOTO */}
+              {/* UPLOAD FOTO DENGAN PREVIEW */}
               <div>
                 <label className="text-[10px] text-mut">Foto Profil</label>
-                
-                {!previewUrl ? (
-                  <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">
-                    <Upload className="h-4 w-4 text-mut" />
-                    <span className="text-mut truncate flex-1">{croppedFile ? 'Foto berhasil dipotong! Klik untuk ganti.' : 'Pilih file gambar...'}</span>
-                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-                  </label>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="border border-line rounded-lg overflow-hidden bg-black" style={{ height: '250px' }}>
-                      <Cropper
-                        src={previewUrl}
-                        style={{ height: '100%', width: '100%' }}
-                        aspectRatio={1} // Rasio 1:1 untuk foto profil
-                        viewMode={1}
-                        guides={true}
-                        ref={cropperRef}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => { setPreviewUrl(null); setSelectedFile(null); setCroppedFile(null); }} className="flex-1 py-2 rounded-lg bg-line text-ink text-xs font-semibold">Batal</button>
-                      <button onClick={applyCrop} className="flex-1 py-2 rounded-lg bg-acc text-acc-ink text-xs font-bold flex items-center justify-center gap-2">
-                        <Crop className="h-3 w-3" /> Gunakan Foto Ini
-                      </button>
-                    </div>
+                <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">
+                  <Upload className="h-4 w-4 text-mut" />
+                  <span className="text-mut truncate flex-1">
+                    {croppedFile ? '✅ Foto sudah dipilih. Klik untuk ganti.' : 'Pilih file gambar...'}
+                  </span>
+                  <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                </label>
+                {croppedFile && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img 
+                      src={URL.createObjectURL(croppedFile)} 
+                      alt="Preview" 
+                      className="w-12 h-12 rounded-full object-cover border border-line"
+                    />
+                    <span className="text-[10px] text-acc">Foto siap diupload</span>
                   </div>
                 )}
               </div>

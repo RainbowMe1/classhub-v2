@@ -13,7 +13,7 @@ function igUrl(v: string) {
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
 }
 
-// Komponen Crop Foto - VERSI FIX (canvas dinamis, pasti jalan)
+// Komponen Crop Foto - VERSI FINAL FIX
 function CropImageModal({ 
   file, 
   onClose, 
@@ -37,15 +37,13 @@ function CropImageModal({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // HAPUS preventDefault dari wheel - pakai CSS touch-action instead
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setScale(prev => Math.min(Math.max(prev + delta, 1), 3));
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
@@ -82,38 +80,64 @@ function CropImageModal({
   };
 
   const saveCrop = useCallback(() => {
+    console.log('saveCrop called', { imgLoaded, imgRef: imgRef.current });
+    
     const img = imgRef.current;
     if (!img || !imgLoaded) {
-      alert('Foto belum siap. Coba lagi.');
+      console.error('Image not ready', { img, imgLoaded });
       return;
     }
 
-    // Bikin canvas dinamis (gak perlu di JSX)
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Clear & clip lingkaran
-    ctx.clearRect(0, 0, 512, 512);
-    ctx.beginPath();
-    ctx.arc(256, 256, 256, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-
-    // Gambar dengan transformasi
-    const x = 256 - (img.naturalWidth / 2) * scale + position.x;
-    const y = 256 - (img.naturalHeight / 2) * scale + position.y;
-    ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
-
-    // Convert ke file
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-        onCropComplete(croppedFile);
+    try {
+      // Bikin canvas dinamis
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('Cannot get canvas context');
+        return;
       }
-    }, 'image/jpeg', 0.9);
+
+      // Clear & clip lingkaran
+      ctx.clearRect(0, 0, 512, 512);
+      ctx.beginPath();
+      ctx.arc(256, 256, 256, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      // Gambar dengan transformasi
+      const x = 256 - (img.naturalWidth / 2) * scale + position.x;
+      const y = 256 - (img.naturalHeight / 2) * scale + position.y;
+      
+      console.log('Drawing image', { 
+        naturalWidth: img.naturalWidth, 
+        naturalHeight: img.naturalHeight, 
+        scale, 
+        position, 
+        x, 
+        y 
+      });
+      
+      ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
+
+      // Convert ke blob dengan Promise
+      const blob = new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9);
+      });
+
+      blob.then((b) => {
+        if (b) {
+          console.log('Blob created', { size: b.size, type: b.type });
+          const croppedFile = new File([b], 'avatar.jpg', { type: 'image/jpeg' });
+          onCropComplete(croppedFile);
+        } else {
+          console.error('Blob creation failed');
+        }
+      });
+    } catch (error) {
+      console.error('saveCrop error', error);
+    }
   }, [scale, position, imgLoaded, onCropComplete]);
 
   return (
@@ -121,13 +145,16 @@ function CropImageModal({
       <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
         <h3 className="text-lg font-bold mb-4">Atur Foto Profil</h3>
         
-        {/* Preview Bulat */}
+        {/* Preview Bulat - tambah class touch-none */}
         <div className="relative flex items-center justify-center mb-4">
-          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20">
+          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none">
             <img
               ref={imgRef}
               src={imgSrc}
-              onLoad={() => setImgLoaded(true)}
+              onLoad={() => {
+                console.log('Image loaded', imgRef.current);
+                setImgLoaded(true);
+              }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -140,9 +167,9 @@ function CropImageModal({
                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                 cursor: isDragging ? 'grabbing' : 'grab',
                 touchAction: 'none',
-                maxWidth: 'none'
+                maxWidth: 'none',
+                userSelect: 'none'
               }}
-              className="select-none"
               alt="Crop preview"
             />
           </div>
@@ -179,7 +206,10 @@ function CropImageModal({
           </button>
           <button 
             type="button"
-            onClick={saveCrop} 
+            onClick={() => {
+              console.log('Button clicked', { imgLoaded, img: imgRef.current });
+              saveCrop();
+            }} 
             disabled={!imgLoaded}
             className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold disabled:opacity-50"
           >
@@ -244,6 +274,7 @@ export default function MembersPage() {
   };
 
   const handleCropComplete = (cropped: File) => {
+    console.log('Crop complete', { cropped, size: cropped.size });
     setCroppedFile(cropped);
     setShowCropModal(false);
   };
@@ -264,6 +295,7 @@ export default function MembersPage() {
     
     if (croppedFile) {
       formData.append('avatar_file', croppedFile);
+      console.log('Uploading file', { size: croppedFile.size, type: croppedFile.type });
     }
 
     const res: any = await adminUpdateProfile(editingMember, formData);

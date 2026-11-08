@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, Plus, Minus } from 'lucide-react';
 import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
 
 function igUrl(v: string) {
@@ -126,7 +126,7 @@ function CropImageModal({
         
         {/* Preview Bulat */}
         <div className="relative flex items-center justify-center mb-4">
-          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative">
+          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20">
             <img
               ref={imgRef}
               onMouseDown={handleMouseDown}
@@ -142,7 +142,7 @@ function CropImageModal({
                 cursor: isDragging ? 'grabbing' : 'grab',
                 touchAction: 'none'
               }}
-              className="select-none"
+              className="select-none max-w-none"
               alt="Crop preview"
             />
           </div>
@@ -151,7 +151,7 @@ function CropImageModal({
         {/* Zoom Slider */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
-            <ZoomOut className="h-4 w-4 text-mut" />
+            <Minus className="h-4 w-4 text-mut" />
             <input
               type="range"
               min="1"
@@ -161,10 +161,10 @@ function CropImageModal({
               onChange={(e) => setScale(parseFloat(e.target.value))}
               className="flex-1 h-1 bg-line rounded-lg appearance-none cursor-pointer accent-acc"
             />
-            <ZoomIn className="h-4 w-4 text-mut" />
+            <Plus className="h-4 w-4 text-mut" />
           </div>
           <p className="text-[10px] text-mut text-center">
-            Geser buat atur posisi. Preview bulat = hasil akhir.
+            Geser slider atau scroll mouse buat zoom. Drag buat geser.
           </p>
         </div>
 
@@ -178,9 +178,9 @@ function CropImageModal({
           </button>
           <button 
             onClick={saveCrop} 
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-green-400 to-teal-400 text-acc-ink text-sm font-bold"
+            className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold"
           >
-            Simpan Foto
+            Gunakan Foto Ini
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
+import BirthdayBanner from '@/components/BirthdayBanner';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2 } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2, Cake } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 
@@ -17,6 +18,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
     { href: '/dashboard', icon: Home, label: 'Home' },
     { href: '/feed', icon: Newspaper, label: 'Feed' },
     { href: '/checkin', icon: CalendarCheck2, label: 'Check-in' },
+    { href: '/ultah', icon: Cake, label: 'Ulang Tahun' },
     { href: '/my-posts', icon: Files, label: 'Postinganku' },
     { href: '/chat', icon: MessageCircle, label: 'Chat' },
     { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
@@ -95,7 +97,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
       </header>
 
       <div className="md:pl-64">
-        <main className="pb-24 md:pb-8">{children}</main>
+        <main className="pb-24 md:pb-8"><BirthdayBanner />{children}</main>
       </div>
 
       <MobileNav items={navItems} userId={profile.user_id} />

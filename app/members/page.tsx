@@ -13,7 +13,7 @@ function igUrl(v: string) {
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
 }
 
-// Komponen Crop Foto - VERSI FINAL YANG BENAR
+// Komponen Crop Foto - VERSI FINAL
 function CropImageModal({ 
   file, 
   onClose, 
@@ -23,25 +23,23 @@ function CropImageModal({
   onClose: () => void; 
   onCropComplete: (croppedFile: File) => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
-    setImgSrc(url);
-    
-    // Pre-load image untuk dapet dimensi
     const img = new Image();
     img.onload = () => {
       setImgDimensions({ width: img.width, height: img.height });
+      setImgSrc(url);
+      setReady(true);
     };
     img.src = url;
-    
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
@@ -87,16 +85,9 @@ function CropImageModal({
   };
 
   const saveCrop = useCallback(() => {
-    if (!imgSrc || imgDimensions.width === 0) {
-      console.error('Image not ready');
-      return;
-    }
+    if (!imgSrc || imgDimensions.width === 0) return;
 
-    console.log('Starting crop', { scale, position, imgDimensions });
-
-    // Load image untuk canvas
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = 512;
@@ -104,28 +95,19 @@ function CropImageModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Clear & clip lingkaran
       ctx.clearRect(0, 0, 512, 512);
       ctx.beginPath();
       ctx.arc(256, 256, 256, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
 
-      // Container size (192px = w-48 h-48)
       const containerSize = 192;
-      
-      // Hitung ukuran gambar yang di-display di container
       const displayWidth = imgDimensions.width * scale;
       const displayHeight = imgDimensions.height * scale;
-      
-      // Hitung offset agar gambar centered di container
       const offsetX = (containerSize - displayWidth) / 2 + position.x;
       const offsetY = (containerSize - displayHeight) / 2 + position.y;
-      
-      // Scale dari container (192px) ke canvas (512px) = 512/192 = 2.666...
       const canvasScale = 512 / containerSize;
-      
-      // Gambar di canvas dengan transformasi yang sama persis dengan preview
+
       ctx.drawImage(
         img,
         offsetX * canvasScale,
@@ -134,49 +116,36 @@ function CropImageModal({
         displayHeight * canvasScale
       );
 
-      console.log('Drawing complete', { 
-        displayWidth, 
-        displayHeight, 
-        offsetX, 
-        offsetY, 
-        canvasScale 
-      });
-
-      // Convert ke blob
       canvas.toBlob((blob) => {
         if (blob) {
-          console.log('Blob created', { size: blob.size });
           const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
           onCropComplete(croppedFile);
-        } else {
-          console.error('Blob creation failed');
         }
       }, 'image/jpeg', 0.9);
     };
     img.src = imgSrc;
   }, [scale, position, imgSrc, imgDimensions, onCropComplete]);
 
-  if (!imgSrc) {
+  // Loading state - TIDAK ADA <img> di sini
+  if (!ready || !imgSrc) {
     return (
       <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
-        <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
-          <p className="text-center text-mut">Memuat gambar...</p>
+        <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full text-center">
+          <Loader2 className="h-8 w-8 mx-auto text-acc animate-spin mb-3" />
+          <p className="text-mut text-sm">Memuat gambar...</p>
         </div>
       </div>
     );
   }
 
+  // Render utama - imgSrc DIJAMIN tidak null di sini
   return (
     <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
       <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
         <h3 className="text-lg font-bold mb-4">Atur Foto Profil</h3>
         
-        {/* Preview Bulat */}
         <div className="relative flex items-center justify-center mb-4">
-          <div 
-            ref={containerRef}
-            className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none"
-          >
+          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none">
             <img
               src={imgSrc}
               onMouseDown={handleMouseDown}
@@ -205,7 +174,6 @@ function CropImageModal({
           </div>
         </div>
 
-        {/* Zoom Slider */}
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Minus className="h-4 w-4 text-mut" />
@@ -225,7 +193,6 @@ function CropImageModal({
           </p>
         </div>
 
-        {/* Tombol */}
         <div className="flex gap-2">
           <button 
             type="button"
@@ -300,7 +267,6 @@ export default function MembersPage() {
   };
 
   const handleCropComplete = (cropped: File) => {
-    console.log('Crop complete', { size: cropped.size });
     setCroppedFile(cropped);
     setShowCropModal(false);
   };

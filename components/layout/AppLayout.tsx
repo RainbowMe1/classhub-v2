@@ -1,7 +1,7 @@
 'use client';
 import BirthdayBanner from '@/components/BirthdayBanner';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2, Cake } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2, Cake, Camera } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 
@@ -19,6 +19,7 @@ export default function AppLayout({ children, profile, settings }: { children: R
     { href: '/feed', icon: Newspaper, label: 'Feed' },
     { href: '/checkin', icon: CalendarCheck2, label: 'Check-in' },
     { href: '/ultah', icon: Cake, label: 'Ulang Tahun' },
+    { href: '/absen', icon: Camera, label: 'Absensi' },
     { href: '/my-posts', icon: Files, label: 'Postinganku' },
     { href: '/chat', icon: MessageCircle, label: 'Chat' },
     { href: '/tasks', icon: ClipboardList, label: 'Tugas' },

@@ -1,11 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign } from 'lucide-react';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2 } from 'lucide-react';
+import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
 
 function igUrl(v: string) {
   if (v.startsWith('http')) return v;
@@ -18,6 +19,13 @@ export default function MembersPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [sel, setSel] = useState<any | null>(null);
 
+  // State untuk Edit
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [editBusy, setEditBusy] = useState(false);
+  const [editMsg, setEditMsg] = useState('');
+  const [editErr, setEditErr] = useState('');
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -28,6 +36,44 @@ export default function MembersPage() {
       setMembers(m ?? []);
     })();
   }, []);
+
+  function startEdit(member: any) {
+    setEditingMember(member.user_id);
+    setEditForm({ 
+      full_name: member.full_name || '', 
+      bio: member.bio || '', 
+      jabatan: member.jabatan || '', 
+      sesi_pendidikan: member.sesi_pendidikan || '', 
+      role: member.role || 'student', 
+      avatar_url: member.avatar_url || '', 
+      is_banned: member.is_banned || false 
+    });
+    setEditMsg(''); 
+    setEditErr('');
+  }
+
+  async function saveEdit() {
+    if (!editingMember) return;
+    setEditBusy(true); 
+    setEditMsg(''); 
+    setEditErr('');
+    
+    const res: any = await adminUpdateProfile(editingMember, editForm);
+    setEditBusy(false);
+    
+    if (res && res.error) { 
+      setEditErr(res.error); 
+      return; 
+    }
+    
+    setEditMsg('Profil berhasil diperbarui ✓');
+    setEditingMember(null);
+    setSel(null); // Tutup modal detail jika terbuka
+    
+    // Refresh data members agar perubahan langsung terlihat
+    const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
+    setMembers(m ?? []);
+  }
 
   if (!profile) return <div className="min-h-screen" />;
 
@@ -58,20 +104,32 @@ export default function MembersPage() {
         </div>
       </div>
 
+      {/* MODAL DETAIL ANGGOTA */}
       {sel && (
         <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => setSel(null)}>
           <div
             role="dialog"
             aria-modal="true"
-            className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center"
+            className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-end -mb-2">
+            <div className="flex justify-between items-start absolute top-2 left-2 right-2">
               <button onClick={() => setSel(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
+              {/* TOMBOL EDIT DI SINI */}
+              <button 
+                onClick={() => { startEdit(sel); setSel(null); }} 
+                className="p-2 text-mut hover:text-acc transition" 
+                aria-label="Edit Anggota"
+              >
+                <Edit3 className="h-5 w-5" />
+              </button>
             </div>
-            <Avatar data={sel} className="h-24 w-24 mx-auto text-3xl" />
+            
+            <div className="mt-8">
+              <Avatar data={sel} className="h-24 w-24 mx-auto text-3xl" />
+            </div>
             <div>
               <div className="text-lg font-bold flex items-center justify-center gap-2">
                 {sel.full_name}
@@ -97,6 +155,63 @@ export default function MembersPage() {
             )}
             <div className="text-xs text-mut border-t border-line pt-3">
               Bergabung {new Date(sel.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDIT ANGGOTA */}
+      {editingMember && (
+        <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
+          <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Edit3 className="h-5 w-5 text-acc" /> Edit Anggota
+            </h2>
+            {editMsg && <div className="p-2 rounded-lg bg-acc/10 border border-acc/30 text-acc text-xs mb-3">{editMsg}</div>}
+            {editErr && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-3">{editErr}</div>}
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-mut">Nama Lengkap</label>
+                <input value={editForm.full_name} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+              </div>
+              <div>
+                <label className="text-[10px] text-mut">URL Foto Profil</label>
+                <input value={editForm.avatar_url} onChange={(e) => setEditForm({...editForm, avatar_url: e.target.value})} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-mut">Jabatan</label>
+                  <input value={editForm.jabatan} onChange={(e) => setEditForm({...editForm, jabatan: e.target.value})} placeholder="Ketua Kelas" className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-mut">Sesi Pendidikan</label>
+                  <input value={editForm.sesi_pendidikan} onChange={(e) => setEditForm({...editForm, sesi_pendidikan: e.target.value})} placeholder="Pagi/Siang" className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-mut">Bio</label>
+                <textarea value={editForm.bio} onChange={(e) => setEditForm({...editForm, bio: e.target.value})} rows={2} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+              </div>
+              <div className="flex gap-2 items-center">
+                <label className="text-[10px] text-mut">Role</label>
+                <select value={editForm.role} onChange={(e) => setEditForm({...editForm, role: e.target.value})} className="px-3 py-1.5 rounded-lg bg-card-2 border border-line text-xs flex-1">
+                  <option value="student">Siswa</option>
+                  <option value="teacher">Guru</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <label className="flex items-center gap-2 text-xs text-mut">
+                  <input type="checkbox" checked={!!editForm.is_banned} onChange={(e) => setEditForm({...editForm, is_banned: e.target.checked})} />
+                  Banned
+                </label>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setEditingMember(null)} className="flex-1 py-2 rounded-lg bg-line text-ink text-sm font-semibold">Batal</button>
+                <button onClick={saveEdit} disabled={editBusy} className="flex-1 py-2 rounded-lg bg-acc text-acc-ink text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+                  {editBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Simpan
+                </button>
+                </div>
             </div>
           </div>
         </div>

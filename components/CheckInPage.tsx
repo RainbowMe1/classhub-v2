@@ -1,8 +1,8 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import CheckInCard from './CheckInCard';
-import { getCheckInHistory } from '@/lib/auth/checkin-actions';
-import { Flame, CalendarCheck2, BarChart3, Trophy, History, CheckCircle2 } from 'lucide-react';
+import { getCheckInHistory, getCheckInLeaderboard } from '@/lib/auth/checkin-actions';
+import { Flame, CalendarCheck2, BarChart3, Trophy, History, CheckCircle2, Crown } from 'lucide-react';
 
 const MOOD_EMOJI: Record<string, string> = { happy: '😊', excited: '🤩', neutral: '😐', tired: '😴', sad: '😢' };
 const MOOD_LABEL: Record<string, string> = { happy: 'Senang', excited: 'Semangat', neutral: 'Biasa', tired: 'Lelah', sad: 'Sedih' };
@@ -21,6 +21,7 @@ function shiftDay(d: string, delta: number) {
 export default function CheckInPage() {
   const [rows, setRows] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [board, setBoard] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +29,10 @@ export default function CheckInPage() {
       setRows(Array.isArray(r) ? r : []);
     } catch (e) {}
     setLoaded(true);
+    try {
+      const lb: any = await getCheckInLeaderboard();
+      setBoard(Array.isArray(lb) ? lb : []);
+    } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -148,6 +153,34 @@ export default function CheckInPage() {
       </div>
 
       <div className="bg-card border border-line rounded-2xl p-5 space-y-3">
+        <div className="text-sm font-semibold flex items-center gap-2">
+          <Crown className="h-4 w-4 text-yellow-400" />
+          Leaderboard Check-in (Top 20)
+        </div>
+        {board.length === 0 ? (
+          <div className="text-xs text-mut">Belum ada yang check-in.</div>
+        ) : (
+          <div className="space-y-2">
+            {board.map(function (l: any, i: number) {
+              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+              return (
+                <div key={l.user_id} className="flex items-center gap-3 p-2 rounded-xl bg-card-2 border border-line">
+                  <div className="text-xl font-bold w-8 text-center">{medal}</div>
+                  {l.avatar_url ? (
+                    <img src={l.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover border border-line" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-full bg-line-2 flex items-center justify-center text-xs font-bold">{(l.name || '?').charAt(0)}</div>
+                  )}
+                  <div className="flex-1 font-semibold text-sm">{l.name}</div>
+                  <div className="text-xs font-bold text-acc">{l.count}x check-in</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+<div className="bg-card border border-line rounded-2xl p-5 space-y-3">
         <div className="text-sm font-semibold flex items-center gap-2">
           <History className="h-4 w-4 text-acc" />
           Riwayat Terakhir

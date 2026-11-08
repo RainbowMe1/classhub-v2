@@ -1,4 +1,5 @@
 'use client';
+import RealtimeClock from '@/components/RealtimeClock';
 import BirthdayBanner from '@/components/BirthdayBanner';
 import Link from 'next/link';
 import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2, Cake, Camera } from 'lucide-react';
@@ -49,7 +50,13 @@ export default function AppLayout({ children, profile, settings }: { children: R
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-line glass">
         <div className="p-6 border-b border-line">
           <ClassBrand size="lg" initial={settings} />
+          <div className="px-4 py-3 border-b border-line">
+            <RealtimeClock />
+          </div>
+          
+        
         </div>
+        
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <Link
@@ -87,7 +94,11 @@ export default function AppLayout({ children, profile, settings }: { children: R
       <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
         <div className="flex items-center justify-between px-4 h-14">
           <ClassBrand size="sm" initial={settings} />
-          <div className="flex items-center gap-2">
+          
+          
+          
+            <RealtimeClock />
+            <div className="flex items-center gap-2">
             <ThemeToggle />
             <Link href="/settings" aria-label="Buka profil">
               <Avatar data={profile} className="h-7 w-7" />

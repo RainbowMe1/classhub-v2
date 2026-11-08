@@ -13,7 +13,7 @@ function igUrl(v: string) {
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
 }
 
-// Komponen Crop Foto - VERSI FINAL
+// Komponen Crop Foto - VERSI FINAL DENGAN LOGIKA TRANSFORM YANG BENAR
 function CropImageModal({ 
   file, 
   onClose, 
@@ -49,6 +49,7 @@ function CropImageModal({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault(); // Cegah default drag behavior
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
@@ -95,27 +96,33 @@ function CropImageModal({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      // Clear canvas
       ctx.clearRect(0, 0, 512, 512);
+
+      // Clip lingkaran (sama seperti preview yang bulat)
       ctx.beginPath();
       ctx.arc(256, 256, 256, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
 
-      const containerSize = 192;
-      const displayWidth = imgDimensions.width * scale;
-      const displayHeight = imgDimensions.height * scale;
-      const offsetX = (containerSize - displayWidth) / 2 + position.x;
-      const offsetY = (containerSize - displayHeight) / 2 + position.y;
-      const canvasScale = 512 / containerSize;
+      // ===== LOGIKA TRANSFORM YANG SAMA PERSIS DENGAN CSS =====
+      // CSS: translate(x, y) scale(s) dengan origin center
+      // Di canvas 512x512 (center = 256, 256):
+      // 1. Translate ke center
+      // 2. Scale
+      // 3. Translate drag position
+      // 4. Draw image dari center (-width/2, -height/2)
+      
+      const ratio = 512 / 192; // Container 192px -> Canvas 512px
+      
+      ctx.save();
+      ctx.translate(256, 256); // Pindah ke center canvas
+      ctx.scale(scale * ratio, scale * ratio); // Scale (dengan ratio)
+      ctx.translate(position.x * ratio, position.y * ratio); // Drag position
+      ctx.drawImage(img, -img.width / 2, -img.height / 2); // Draw dari center
+      ctx.restore();
 
-      ctx.drawImage(
-        img,
-        offsetX * canvasScale,
-        offsetY * canvasScale,
-        displayWidth * canvasScale,
-        displayHeight * canvasScale
-      );
-
+      // Convert ke blob
       canvas.toBlob((blob) => {
         if (blob) {
           const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
@@ -126,7 +133,7 @@ function CropImageModal({
     img.src = imgSrc;
   }, [scale, position, imgSrc, imgDimensions, onCropComplete]);
 
-  // Loading state - TIDAK ADA <img> di sini
+  // Loading state
   if (!ready || !imgSrc) {
     return (
       <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
@@ -138,7 +145,6 @@ function CropImageModal({
     );
   }
 
-  // Render utama - imgSrc DIJAMIN tidak null di sini
   return (
     <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
       <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
@@ -148,6 +154,8 @@ function CropImageModal({
           <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none">
             <img
               src={imgSrc}
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -163,11 +171,12 @@ function CropImageModal({
                 touchAction: 'none',
                 maxWidth: 'none',
                 userSelect: 'none',
+                WebkitUserSelect: 'none',
                 position: 'absolute',
                 top: '50%',
                 left: '50%',
-                marginTop: '-50%',
-                marginLeft: '-50%'
+                marginTop: `-${imgDimensions.height / 2}px`,
+                marginLeft: `-${imgDimensions.width / 2}px`
               }}
               alt="Crop preview"
             />

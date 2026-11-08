@@ -10,7 +10,7 @@ export default function MobileNav({ items, userId }: { items: any[]; userId: str
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const bar = [items[0], items[1], items[2], items.find((i) => i.href === '/notifications')].filter(Boolean);
+  const bar = [items[0], items[1], items.find((i) => i.href === '/absen'), items.find((i) => i.href === '/notifications')].filter(Boolean);
 
   return (
     <>

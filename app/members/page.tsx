@@ -1,5 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
+import Cropper, { type ReactCropperElement } from 'react-cropper';
+import 'cropperjs/dist/cropper.css';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
@@ -22,6 +25,10 @@ export default function MembersPage() {
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [croppedFile, setCroppedFile] = useState<File | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [croppedPreview, setCroppedPreview] = useState<string | null>(null);
+  const cropperRef = useRef<ReactCropperElement>(null);
 
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState('');
@@ -38,6 +45,18 @@ export default function MembersPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (cropSrc) URL.revokeObjectURL(cropSrc);
+    };
+  }, [cropSrc]);
+
+  useEffect(() => {
+    return () => {
+      if (croppedPreview) URL.revokeObjectURL(croppedPreview);
+    };
+  }, [croppedPreview]);
+
   function startEdit(member: any) {
     setEditingMember(member.user_id);
     setEditForm({ 
@@ -49,19 +68,66 @@ export default function MembersPage() {
       is_banned: member.is_banned || false 
     });
     setSelectedFile(null);
+    setCroppedFile(null);
+    setCropSrc(null);
+    setCroppedPreview(null);
     setEditMsg(''); 
     setEditErr('');
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        setEditErr('Pilih file gambar yang valid.');
+        return;
+      }
+      setCropSrc(URL.createObjectURL(file));
       setSelectedFile(file);
+      setCroppedFile(null);
+      setCroppedPreview(null);
+      setEditErr('');
     }
   };
 
+  async function confirmCrop() {
+    const canvas = cropperRef.current?.cropper.getCroppedCanvas({
+      width: 512,
+      height: 512,
+      imageSmoothingQuality: 'high',
+    });
+    if (!canvas) {
+      setEditErr('Gagal memproses crop foto. Silakan coba pilih foto lain.');
+      return;
+    }
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+    if (!blob) {
+      setEditErr('Gagal memproses crop foto. Silakan coba lagi.');
+      return;
+    }
+
+    const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg' });
+    setCroppedFile(file);
+    setCroppedPreview(URL.createObjectURL(file));
+    setEditErr('');
+  }
+
+  function closeEdit() {
+    setEditingMember(null);
+    setSelectedFile(null);
+    setCroppedFile(null);
+    setCropSrc(null);
+    setCroppedPreview(null);
+  }
+
   async function saveEdit() {
     if (!editingMember) return;
+    if (selectedFile && !croppedFile) {
+      setEditErr('Sesuaikan dan konfirmasi crop foto sebelum menyimpan.');
+      return;
+    }
     setEditBusy(true); 
     setEditMsg(''); 
     setEditErr('');
@@ -74,8 +140,8 @@ export default function MembersPage() {
     formData.append('role', editForm.role);
     formData.append('is_banned', editForm.is_banned ? 'on' : 'off');
     
-    if (selectedFile) {
-      formData.append('avatar_file', selectedFile);
+    if (croppedFile) {
+      formData.append('avatar_file', croppedFile);
     }
 
     const res: any = await adminUpdateProfile(editingMember, formData);
@@ -87,7 +153,7 @@ export default function MembersPage() {
     }
     
     setEditMsg('Profil berhasil diperbarui ✓');
-    setEditingMember(null);
+    closeEdit();
     setSel(null); 
     
     const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
@@ -130,9 +196,11 @@ export default function MembersPage() {
               <button onClick={() => setSel(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
-              <button onClick={() => { startEdit(sel); setSel(null); }} className="p-2 text-mut hover:text-acc transition" aria-label="Edit Anggota">
-                <Edit3 className="h-5 w-5" />
-              </button>
+              {(profile.role === 'admin' || profile.role === 'teacher') && (
+                <button onClick={() => { startEdit(sel); setSel(null); }} className="p-2 text-mut hover:text-acc transition" aria-label="Edit Anggota">
+                  <Edit3 className="h-5 w-5" />
+                </button>
+              )}
             </div>
             <div className="mt-8">
               <Avatar data={sel} className="h-24 w-24 mx-auto text-3xl" />
@@ -163,7 +231,7 @@ export default function MembersPage() {
       )}
 
       {editingMember && (
-        <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
+        <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={closeEdit}>
           <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
               <Edit3 className="h-5 w-5 text-acc" /> Edit Anggota
@@ -186,14 +254,37 @@ export default function MembersPage() {
                   </span>
                   <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                 </label>
-                {selectedFile && (
+                {cropSrc && !croppedFile && (
+                  <div className="mt-3 space-y-3">
+                    <div className="overflow-hidden rounded-xl border border-line bg-black/20">
+                      <Cropper
+                        ref={cropperRef}
+                        src={cropSrc}
+                        style={{ height: 280, width: '100%' }}
+                        aspectRatio={1}
+                        viewMode={1}
+                        dragMode="move"
+                        autoCropArea={1}
+                        guides
+                        background={false}
+                        responsive
+                        checkOrientation
+                      />
+                    </div>
+                    <p className="text-[10px] text-mut">Geser dan atur ukuran foto agar pas di dalam lingkaran profil.</p>
+                    <button
+                      type="button"
+                      onClick={confirmCrop}
+                      className="w-full rounded-lg bg-acc/10 border border-acc/30 py-2 text-xs font-semibold text-acc hover:bg-acc/20 transition"
+                    >
+                      Gunakan hasil crop
+                    </button>
+                  </div>
+                )}
+                {croppedPreview && (
                   <div className="mt-2 flex items-center gap-2">
-                    <img 
-                      src={URL.createObjectURL(selectedFile)} 
-                      alt="Preview" 
-                      className="w-12 h-12 rounded-full object-cover border border-line"
-                    />
-                    <span className="text-[10px] text-acc">Klik untuk ganti foto</span>
+                    <Image src={croppedPreview} alt="Pratinjau foto profil yang sudah di-crop" width={48} height={48} unoptimized className="w-12 h-12 rounded-full object-cover border border-line" />
+                    <span className="text-[10px] text-acc">Crop siap disimpan. Pilih file lagi untuk mengubah crop.</span>
                   </div>
                 )}
               </div>
@@ -225,8 +316,8 @@ export default function MembersPage() {
                 </label>
               </div>
               <div className="flex gap-2 pt-2">
-                <button onClick={() => setEditingMember(null)} className="flex-1 py-2 rounded-lg bg-line text-ink text-sm font-semibold">Batal</button>
-                <button onClick={saveEdit} disabled={editBusy} className="flex-1 py-2 rounded-lg bg-acc text-acc-ink text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+                <button onClick={closeEdit} className="flex-1 py-2 rounded-lg bg-line text-ink text-sm font-semibold">Batal</button>
+                <button onClick={saveEdit} disabled={editBusy || (!!selectedFile && !croppedFile)} className="flex-1 py-2 rounded-lg bg-acc text-acc-ink text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
                   {editBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Simpan
                 </button>

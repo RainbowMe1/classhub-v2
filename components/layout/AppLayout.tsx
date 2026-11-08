@@ -2,7 +2,7 @@
 import RealtimeClock from '@/components/RealtimeClock';
 import BirthdayBanner from '@/components/BirthdayBanner';
 import Link from 'next/link';
-import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2, Cake, Camera } from 'lucide-react';
+import { Home, Newspaper, MessageCircle, Users, ClipboardList, Calendar, CalendarDays, Image as ImageIcon, Bell, Shield, Settings2, ShieldAlert, UserCog, Music, Award, Globe, Files, Brush, Bot , CalendarCheck2, Cake, Camera, ContactRound } from 'lucide-react';
 import NotifBadge from '@/components/NotifBadge';
 import MobileNav from '@/components/layout/MobileNav';
 
@@ -26,8 +26,10 @@ export default function AppLayout({ children, profile, settings }: { children: R
     { href: '/tasks', icon: ClipboardList, label: 'Tugas' },
     { href: '/piket', icon: Brush, label: 'Piket' },
     { href: '/schedule', icon: Calendar, label: 'Jadwal' },
+    { href: '/agenda', icon: CalendarDays, label: 'Agenda' },
     { href: '/gallery', icon: ImageIcon, label: 'Galeri' },
     { href: '/music', icon: Music, label: 'Musik' },
+    { href: '/contact', icon: ContactRound, label: 'Kontak Admin' },
     { href: '/ai', icon: Bot, label: 'AI' },
     { href: '/portfolio', icon: Globe, label: 'Portofolio' },
     { href: '/notifications', icon: Bell, label: 'Notifikasi' },

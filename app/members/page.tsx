@@ -8,8 +8,8 @@ import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload } from 'lucide-react';
-import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, Plus } from 'lucide-react';
+import { adminUpdateProfile, adminAddMember } from '@/lib/auth/admin-profile-actions';
 
 function igUrl(v: string) {
   if (v.startsWith('http')) return v;
@@ -33,6 +33,9 @@ export default function MembersPage() {
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState('');
   const [editErr, setEditErr] = useState('');
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addMsg, setAddMsg] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -165,10 +168,13 @@ export default function MembersPage() {
   return (
     <AppLayout profile={profile}>
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Users className="h-6 w-6 text-acc" />
           Anggota Kelas
         </h1>
+        <button onClick={() => setShowAddMember(true)} className="px-4 py-2 rounded-xl bg-acc text-acc-ink text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> Tambah</button>
+      </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {members.map((m) => (
             <button
@@ -326,6 +332,42 @@ export default function MembersPage() {
           </div>
         </div>
       )}
-    </AppLayout>
+    
+      {showAddMember && (
+        <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setShowAddMember(false)}>
+          <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4">Tambah Anggota</h2>
+            {addMsg && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-3">{addMsg}</div>}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setAddBusy(true);
+              const formData = new FormData(e.currentTarget);
+              const res: any = await adminAddMember(formData);
+              setAddBusy(false);
+              if (res.error) { setAddMsg(res.error); return; }
+              setShowAddMember(false);
+              setAddMsg('');
+              const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
+              setMembers(m ?? []);
+            }} className="space-y-3">
+              <input name="full_name" placeholder="Nama Lengkap" required className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+              <input name="username" placeholder="Username" required className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+              <input name="password" placeholder="Password (default: kelas123)" className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+              <select name="role" className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm">
+                <option value="student">Siswa</option>
+                <option value="teacher">Guru</option>
+                <option value="admin">Admin</option>
+              </select>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowAddMember(false)} className="flex-1 py-2 rounded-lg bg-line text-ink text-sm font-semibold">Batal</button>
+                <button type="submit" disabled={addBusy} className="flex-1 py-2 rounded-lg bg-acc text-acc-ink text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+                  {addBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Simpan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+</AppLayout>
   );
 }

@@ -62,3 +62,37 @@ export async function adminUpdateProfile(targetId: string, formData: FormData): 
   if (error) return { error: error.message };
   return { success: true };
 }
+export async function adminAddMember(form: FormData): Promise<any> {
+  const me = await requireUser();
+  const admin = createAdminClient();
+  const { data: meProf } = await admin.from('profiles').select('role').eq('user_id', me.id).maybeSingle();
+  if (!meProf || (meProf.role !== 'admin' && meProf.role !== 'teacher')) return { error: 'Khusus admin/guru.' };
+
+  const fullName = form.get('full_name') as string;
+  const username = form.get('username') as string;
+  const password = form.get('password') as string || 'kelas123';
+  const role = form.get('role') as string || 'student';
+
+  if (!fullName || !username) return { error: 'Nama dan username wajib diisi.' };
+
+  // Create auth user
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    email: username + '@classhub.local',
+    password: password,
+    user_metadata: { username, full_name: fullName }
+  });
+  if (authError) return { error: 'Gagal buat akun: ' + authError.message };
+
+  // Create profile
+  const { error: profileError } = await admin.from('profiles').insert({
+    user_id: authData.user.id,
+    username: username,
+    full_name: fullName,
+    role: role
+  });
+  if (profileError) {
+    await admin.auth.admin.deleteUser(authData.user.id);
+    return { error: 'Gagal buat profil: ' + profileError.message };
+  }
+  return { success: true };
+}

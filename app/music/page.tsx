@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useMusic, type MusicTrack } from '@/components/music/MusicProvider';
-import { deleteTrack, reorderTracks, updateTrack, uploadTrack } from '@/lib/auth/music-actions';
+import { createTrackUpload, deleteTrack, reorderTracks, saveUploadedTrack, updateTrack } from '@/lib/auth/music-actions';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types/database';
 import {
@@ -226,9 +226,45 @@ export default function MusicPage() {
     setNotice('');
     setSaving(true);
     try {
-      const formData = new FormData(event.currentTarget);
-      formData.set('duration_seconds', String(uploadDuration));
-      const result = await uploadTrack(formData);
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      const file = formData.get('file');
+      if (!(file instanceof File)) {
+        setError('Pilih file audio dulu.');
+        return;
+      }
+
+      const details = {
+        title: String(formData.get('title') || ''),
+        artist: String(formData.get('artist') || ''),
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        durationSeconds: uploadDuration,
+      };
+      const prepared = await createTrackUpload(details);
+      if (!('upload' in prepared) || !prepared.upload) {
+        setError(prepared.error || 'Upload gagal disiapkan. Coba lagi.');
+        return;
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('music')
+        .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, {
+          contentType: prepared.upload.contentType,
+          upsert: false,
+        });
+      if (uploadError) {
+        setError('Upload gagal: ' + uploadError.message);
+        return;
+      }
+
+      const result = await saveUploadedTrack({
+        path: prepared.upload.path,
+        title: details.title,
+        artist: details.artist,
+        durationSeconds: details.durationSeconds,
+      });
       if (result?.error) setError(result.error);
       else {
         setNotice('Lagu berhasil ditambahkan ke perpustakaan.');
@@ -237,7 +273,7 @@ export default function MusicPage() {
         await loadTracks();
       }
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Upload gagal. Coba lagi.');
+      setError(actionError instanceof Error ? 'Upload gagal: ' + actionError.message : 'Upload gagal. Coba lagi.');
     } finally {
       setSaving(false);
     }
@@ -248,7 +284,7 @@ export default function MusicPage() {
     if (!file) return;
     const ext = (file.name.split('.').pop() || '').toLowerCase();
     const mime = file.type.split(';')[0].trim().toLowerCase();
-    if (!OK_EXT.includes(ext) || !(AUDIO_MIMES[ext] || []).includes(mime)) {
+    if (!OK_EXT.includes(ext) || (mime && !(AUDIO_MIMES[ext] || []).includes(mime))) {
       setError('Format file dan MIME harus cocok: MP3, M4A, AAC, OGG, atau OPUS.');
       return;
     }

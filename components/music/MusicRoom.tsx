@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useMusic } from './MusicProvider';
-import { uploadTrack, deleteTrack } from '@/lib/auth/music-actions';
+import { createTrackUpload, deleteTrack, saveUploadedTrack } from '@/lib/auth/music-actions';
 import { Play, Pause, Music as MusicIcon, Trash2, Search, Upload } from 'lucide-react';
 
 export default function MusicRoom({ userId, isStaff }: { userId: string; isStaff: boolean }) {
@@ -30,13 +30,60 @@ export default function MusicRoom({ userId, isStaff }: { userId: string; isStaff
     return matchTab && matchQ;
   });
 
-  async function upload(fd: FormData) {
+  async function upload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
     setBusy(true);
     setErr('');
-    const res = await uploadTrack(fd);
-    setBusy(false);
-    if (res && res.error) setErr(res.error);
-    else load();
+    try {
+      const formData = new FormData(form);
+      const file = formData.get('file');
+      if (!(file instanceof File)) {
+        setErr('Pilih file audio dulu.');
+        return;
+      }
+
+      const details = {
+        title: String(formData.get('title') || ''),
+        artist: String(formData.get('artist') || ''),
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        durationSeconds: 0,
+      };
+      const prepared = await createTrackUpload(details);
+      if (!('upload' in prepared) || !prepared.upload) {
+        setErr(prepared.error || 'Upload gagal disiapkan. Coba lagi.');
+        return;
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('music')
+        .uploadToSignedUrl(prepared.upload.path, prepared.upload.token, file, {
+          contentType: prepared.upload.contentType,
+          upsert: false,
+        });
+      if (uploadError) {
+        setErr('Upload gagal: ' + uploadError.message);
+        return;
+      }
+
+      const result = await saveUploadedTrack({
+        path: prepared.upload.path,
+        title: details.title,
+        artist: details.artist,
+        durationSeconds: details.durationSeconds,
+      });
+      if (result && 'error' in result) setErr(result.error || 'Lagu gagal disimpan.');
+      else {
+        form.reset();
+        await load();
+      }
+    } catch (error) {
+      setErr(error instanceof Error ? 'Upload gagal: ' + error.message : 'Upload gagal. Coba lagi.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove(id: string) {
@@ -54,7 +101,7 @@ export default function MusicRoom({ userId, isStaff }: { userId: string; isStaff
       </h1>
 
       <form
-        onSubmit={(e) => { e.preventDefault(); upload(new FormData(e.currentTarget)); }}
+        onSubmit={upload}
         className="bg-card border border-line rounded-2xl p-4 grid md:grid-cols-4 gap-3"
       >
         <input name="title" required placeholder="Judul lagu" className="px-3 py-2 rounded-lg bg-card-2 border border-line text-sm text-ink focus:outline-none focus:border-acc/50" />

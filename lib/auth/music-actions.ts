@@ -30,12 +30,6 @@ function fileMime(file: File) {
   return file.type.split(';')[0].trim().toLowerCase();
 }
 
-function validAudioFile(file: File) {
-  const ext = getExtension(file.name);
-  const mime = fileMime(file);
-  return file.size > 0 && file.size <= MAX_AUDIO_SIZE && (AUDIO_TYPES[ext] || []).includes(mime);
-}
-
 function validCoverFile(file: File) {
   const ext = getExtension(file.name);
   const mime = fileMime(file);
@@ -89,23 +83,52 @@ function actionError(error: unknown) {
   return error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan perubahan.';
 }
 
-export async function uploadTrack(formData: FormData) {
-  const user = await requireUser();
-  const title = String(formData.get('title') || '').trim();
-  const artist = String(formData.get('artist') || '').trim();
-  const durationValue = Number(formData.get('duration_seconds') || 0);
-  const file = formData.get('file');
+type TrackUploadInput = {
+  title: string;
+  artist: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  durationSeconds: number;
+};
 
-  if (!title) return { error: 'Judul lagu wajib diisi.' };
-  if (title.length > 140 || artist.length > 140) return { error: 'Judul dan artis maksimal 140 karakter.' };
-  if (!(file instanceof File)) return { error: 'Pilih file audio dulu.' };
-  if (file.size > MAX_AUDIO_SIZE) return { error: 'Maksimal 8MB per lagu.' };
-  if (!validAudioFile(file)) return { error: 'Format file dan MIME harus cocok: MP3, M4A, AAC, OGG, atau OPUS.' };
-  if (!Number.isFinite(durationValue) || durationValue < 0 || durationValue > 86400) {
-    return { error: 'Durasi lagu tidak valid.' };
+function validTrackDetails(title: string, artist: string, durationSeconds: number) {
+  if (!title) return 'Judul lagu wajib diisi.';
+  if (title.length > 140 || artist.length > 140) return 'Judul dan artis maksimal 140 karakter.';
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 0 || durationSeconds > 86400) {
+    return 'Durasi lagu tidak valid.';
   }
+  return null;
+}
 
-  let uploadedUrl: string | null = null;
+function trackMime(fileName: string, fileType: string) {
+  const allowed = AUDIO_TYPES[getExtension(fileName)] || [];
+  const mime = fileType.split(';')[0].trim().toLowerCase();
+  if (!allowed.length || (mime && !allowed.includes(mime))) return null;
+  return mime || allowed[0];
+}
+
+function isOwnedTrackPath(path: string, userId: string) {
+  const prefix = userId + '/';
+  if (!path.startsWith(prefix)) return false;
+  const fileName = path.slice(prefix.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(mp3|m4a|aac|ogg|opus)$/i.test(fileName);
+}
+
+export async function createTrackUpload(input: TrackUploadInput) {
+  const user = await requireUser();
+  const title = typeof input?.title === 'string' ? input.title.trim() : '';
+  const artist = typeof input?.artist === 'string' ? input.artist.trim() : '';
+  const durationSeconds = input?.durationSeconds;
+  const detailsError = validTrackDetails(title, artist, durationSeconds);
+  if (detailsError) return { error: detailsError };
+  if (!Number.isFinite(input?.fileSize) || input.fileSize <= 0) return { error: 'Pilih file audio dulu.' };
+  if (input.fileSize > MAX_AUDIO_SIZE) return { error: 'Maksimal 8MB per lagu.' };
+  const fileName = typeof input.fileName === 'string' ? input.fileName : '';
+  const fileType = typeof input.fileType === 'string' ? input.fileType : '';
+  const contentType = trackMime(fileName, fileType);
+  if (!contentType) return { error: 'Format file dan MIME harus cocok: MP3, M4A, AAC, OGG, atau OPUS.' };
+
   try {
     const admin = createAdminClient();
     const { count, error: countError } = await admin
@@ -115,49 +138,77 @@ export async function uploadTrack(formData: FormData) {
     if (countError) return { error: 'Tidak dapat memeriksa slot upload: ' + countError.message };
     if ((count ?? 0) >= 8) return { error: 'Slot upload kamu penuh (8 lagu). Hapus salah satu di tab Upload Saya dulu.' };
 
+    const path = user.id + '/' + randomUUID() + '.' + getExtension(fileName);
+    const { data, error } = await admin.storage.from('music').createSignedUploadUrl(path, { upsert: false });
+    if (error) return { error: 'Tidak dapat menyiapkan upload: ' + error.message };
+    return { upload: { path: data.path, token: data.token, contentType } };
+  } catch (error) {
+    return { error: 'Tidak dapat menyiapkan upload: ' + actionError(error) };
+  }
+}
+
+export async function saveUploadedTrack(input: {
+  path: string;
+  title: string;
+  artist: string;
+  durationSeconds: number;
+}) {
+  const user = await requireUser();
+  const title = typeof input?.title === 'string' ? input.title.trim() : '';
+  const artist = typeof input?.artist === 'string' ? input.artist.trim() : '';
+  const durationSeconds = input?.durationSeconds;
+  const detailsError = validTrackDetails(title, artist, durationSeconds);
+  if (detailsError) return { error: detailsError };
+  if (typeof input?.path !== 'string' || !isOwnedTrackPath(input.path, user.id)) return { error: 'File audio tidak valid.' };
+
+  const admin = createAdminClient();
+  const { data: file, error: infoError } = await admin.storage.from('music').info(input.path);
+  if (infoError) return { error: 'File audio gagal diverifikasi: ' + infoError.message };
+  const contentType = trackMime(input.path, file.contentType || '');
+  const uploadedUrl = admin.storage.from('music').getPublicUrl(input.path).data.publicUrl;
+  async function rejectUploadedTrack(message: string) {
+    const cleanupError = await removeObjects(admin, [uploadedUrl]);
+    return {
+      error: message + (cleanupError ? ' File yang terunggah juga gagal dibersihkan: ' + cleanupError : ''),
+    };
+  }
+  if (!contentType) return rejectUploadedTrack('Format file dan MIME harus cocok: MP3, M4A, AAC, OGG, atau OPUS.');
+  if (!file.size || file.size > MAX_AUDIO_SIZE) return rejectUploadedTrack('File audio kosong atau melebihi batas 8MB.');
+
+  try {
+    const { count, error: countError } = await admin
+      .from('tracks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    if (countError) return rejectUploadedTrack('Tidak dapat memeriksa slot upload: ' + countError.message);
+    if ((count ?? 0) >= 8) return rejectUploadedTrack('Slot upload kamu penuh (8 lagu). Hapus salah satu di tab Upload Saya dulu.');
+
     const { data: lastTrack, error: orderError } = await admin
       .from('tracks')
       .select('sort_order')
       .order('sort_order', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (orderError) return { error: 'Tidak dapat menyiapkan urutan lagu: ' + orderError.message };
+    if (orderError) return rejectUploadedTrack('Tidak dapat menyiapkan urutan lagu: ' + orderError.message);
 
     const id = randomUUID();
-    const ext = getExtension(file.name);
-    const path = user.id + '/' + id + '.' + ext;
-    const { error: uploadError } = await admin.storage
-      .from('music')
-      .upload(path, Buffer.from(await file.arrayBuffer()), { contentType: fileMime(file), upsert: false });
-    if (uploadError) return { error: 'Upload gagal: ' + uploadError.message };
-
-    const url = admin.storage.from('music').getPublicUrl(path).data.publicUrl;
-    uploadedUrl = url;
     const { error: insertError } = await admin.from('tracks').insert({
       id,
       user_id: user.id,
       title,
       artist: artist || null,
-      url,
-      duration_seconds: durationValue ? Math.round(durationValue) : null,
+      url: uploadedUrl,
+      duration_seconds: durationSeconds ? Math.round(durationSeconds) : null,
       sort_order: (lastTrack?.sort_order ?? -1) + 1,
     });
     if (insertError) {
-      const cleanupError = await removeObjects(admin, [url]);
-      return {
-        error: 'Lagu gagal disimpan: ' + insertError.message +
-          (cleanupError ? ' File yang terunggah juga gagal dibersihkan: ' + cleanupError : ''),
-      };
+      return rejectUploadedTrack('Lagu gagal disimpan: ' + insertError.message);
     }
 
     revalidatePath('/music');
     return { success: true };
   } catch (error) {
-    const cleanupError = uploadedUrl ? await removeObjects(createAdminClient(), [uploadedUrl]) : null;
-    return {
-      error: 'Upload gagal: ' + actionError(error) +
-        (cleanupError ? ' File yang terunggah juga gagal dibersihkan: ' + cleanupError : ''),
-    };
+    return { error: 'Lagu gagal disimpan: ' + actionError(error) };
   }
 }
 

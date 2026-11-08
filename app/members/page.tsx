@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign, Edit3, CheckCircle2, Loader2 } from 'lucide-react';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload } from 'lucide-react';
 import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
 
 function igUrl(v: string) {
@@ -22,6 +22,7 @@ export default function MembersPage() {
   // State untuk Edit
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState('');
   const [editErr, setEditErr] = useState('');
@@ -45,9 +46,9 @@ export default function MembersPage() {
       jabatan: member.jabatan || '', 
       sesi_pendidikan: member.sesi_pendidikan || '', 
       role: member.role || 'student', 
-      avatar_url: member.avatar_url || '', 
       is_banned: member.is_banned || false 
     });
+    setSelectedFile(null); // Reset file setiap buka modal
     setEditMsg(''); 
     setEditErr('');
   }
@@ -58,7 +59,19 @@ export default function MembersPage() {
     setEditMsg(''); 
     setEditErr('');
     
-    const res: any = await adminUpdateProfile(editingMember, editForm);
+    const formData = new FormData();
+    formData.append('full_name', editForm.full_name);
+    formData.append('bio', editForm.bio || '');
+    formData.append('jabatan', editForm.jabatan || '');
+    formData.append('sesi_pendidikan', editForm.sesi_pendidikan || '');
+    formData.append('role', editForm.role);
+    formData.append('is_banned', editForm.is_banned ? 'on' : 'off');
+    
+    if (selectedFile) {
+      formData.append('avatar_file', selectedFile);
+    }
+
+    const res: any = await adminUpdateProfile(editingMember, formData);
     setEditBusy(false);
     
     if (res && res.error) { 
@@ -68,9 +81,9 @@ export default function MembersPage() {
     
     setEditMsg('Profil berhasil diperbarui ✓');
     setEditingMember(null);
-    setSel(null); // Tutup modal detail jika terbuka
+    setSel(null); 
     
-    // Refresh data members agar perubahan langsung terlihat
+    // Refresh data members
     const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
     setMembers(m ?? []);
   }
@@ -107,22 +120,12 @@ export default function MembersPage() {
       {/* MODAL DETAIL ANGGOTA */}
       {sel && (
         <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => setSel(null)}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center relative"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div role="dialog" aria-modal="true" className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center relative" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start absolute top-2 left-2 right-2">
               <button onClick={() => setSel(null)} className="p-2 text-mut hover:text-ink" aria-label="Tutup">
                 <X className="h-5 w-5" />
               </button>
-              {/* TOMBOL EDIT DI SINI */}
-              <button 
-                onClick={() => { startEdit(sel); setSel(null); }} 
-                className="p-2 text-mut hover:text-acc transition" 
-                aria-label="Edit Anggota"
-              >
+              <button onClick={() => { startEdit(sel); setSel(null); }} className="p-2 text-mut hover:text-acc transition" aria-label="Edit Anggota">
                 <Edit3 className="h-5 w-5" />
               </button>
             </div>
@@ -143,12 +146,7 @@ export default function MembersPage() {
             </div>
             {sel.bio && <p className="text-sm text-mut whitespace-pre-wrap">{sel.bio}</p>}
             {sel.instagram && (
-              <a
-                href={igUrl(sel.instagram)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-400 hover:underline"
-              >
+              <a href={igUrl(sel.instagram)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs font-semibold text-pink-400 hover:underline">
                 <AtSign className="h-4 w-4" />
                 {sel.instagram.startsWith('@') ? sel.instagram : '@' + sel.instagram.replace(/^https?:\/\/(www\.)?instagram\.com\/?/, '')}
               </a>
@@ -160,7 +158,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL EDIT ANGGOTA */}
+      {/* MODAL EDIT ANGGOTA (DENGAN UPLOAD FILE) */}
       {editingMember && (
         <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
           <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -175,10 +173,18 @@ export default function MembersPage() {
                 <label className="text-[10px] text-mut">Nama Lengkap</label>
                 <input value={editForm.full_name} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
               </div>
+              
+              {/* INPUT FILE FOTO PROFIL */}
               <div>
-                <label className="text-[10px] text-mut">URL Foto Profil</label>
-                <input value={editForm.avatar_url} onChange={(e) => setEditForm({...editForm, avatar_url: e.target.value})} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
+                <label className="text-[10px] text-mut">Foto Profil (Opsional)</label>
+                <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">
+                  <Upload className="h-4 w-4 text-mut" />
+                  <span className="text-mut truncate flex-1">{selectedFile ? selectedFile.name : 'Pilih file gambar...'}</span>
+                  <input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="hidden" />
+                </label>
+                {selectedFile && <p className="text-[10px] text-acc mt-1">File baru akan menggantikan foto lama.</p>}
               </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] text-mut">Jabatan</label>
@@ -211,7 +217,7 @@ export default function MembersPage() {
                   {editBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Simpan
                 </button>
-                </div>
+              </div>
             </div>
           </div>
         </div>

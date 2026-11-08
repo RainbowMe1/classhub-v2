@@ -1,12 +1,16 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload } from 'lucide-react';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, Crop } from 'lucide-react';
 import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
+
+// Import Cropper
+import Cropper from 'react-cropper';
+import 'cropperjs/dist/cropper.css';
 
 function igUrl(v: string) {
   if (v.startsWith('http')) return v;
@@ -22,7 +26,13 @@ export default function MembersPage() {
   // State untuk Edit
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  
+  // State untuk Crop Gambar
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [croppedFile, setCroppedFile] = useState<File | null>(null);
+  const cropperRef = useRef<HTMLImageElement>(null);
+
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState('');
   const [editErr, setEditErr] = useState('');
@@ -48,10 +58,34 @@ export default function MembersPage() {
       role: member.role || 'student', 
       is_banned: member.is_banned || false 
     });
-    setSelectedFile(null); // Reset file setiap buka modal
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setCroppedFile(null);
     setEditMsg(''); 
     setEditErr('');
   }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      setCroppedFile(null); // Reset crop sebelumnya
+    }
+  };
+
+  const applyCrop = () => {
+    const imageElement: any = cropperRef?.current;
+    const cropper: any = imageElement?.cropper;
+    if (cropper && selectedFile) {
+      cropper.getCroppedCanvas().toBlob((blob: Blob) => {
+        const cropped = new File([blob], selectedFile.name, { type: 'image/jpeg' });
+        setCroppedFile(cropped);
+        setPreviewUrl(null); // Sembunyikan cropper setelah berhasil
+      }, 'image/jpeg', 0.9);
+    }
+  };
 
   async function saveEdit() {
     if (!editingMember) return;
@@ -67,8 +101,10 @@ export default function MembersPage() {
     formData.append('role', editForm.role);
     formData.append('is_banned', editForm.is_banned ? 'on' : 'off');
     
-    if (selectedFile) {
-      formData.append('avatar_file', selectedFile);
+    // Gunakan file yang sudah di-crop, jika ada. Jika tidak, pakai file asli.
+    const finalFile = croppedFile || selectedFile;
+    if (finalFile) {
+      formData.append('avatar_file', finalFile);
     }
 
     const res: any = await adminUpdateProfile(editingMember, formData);
@@ -129,7 +165,6 @@ export default function MembersPage() {
                 <Edit3 className="h-5 w-5" />
               </button>
             </div>
-            
             <div className="mt-8">
               <Avatar data={sel} className="h-24 w-24 mx-auto text-3xl" />
             </div>
@@ -158,7 +193,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL EDIT ANGGOTA (DENGAN UPLOAD FILE) */}
+      {/* MODAL EDIT ANGGOTA (DENGAN FITUR CROP) */}
       {editingMember && (
         <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
           <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -174,15 +209,36 @@ export default function MembersPage() {
                 <input value={editForm.full_name} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
               </div>
               
-              {/* INPUT FILE FOTO PROFIL */}
+              {/* AREA UPLOAD & CROP FOTO */}
               <div>
-                <label className="text-[10px] text-mut">Foto Profil (Opsional)</label>
-                <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">
-                  <Upload className="h-4 w-4 text-mut" />
-                  <span className="text-mut truncate flex-1">{selectedFile ? selectedFile.name : 'Pilih file gambar...'}</span>
-                  <input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="hidden" />
-                </label>
-                {selectedFile && <p className="text-[10px] text-acc mt-1">File baru akan menggantikan foto lama.</p>}
+                <label className="text-[10px] text-mut">Foto Profil</label>
+                
+                {!previewUrl ? (
+                  <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">
+                    <Upload className="h-4 w-4 text-mut" />
+                    <span className="text-mut truncate flex-1">{croppedFile ? 'Foto berhasil dipotong! Klik untuk ganti.' : 'Pilih file gambar...'}</span>
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                  </label>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="border border-line rounded-lg overflow-hidden bg-black" style={{ height: '250px' }}>
+                      <Cropper
+                        src={previewUrl}
+                        style={{ height: '100%', width: '100%' }}
+                        aspectRatio={1} // Rasio 1:1 untuk foto profil
+                        viewMode={1}
+                        guides={true}
+                        ref={cropperRef}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setPreviewUrl(null); setSelectedFile(null); setCroppedFile(null); }} className="flex-1 py-2 rounded-lg bg-line text-ink text-xs font-semibold">Batal</button>
+                      <button onClick={applyCrop} className="flex-1 py-2 rounded-lg bg-acc text-acc-ink text-xs font-bold flex items-center justify-center gap-2">
+                        <Crop className="h-3 w-3" /> Gunakan Foto Ini
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

@@ -89,7 +89,7 @@ export default function CheckInCard() {
   }
 
   const showGreeting = mounted ? greeting() : 'Selamat datang';
-  const showQuote = mounted ? quoteOfDay() : 'Memuat...';
+  const showQuote = mounted ? quoteOfDay() : '...';
   const showStreak = status ? status.streak : 0;
   const todayMood = status && status.today ? MOODS.find((m) => m.key === status.today.mood) : null;
 

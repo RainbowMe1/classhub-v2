@@ -57,7 +57,18 @@ export default function AttendancePage({ schoolName, className }: { schoolName: 
     else await load();
   }
 
-  if (!data) return <div className="max-w-3xl mx-auto px-4 py-6 text-mut text-sm">Memuat...</div>;
+  if (!data) return (
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+      <div className="h-8 w-52 rounded-xl bg-card" />
+      <div className="h-36 rounded-2xl bg-card" />
+      <div className="grid grid-cols-3 gap-3">
+        <div className="h-24 rounded-2xl bg-card" />
+        <div className="h-24 rounded-2xl bg-card" />
+        <div className="h-24 rounded-2xl bg-card" />
+      </div>
+      <div className="h-48 rounded-2xl bg-card" />
+    </div>
+  );
   const canManage = data.role === 'admin' || data.role === 'teacher';
   const canAttend = data.role !== 'teacher';
   const selDate = data.weekDays[selDay] ? data.weekDays[selDay].date : '';

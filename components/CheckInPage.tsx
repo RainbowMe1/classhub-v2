@@ -125,7 +125,7 @@ export default function CheckInPage() {
           Statistik Mood ({total} check-in)
         </div>
         {!loaded ? (
-          <div className="text-xs text-mut">Memuat...</div>
+          null
         ) : total === 0 ? (
           <div className="text-xs text-mut">Belum ada riwayat. Mulai check-in hari ini!</div>
         ) : (
@@ -153,7 +153,7 @@ export default function CheckInPage() {
           Riwayat Terakhir
         </div>
         {!loaded ? (
-          <div className="text-xs text-mut">Memuat...</div>
+          null
         ) : total === 0 ? (
           <div className="text-xs text-mut">Riwayat kosong.</div>
         ) : (

@@ -55,7 +55,7 @@ export default function BirthdayPage() {
     await load();
   }
 
-  if (!data) return <div className="max-w-3xl mx-auto px-4 py-6 text-mut text-sm">Memuat...</div>;
+  if (!data) return null;
 
   const isAdmin = data.myRole === 'admin';
   const next = data.upcoming && data.upcoming.length ? data.upcoming[0] : null;

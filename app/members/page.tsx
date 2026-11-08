@@ -1,226 +1,16 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import Avatar from '@/components/Avatar';
 import AdminTag from '@/components/AdminTag';
 import JabatanTag from '@/components/JabatanTag';
-import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload, Plus, Minus } from 'lucide-react';
+import { X, Users, AtSign, Edit3, CheckCircle2, Loader2, Upload } from 'lucide-react';
 import { adminUpdateProfile } from '@/lib/auth/admin-profile-actions';
 
 function igUrl(v: string) {
   if (v.startsWith('http')) return v;
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
-}
-
-// Komponen Crop Foto - VERSI FINAL DENGAN LOGIKA TRANSFORM YANG BENAR
-function CropImageModal({ 
-  file, 
-  onClose, 
-  onCropComplete 
-}: { 
-  file: File; 
-  onClose: () => void; 
-  onCropComplete: (croppedFile: File) => void;
-}) {
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
-  const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      setImgDimensions({ width: img.width, height: img.height });
-      setImgSrc(url);
-      setReady(true);
-    };
-    img.src = url;
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
-  const handleWheel = (e: React.WheelEvent) => {
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault(); // Cegah default drag behavior
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    setIsDragging(true);
-    setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    setPosition({
-      x: touch.clientX - dragStart.x,
-      y: touch.clientY - dragStart.y
-    });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  const saveCrop = useCallback(() => {
-    if (!imgSrc || imgDimensions.width === 0) return;
-
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Clear canvas
-      ctx.clearRect(0, 0, 512, 512);
-
-      // Clip lingkaran (sama seperti preview yang bulat)
-      ctx.beginPath();
-      ctx.arc(256, 256, 256, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-
-      // ===== LOGIKA TRANSFORM YANG SAMA PERSIS DENGAN CSS =====
-      // CSS: translate(x, y) scale(s) dengan origin center
-      // Di canvas 512x512 (center = 256, 256):
-      // 1. Translate ke center
-      // 2. Scale
-      // 3. Translate drag position
-      // 4. Draw image dari center (-width/2, -height/2)
-      
-      const ratio = 512 / 192; // Container 192px -> Canvas 512px
-      
-      ctx.save();
-      ctx.translate(256, 256); // Pindah ke center canvas
-      ctx.scale(scale * ratio, scale * ratio); // Scale (dengan ratio)
-      ctx.translate(position.x * ratio, position.y * ratio); // Drag position
-      ctx.drawImage(img, -img.width / 2, -img.height / 2); // Draw dari center
-      ctx.restore();
-
-      // Convert ke blob
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-          onCropComplete(croppedFile);
-        }
-      }, 'image/jpeg', 0.9);
-    };
-    img.src = imgSrc;
-  }, [scale, position, imgSrc, imgDimensions, onCropComplete]);
-
-  // Loading state
-  if (!ready || !imgSrc) {
-    return (
-      <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
-        <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full text-center">
-          <Loader2 className="h-8 w-8 mx-auto text-acc animate-spin mb-3" />
-          <p className="text-mut text-sm">Memuat gambar...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
-      <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
-        <h3 className="text-lg font-bold mb-4">Atur Foto Profil</h3>
-        
-        <div className="relative flex items-center justify-center mb-4">
-          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none">
-            <img
-              src={imgSrc}
-              draggable={false}
-              onDragStart={(e) => e.preventDefault()}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onWheel={handleWheel}
-              style={{
-                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                transformOrigin: 'center center',
-                cursor: isDragging ? 'grabbing' : 'grab',
-                touchAction: 'none',
-                maxWidth: 'none',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                marginTop: `-${imgDimensions.height / 2}px`,
-                marginLeft: `-${imgDimensions.width / 2}px`
-              }}
-              alt="Crop preview"
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Minus className="h-4 w-4 text-mut" />
-            <input
-              type="range"
-              min="0.5"
-              max="5"
-              step="0.1"
-              value={scale}
-              onChange={(e) => setScale(parseFloat(e.target.value))}
-              className="flex-1 h-1 bg-line rounded-lg appearance-none cursor-pointer accent-acc"
-            />
-            <Plus className="h-4 w-4 text-mut" />
-          </div>
-          <p className="text-[10px] text-mut text-center">
-            Zoom: {scale.toFixed(1)}x | Geser slider atau scroll mouse. Drag buat geser.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button 
-            type="button"
-            onClick={onClose} 
-            className="flex-1 py-2.5 rounded-xl bg-line text-ink text-sm font-semibold"
-          >
-            Batal
-          </button>
-          <button 
-            type="button"
-            onClick={saveCrop} 
-            className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold"
-          >
-            Gunakan Foto Ini
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function MembersPage() {
@@ -232,8 +22,6 @@ export default function MembersPage() {
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [croppedFile, setCroppedFile] = useState<File | null>(null);
-  const [showCropModal, setShowCropModal] = useState(false);
 
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState('');
@@ -261,8 +49,6 @@ export default function MembersPage() {
       is_banned: member.is_banned || false 
     });
     setSelectedFile(null);
-    setCroppedFile(null);
-    setShowCropModal(false);
     setEditMsg(''); 
     setEditErr('');
   }
@@ -271,13 +57,7 @@ export default function MembersPage() {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      setShowCropModal(true);
     }
-  };
-
-  const handleCropComplete = (cropped: File) => {
-    setCroppedFile(cropped);
-    setShowCropModal(false);
   };
 
   async function saveEdit() {
@@ -294,8 +74,8 @@ export default function MembersPage() {
     formData.append('role', editForm.role);
     formData.append('is_banned', editForm.is_banned ? 'on' : 'off');
     
-    if (croppedFile) {
-      formData.append('avatar_file', croppedFile);
+    if (selectedFile) {
+      formData.append('avatar_file', selectedFile);
     }
 
     const res: any = await adminUpdateProfile(editingMember, formData);
@@ -382,17 +162,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {showCropModal && selectedFile && (
-        <CropImageModal
-          file={selectedFile}
-          onClose={() => {
-            setShowCropModal(false);
-            setSelectedFile(null);
-          }}
-          onCropComplete={handleCropComplete}
-        />
-      )}
-
       {editingMember && (
         <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
           <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -413,18 +182,18 @@ export default function MembersPage() {
                 <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">
                   <Upload className="h-4 w-4 text-mut" />
                   <span className="text-mut truncate flex-1">
-                    {croppedFile ? '✅ Foto sudah dipilih. Klik untuk ganti.' : 'Pilih file gambar...'}
+                    {selectedFile ? `✅ ${selectedFile.name}` : 'Pilih file gambar...'}
                   </span>
                   <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                 </label>
-                {croppedFile && (
+                {selectedFile && (
                   <div className="mt-2 flex items-center gap-2">
                     <img 
-                      src={URL.createObjectURL(croppedFile)} 
+                      src={URL.createObjectURL(selectedFile)} 
                       alt="Preview" 
                       className="w-12 h-12 rounded-full object-cover border border-line"
                     />
-                    <span className="text-[10px] text-acc">Foto siap diupload</span>
+                    <span className="text-[10px] text-acc">Klik untuk ganti foto</span>
                   </div>
                 )}
               </div>

@@ -34,3 +34,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+### Piket evidence retention
+
+The scheduled Vercel Cron job removes piket submissions and their private photos from previous weeks every Monday at 00:05 WIB. Set a strong, random `CRON_SECRET` environment variable in the Vercel project settings; Vercel sends it as a bearer token when invoking the cleanup endpoint. Apply all Supabase migrations, including `007_piket_evidence_retention.sql`, before deploying this feature.

@@ -37,8 +37,11 @@ export default function AppLayout({ children, profile, settings }: { children: R
     { href: '/settings', icon: UserCog, label: 'Profil' },
   ];
   const extra: typeof baseItems = [];
-  if (profile.role === 'admin') extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  if (profile.role === 'admin') {
+    extra.push({ href: '/admin', icon: Shield, label: 'Admin' });
+  }
   if (profile.role !== 'student') {
+    extra.push({ href: '/admin/piket', icon: Camera, label: 'Bukti Piket' });
     extra.push({ href: '/admin/tasks', icon: ClipboardList, label: 'Kelola Tugas' });
     extra.push({ href: '/admin/posts', icon: Shield, label: 'Kelola Postingan' });
     extra.push({ href: '/admin/content', icon: Settings2, label: 'Konten' });

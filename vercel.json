@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/piket-cleanup",
+      "schedule": "5 17 * * 0"
+    }
+  ]
+}

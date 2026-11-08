@@ -15,9 +15,9 @@ export default function ClassBrand({ size, initial }: { size: 'lg' | 'sm'; initi
 
   if (size === 'sm') {
     return (
-      <span className="text-lg font-bold flex items-center gap-2">
-        {s?.logo_url ? <img src={s.logo_url} alt="" className="h-6 w-6 rounded-full object-cover" /> : null}
-        {s?.class_name ? <span className="text-grad">{s.class_name}</span> : <span className="text-grad">ClassHub</span>}
+      <span className="flex min-w-0 items-center gap-2 text-lg font-bold">
+        {s?.logo_url ? <img src={s.logo_url} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" /> : null}
+        <span className="text-grad min-w-0 truncate whitespace-nowrap">{s?.class_name || 'ClassHub'}</span>
       </span>
     );
   }

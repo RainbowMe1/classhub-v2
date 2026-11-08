@@ -95,13 +95,11 @@ export default function AppLayout({ children, profile, settings }: { children: R
 
       <header className="md:hidden sticky top-0 z-40 glass border-b border-line">
         <div className="flex items-center justify-between px-4 h-14">
-          <ClassBrand size="sm" initial={settings} />
-          
-          
-          
-            <RealtimeClock />
-            <div className="flex items-center gap-2">
-            <ThemeToggle />
+          <div className="min-w-0 flex-1">
+            <ClassBrand size="sm" initial={settings} />
+          </div>
+          <RealtimeClock />
+          <div className="flex shrink-0 items-center gap-2">
             <Link href="/settings" aria-label="Buka profil">
               <Avatar data={profile} className="h-7 w-7" />
             </Link>

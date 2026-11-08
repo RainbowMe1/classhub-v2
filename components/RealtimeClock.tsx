@@ -21,8 +21,8 @@ export default function RealtimeClock() {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card-2 border border-line text-xs font-medium text-mut">
-      <Clock className="h-3.5 w-3.5 text-acc" />
+    <div className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-line bg-card-2 px-2.5 py-1.5 text-xs font-medium text-mut">
+      <Clock className="h-3.5 w-3.5 shrink-0 text-acc" />
       <span className="tabular-nums" suppressHydrationWarning>{time}</span>
     </div>
   );

@@ -13,7 +13,7 @@ function igUrl(v: string) {
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
 }
 
-// Komponen Crop Foto - VERSI FINAL FIX
+// Komponen Crop Foto - VERSI FINAL YANG BENAR
 function CropImageModal({ 
   file, 
   onClose, 
@@ -23,24 +23,31 @@ function CropImageModal({
   onClose: () => void; 
   onCropComplete: (croppedFile: File) => void;
 }) {
-  const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [imgLoaded, setImgLoaded] = useState(false);
-  const [imgSrc, setImgSrc] = useState<string>('');
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
     setImgSrc(url);
+    
+    // Pre-load image untuk dapet dimensi
+    const img = new Image();
+    img.onload = () => {
+      setImgDimensions({ width: img.width, height: img.height });
+    };
+    img.src = url;
+    
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  // HAPUS preventDefault dari wheel - pakai CSS touch-action instead
   const handleWheel = (e: React.WheelEvent) => {
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setScale(prev => Math.min(Math.max(prev + delta, 1), 3));
+    setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -80,24 +87,22 @@ function CropImageModal({
   };
 
   const saveCrop = useCallback(() => {
-    console.log('saveCrop called', { imgLoaded, imgRef: imgRef.current });
-    
-    const img = imgRef.current;
-    if (!img || !imgLoaded) {
-      console.error('Image not ready', { img, imgLoaded });
+    if (!imgSrc || imgDimensions.width === 0) {
+      console.error('Image not ready');
       return;
     }
 
-    try {
-      // Bikin canvas dinamis
+    console.log('Starting crop', { scale, position, imgDimensions });
+
+    // Load image untuk canvas
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = 512;
       canvas.height = 512;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        console.error('Cannot get canvas context');
-        return;
-      }
+      if (!ctx) return;
 
       // Clear & clip lingkaran
       ctx.clearRect(0, 0, 512, 512);
@@ -106,55 +111,74 @@ function CropImageModal({
       ctx.closePath();
       ctx.clip();
 
-      // Gambar dengan transformasi
-      const x = 256 - (img.naturalWidth / 2) * scale + position.x;
-      const y = 256 - (img.naturalHeight / 2) * scale + position.y;
+      // Container size (192px = w-48 h-48)
+      const containerSize = 192;
       
-      console.log('Drawing image', { 
-        naturalWidth: img.naturalWidth, 
-        naturalHeight: img.naturalHeight, 
-        scale, 
-        position, 
-        x, 
-        y 
-      });
+      // Hitung ukuran gambar yang di-display di container
+      const displayWidth = imgDimensions.width * scale;
+      const displayHeight = imgDimensions.height * scale;
       
-      ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
+      // Hitung offset agar gambar centered di container
+      const offsetX = (containerSize - displayWidth) / 2 + position.x;
+      const offsetY = (containerSize - displayHeight) / 2 + position.y;
+      
+      // Scale dari container (192px) ke canvas (512px) = 512/192 = 2.666...
+      const canvasScale = 512 / containerSize;
+      
+      // Gambar di canvas dengan transformasi yang sama persis dengan preview
+      ctx.drawImage(
+        img,
+        offsetX * canvasScale,
+        offsetY * canvasScale,
+        displayWidth * canvasScale,
+        displayHeight * canvasScale
+      );
 
-      // Convert ke blob dengan Promise
-      const blob = new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9);
+      console.log('Drawing complete', { 
+        displayWidth, 
+        displayHeight, 
+        offsetX, 
+        offsetY, 
+        canvasScale 
       });
 
-      blob.then((b) => {
-        if (b) {
-          console.log('Blob created', { size: b.size, type: b.type });
-          const croppedFile = new File([b], 'avatar.jpg', { type: 'image/jpeg' });
+      // Convert ke blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log('Blob created', { size: blob.size });
+          const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
           onCropComplete(croppedFile);
         } else {
           console.error('Blob creation failed');
         }
-      });
-    } catch (error) {
-      console.error('saveCrop error', error);
-    }
-  }, [scale, position, imgLoaded, onCropComplete]);
+      }, 'image/jpeg', 0.9);
+    };
+    img.src = imgSrc;
+  }, [scale, position, imgSrc, imgDimensions, onCropComplete]);
+
+  if (!imgSrc) {
+    return (
+      <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
+        <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
+          <p className="text-center text-mut">Memuat gambar...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
       <div className="bg-card border border-line rounded-2xl p-5 max-w-sm w-full">
         <h3 className="text-lg font-bold mb-4">Atur Foto Profil</h3>
         
-        {/* Preview Bulat - tambah class touch-none */}
+        {/* Preview Bulat */}
         <div className="relative flex items-center justify-center mb-4">
-          <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none">
+          <div 
+            ref={containerRef}
+            className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20 touch-none"
+          >
             <img
-              ref={imgRef}
               src={imgSrc}
-              onLoad={() => {
-                console.log('Image loaded', imgRef.current);
-                setImgLoaded(true);
-              }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -165,10 +189,16 @@ function CropImageModal({
               onWheel={handleWheel}
               style={{
                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                transformOrigin: 'center center',
                 cursor: isDragging ? 'grabbing' : 'grab',
                 touchAction: 'none',
                 maxWidth: 'none',
-                userSelect: 'none'
+                userSelect: 'none',
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                marginTop: '-50%',
+                marginLeft: '-50%'
               }}
               alt="Crop preview"
             />
@@ -181,8 +211,8 @@ function CropImageModal({
             <Minus className="h-4 w-4 text-mut" />
             <input
               type="range"
-              min="1"
-              max="3"
+              min="0.5"
+              max="5"
               step="0.1"
               value={scale}
               onChange={(e) => setScale(parseFloat(e.target.value))}
@@ -191,7 +221,7 @@ function CropImageModal({
             <Plus className="h-4 w-4 text-mut" />
           </div>
           <p className="text-[10px] text-mut text-center">
-            Geser slider atau scroll mouse buat zoom. Drag buat geser.
+            Zoom: {scale.toFixed(1)}x | Geser slider atau scroll mouse. Drag buat geser.
           </p>
         </div>
 
@@ -206,14 +236,10 @@ function CropImageModal({
           </button>
           <button 
             type="button"
-            onClick={() => {
-              console.log('Button clicked', { imgLoaded, img: imgRef.current });
-              saveCrop();
-            }} 
-            disabled={!imgLoaded}
-            className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold disabled:opacity-50"
+            onClick={saveCrop} 
+            className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold"
           >
-            {imgLoaded ? 'Gunakan Foto Ini' : 'Memuat...'}
+            Gunakan Foto Ini
           </button>
         </div>
       </div>
@@ -274,7 +300,7 @@ export default function MembersPage() {
   };
 
   const handleCropComplete = (cropped: File) => {
-    console.log('Crop complete', { cropped, size: cropped.size });
+    console.log('Crop complete', { size: cropped.size });
     setCroppedFile(cropped);
     setShowCropModal(false);
   };
@@ -295,7 +321,6 @@ export default function MembersPage() {
     
     if (croppedFile) {
       formData.append('avatar_file', croppedFile);
-      console.log('Uploading file', { size: croppedFile.size, type: croppedFile.type });
     }
 
     const res: any = await adminUpdateProfile(editingMember, formData);

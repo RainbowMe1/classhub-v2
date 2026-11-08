@@ -13,7 +13,7 @@ function igUrl(v: string) {
   return 'https://instagram.com/' + v.replace(/^@/, '').trim();
 }
 
-// Komponen Crop Foto Custom (Sama seperti di profil)
+// Komponen Crop Foto - VERSI FIX (canvas dinamis, pasti jalan)
 function CropImageModal({ 
   file, 
   onClose, 
@@ -23,30 +23,29 @@ function CropImageModal({
   onClose: () => void; 
   onCropComplete: (croppedFile: File) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string>('');
 
   useEffect(() => {
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    img.onload = () => {
-      if (imgRef.current) {
-        imgRef.current.src = img.src;
-      }
-    };
+    const url = URL.createObjectURL(file);
+    setImgSrc(url);
+    return () => URL.revokeObjectURL(url);
   }, [file]);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setScale(prev => Math.min(Math.max(prev + delta, 1), 3));
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
@@ -83,41 +82,39 @@ function CropImageModal({
   };
 
   const saveCrop = useCallback(() => {
-    const canvas = canvasRef.current;
     const img = imgRef.current;
-    if (!canvas || !img) return;
+    if (!img || !imgLoaded) {
+      alert('Foto belum siap. Coba lagi.');
+      return;
+    }
 
+    // Bikin canvas dinamis (gak perlu di JSX)
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size (512x512 untuk kualitas bagus)
-    canvas.width = 512;
-    canvas.height = 512;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Buat lingkaran clip
+    // Clear & clip lingkaran
+    ctx.clearRect(0, 0, 512, 512);
     ctx.beginPath();
     ctx.arc(256, 256, 256, 0, Math.PI * 2);
     ctx.closePath();
     ctx.clip();
 
-    // Gambar gambar dengan transformasi
-    const imgSize = Math.max(img.width, img.height) * scale;
-    const x = 256 - (img.width / 2) * scale + position.x;
-    const y = 256 - (img.height / 2) * scale + position.y;
-
-    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+    // Gambar dengan transformasi
+    const x = 256 - (img.naturalWidth / 2) * scale + position.x;
+    const y = 256 - (img.naturalHeight / 2) * scale + position.y;
+    ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale);
 
     // Convert ke file
     canvas.toBlob((blob) => {
       if (blob) {
-        const croppedFile = new File([blob], file.name, { type: 'image/jpeg' });
+        const croppedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
         onCropComplete(croppedFile);
       }
     }, 'image/jpeg', 0.9);
-  }, [file, scale, position, onCropComplete]);
+  }, [scale, position, imgLoaded, onCropComplete]);
 
   return (
     <div className="fixed inset-0 z-[90] bg-black/90 flex items-center justify-center p-4">
@@ -129,6 +126,8 @@ function CropImageModal({
           <div className="w-48 h-48 rounded-full overflow-hidden border-2 border-acc relative bg-black/20">
             <img
               ref={imgRef}
+              src={imgSrc}
+              onLoad={() => setImgLoaded(true)}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -140,9 +139,10 @@ function CropImageModal({
               style={{
                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
                 cursor: isDragging ? 'grabbing' : 'grab',
-                touchAction: 'none'
+                touchAction: 'none',
+                maxWidth: 'none'
               }}
-              className="select-none max-w-none"
+              className="select-none"
               alt="Crop preview"
             />
           </div>
@@ -171,16 +171,19 @@ function CropImageModal({
         {/* Tombol */}
         <div className="flex gap-2">
           <button 
+            type="button"
             onClick={onClose} 
             className="flex-1 py-2.5 rounded-xl bg-line text-ink text-sm font-semibold"
           >
             Batal
           </button>
           <button 
+            type="button"
             onClick={saveCrop} 
-            className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold"
+            disabled={!imgLoaded}
+            className="flex-1 py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold disabled:opacity-50"
           >
-            Gunakan Foto Ini
+            {imgLoaded ? 'Gunakan Foto Ini' : 'Memuat...'}
           </button>
         </div>
       </div>
@@ -194,11 +197,8 @@ export default function MembersPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [sel, setSel] = useState<any | null>(null);
 
-  // State untuk Edit
   const [editingMember, setEditingMember] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
-  
-  // State untuk Crop Gambar
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [croppedFile, setCroppedFile] = useState<File | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
@@ -262,7 +262,6 @@ export default function MembersPage() {
     formData.append('role', editForm.role);
     formData.append('is_banned', editForm.is_banned ? 'on' : 'off');
     
-    // Gunakan file yang sudah di-crop
     if (croppedFile) {
       formData.append('avatar_file', croppedFile);
     }
@@ -279,7 +278,6 @@ export default function MembersPage() {
     setEditingMember(null);
     setSel(null); 
     
-    // Refresh data members
     const { data: m } = await supabase.from('profiles').select('*').eq('is_banned', false).order('full_name');
     setMembers(m ?? []);
   }
@@ -313,7 +311,6 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* MODAL DETAIL ANGGOTA */}
       {sel && (
         <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={() => setSel(null)}>
           <div role="dialog" aria-modal="true" className="bg-card border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 text-center relative" onClick={(e) => e.stopPropagation()}>
@@ -353,7 +350,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL CROP FOTO */}
       {showCropModal && selectedFile && (
         <CropImageModal
           file={selectedFile}
@@ -365,7 +361,6 @@ export default function MembersPage() {
         />
       )}
 
-      {/* MODAL EDIT ANGGOTA */}
       {editingMember && (
         <div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditingMember(null)}>
           <div className="bg-card border border-line rounded-2xl p-5 max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -381,7 +376,6 @@ export default function MembersPage() {
                 <input value={editForm.full_name} onChange={(e) => setEditForm({...editForm, full_name: e.target.value})} className="w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm" />
               </div>
               
-              {/* UPLOAD FOTO DENGAN PREVIEW */}
               <div>
                 <label className="text-[10px] text-mut">Foto Profil</label>
                 <label className="flex items-center gap-3 w-full px-3 py-2 rounded-lg bg-card-2 border border-line text-sm cursor-pointer hover:border-acc/50 transition">

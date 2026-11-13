@@ -6,13 +6,17 @@ import ChatRoom from '@/components/chat/ChatRoom';
 export default async function ChatPage() {
   const user = await requireUser();
   const supabase = await createClient();
-  const [{ data: messages }, { data: profs }] = await Promise.all([
+  const [{ data: messages }, { data: profs }, { data: stickers }] = await Promise.all([
     supabase
       .from('chat_messages')
       .select('id, user_id, content, media_url, media_type, created_at')
       .order('created_at', { ascending: false })
       .limit(200),
     supabase.from('profiles').select('user_id, full_name, role'),
+    supabase
+      .from('chat_stickers')
+      .select('id, user_id, file_path, media_type, created_at')
+      .order('created_at', { ascending: true }),
   ]);
 
   const names: Record<string, string> = {};
@@ -25,7 +29,14 @@ export default async function ChatPage() {
 
   return (
     <AppLayout profile={user.profile}>
-      <ChatRoom userId={user.id} initial={initial} names={names} roles={roles} />
+      <ChatRoom
+        userId={user.id}
+        initial={initial}
+        names={names}
+        roles={roles}
+        stickers={stickers ?? []}
+        isAdmin={user.profile.role === 'admin'}
+      />
     </AppLayout>
   );
 }

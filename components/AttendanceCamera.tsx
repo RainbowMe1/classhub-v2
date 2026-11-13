@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { submitAttendance } from '@/lib/auth/attendance-actions';
-import { Camera, RefreshCw, Send, Loader2, MapPin, FlipHorizontal, Maximize } from 'lucide-react';
+import { Camera, RefreshCw, Send, Loader2, MapPin, FlipHorizontal, Maximize, SwitchCamera } from 'lucide-react';
 
 const FILTERS = [
   { name: 'Normal', css: 'none' },
@@ -14,9 +14,30 @@ const FILTERS = [
   { name: 'Vintage', css: 'sepia(0.45) contrast(0.9) brightness(1.05)' },
 ];
 
+function cameraErrorMessage(error: unknown) {
+  const name = error instanceof DOMException ? error.name : '';
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Izin kamera ditolak. Izinkan akses kamera di pengaturan browser, lalu coba lagi.';
+  }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'Kamera yang dipilih tidak ditemukan. Coba ganti kamera.';
+  }
+  if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+    return 'Kamera depan/belakang yang dipilih tidak tersedia di perangkat ini.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.';
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return 'Browser tidak mendukung kamera atau halaman belum menggunakan koneksi HTTPS.';
+  }
+  return 'Kamera tidak dapat dibuka. Periksa izin kamera perangkat lalu coba lagi.';
+}
+
 export default function AttendanceCamera({ schoolName, className }: { schoolName: string; className: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const [cameraSide, setCameraSide] = useState<'user' | 'environment'>('user');
   const [ready, setReady] = useState(false);
   const [camErr, setCamErr] = useState('');
   const [filter, setFilter] = useState(0);
@@ -30,30 +51,53 @@ export default function AttendanceCamera({ schoolName, className }: { schoolName
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+    const video = videoRef.current;
+
+    async function startCamera() {
+      setReady(false);
+      setCamErr('');
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Kamera tidak didukung browser ini.');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(function (e) {
-            if (e && (e.name === 'AbortError' || String(e.message).indexOf('interrupted') !== -1)) return;
-            setCamErr('Kamera tidak bisa diputar: ' + (e.message || 'unknown'));
-          });
-          setReady(true);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: cameraSide } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
         }
-      } catch (e: any) {
-        setCamErr(e && e.message ? e.message : 'Gagal membuka kamera. Izinkan akses kamera di browser.');
+        streamRef.current = stream;
+        if (!video) {
+          throw new Error('Pratinjau kamera tidak tersedia.');
+        }
+        video.srcObject = stream;
+        await video.play();
+        if (!cancelled) setReady(true);
+      } catch (error) {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        if (!cancelled) setCamErr(cameraErrorMessage(error));
       }
-    })();
+    }
+
+    void startCamera();
     return () => {
-      if (videoRef.current) {
-        try { videoRef.current.pause(); videoRef.current.srcObject = null; } catch (e) {}
+      cancelled = true;
+      if (video) {
+        video.pause();
+        video.srcObject = null;
       }
-      if (streamRef.current) streamRef.current.getTracks().forEach(function (t) { t.stop(); });
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     };
-  }, []);
+  }, [cameraSide]);
+
+  function switchCamera() {
+    const nextSide = cameraSide === 'user' ? 'environment' : 'user';
+    setCameraSide(nextSide);
+    setMirror(nextSide === 'user');
+  }
 
   function capture() {
     const v = videoRef.current;
@@ -115,10 +159,14 @@ export default function AttendanceCamera({ schoolName, className }: { schoolName
         Absen Pakai Kamera (foto langsung, tanpa upload)
       </div>
 
-      {camErr && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{camErr}</div>}
+      {camErr && (
+        <div role="alert" className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+          {camErr}
+        </div>
+      )}
       {err && <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{err}</div>}
 
-      {!camErr && !shot && (
+      {!shot && (
         <>
           <div className="flex gap-2">
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-3 py-2 rounded-xl bg-card-2 border border-line text-sm">
@@ -149,12 +197,34 @@ export default function AttendanceCamera({ schoolName, className }: { schoolName
               autoPlay
               playsInline
               muted
-              className="w-full"
+              className={'w-full ' + (camErr ? 'hidden' : '')}
               style={{ transform: mirror ? 'scaleX(-1)' : 'scaleX(1)', filter: FILTERS[filter].css }}
             />
-            {!ready && <div className="absolute inset-0 flex items-center justify-center text-xs text-mut">Menyalakan kamera...</div>}
+            {!ready && !camErr && <div className="absolute inset-0 flex items-center justify-center text-xs text-mut">Menyalakan kamera...</div>}
+            {camErr && (
+              <div className="flex min-h-40 flex-col items-center justify-center gap-3 p-4 text-center">
+                <Camera className="h-7 w-7 text-mut" />
+                <button
+                  type="button"
+                  onClick={switchCamera}
+                  className="min-h-11 rounded-xl bg-acc px-4 text-sm font-semibold text-acc-ink flex items-center gap-2"
+                >
+                  <SwitchCamera className="h-4 w-4" />
+                  Coba kamera {cameraSide === 'user' ? 'belakang' : 'depan'}
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={switchCamera}
+              className="min-h-11 px-3 py-1.5 rounded-full text-xs font-semibold border transition flex items-center gap-1 bg-card-2 text-mut border-line hover:border-acc/40"
+              aria-label={`Ganti ke kamera ${cameraSide === 'user' ? 'belakang' : 'depan'}`}
+            >
+              <SwitchCamera className="h-3.5 w-3.5" />
+              Kamera {cameraSide === 'user' ? 'depan' : 'belakang'}
+            </button>
             <button onClick={() => setMirror(!mirror)} className={'px-3 py-1.5 rounded-full text-xs font-semibold border transition flex items-center gap-1 ' + (mirror ? 'bg-acc text-acc-ink border-acc' : 'bg-card-2 text-mut border-line')}>
               <FlipHorizontal className="h-3 w-3" />
               Mirror {mirror ? 'ON' : 'OFF'}
@@ -177,7 +247,7 @@ export default function AttendanceCamera({ schoolName, className }: { schoolName
               );
             })}
           </div>
-          <button onClick={capture} disabled={!ready} className="w-full py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+          <button onClick={capture} disabled={!ready || !!camErr} className="w-full py-2.5 rounded-xl bg-acc text-acc-ink text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2">
             <Camera className="h-4 w-4" />
             Jepret
           </button>
